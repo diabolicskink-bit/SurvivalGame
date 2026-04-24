@@ -4,6 +4,7 @@ using Godot;
 public partial class MessageLog : VBoxContainer
 {
     private const int MaxVisibleMessages = 6;
+    private const int MessageFontSize = 16;
     private readonly List<string> _messages = new();
 
     public override void _Ready()
@@ -38,7 +39,7 @@ public partial class MessageLog : VBoxContainer
                 Text = message,
                 AutowrapMode = TextServer.AutowrapMode.WordSmart
             };
-            label.AddThemeFontSizeOverride("font_size", 14);
+            label.AddThemeFontSizeOverride("font_size", MessageFontSize);
             label.AddThemeColorOverride("font_color", new Color(0.72f, 0.79f, 0.75f));
             AddChild(label);
         }

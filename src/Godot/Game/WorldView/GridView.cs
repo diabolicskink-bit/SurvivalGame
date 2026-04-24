@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using SurvivalGame.Domain;
 
 public partial class GridView : Node2D
 {
+    private readonly Dictionary<string, Texture2D?> _spriteCache = new();
     private Vector2I _mapSize = new(19, 13);
     private int _cellSize = 32;
     private TileSurfaceMap? _surfaceMap;
@@ -38,10 +40,62 @@ public partial class GridView : Node2D
             for (var x = 0; x < _mapSize.X; x++)
             {
                 var rect = new Rect2(x * _cellSize, y * _cellSize, _cellSize, _cellSize);
-                DrawRect(rect, GetTileColor(x, y, (x + y) % 2 == 0 ? tileA : tileB), true);
+                if (TryGetSurfaceSprite(x, y, out var sprite))
+                {
+                    DrawTextureRect(sprite, rect, false);
+                }
+                else
+                {
+                    DrawRect(rect, GetTileColor(x, y, (x + y) % 2 == 0 ? tileA : tileB), true);
+                }
+
                 DrawRect(rect, gridLine, false, 1.0f);
             }
         }
+    }
+
+    private bool TryGetSurfaceSprite(int x, int y, out Texture2D sprite)
+    {
+        sprite = null!;
+
+        if (_surfaceMap is null || _surfaceCatalog is null)
+        {
+            return false;
+        }
+
+        var surfaceId = _surfaceMap.GetSurfaceId(new GridPosition(x, y));
+        if (!_surfaceCatalog.TryGet(surfaceId, out var surface) || surface.SpriteId is null)
+        {
+            return false;
+        }
+
+        if (!_spriteCache.TryGetValue(surface.SpriteId, out var cachedSprite))
+        {
+            var spritePath = $"res://data/sprites/surfaces/{surface.SpriteId}.png";
+            cachedSprite = LoadSpriteTexture(spritePath);
+            _spriteCache[surface.SpriteId] = cachedSprite;
+        }
+
+        if (cachedSprite is null)
+        {
+            return false;
+        }
+
+        sprite = cachedSprite;
+        return true;
+    }
+
+    private static Texture2D? LoadSpriteTexture(string spritePath)
+    {
+        if (ResourceLoader.Exists(spritePath))
+        {
+            return GD.Load<Texture2D>(spritePath);
+        }
+
+        var image = Image.LoadFromFile(ProjectSettings.GlobalizePath(spritePath));
+        return image is null || image.IsEmpty()
+            ? null
+            : ImageTexture.CreateFromImage(image);
     }
 
     private Color GetTileColor(int x, int y, Color fallback)

@@ -3,6 +3,8 @@ using SurvivalGame.Domain;
 
 public partial class InventoryPanel : VBoxContainer
 {
+    private const int ItemFontSize = 16;
+
     public override void _Ready()
     {
         AddThemeConstantOverride("separation", 4);
@@ -47,7 +49,7 @@ public partial class InventoryPanel : VBoxContainer
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };
 
-        label.AddThemeFontSizeOverride("font_size", 14);
+        label.AddThemeFontSizeOverride("font_size", ItemFontSize);
         label.AddThemeColorOverride(
             "font_color",
             muted ? new Color(0.52f, 0.58f, 0.55f) : new Color(0.74f, 0.83f, 0.77f)

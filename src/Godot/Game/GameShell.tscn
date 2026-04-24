@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/Godot/Game/GameShell.cs" id="1_game_shell"]
 [ext_resource type="Script" path="res://src/Godot/Game/WorldView/GridView.cs" id="2_grid_view"]
 [ext_resource type="Script" path="res://src/Godot/Game/WorldView/PlayerController.cs" id="3_player_controller"]
+[ext_resource type="Script" path="res://src/Godot/Game/WorldView/WorldObjectLayer.cs" id="4_world_object_layer"]
 [ext_resource type="Script" path="res://src/Godot/Game/WorldView/GroundItemLayer.cs" id="5_ground_item_layer"]
 
 [node name="GameShell" type="Control"]
@@ -28,6 +29,9 @@ position = Vector2(56, 112)
 
 [node name="GridView" type="Node2D" parent="Board"]
 script = ExtResource("2_grid_view")
+
+[node name="WorldObjectLayer" type="Node2D" parent="Board"]
+script = ExtResource("4_world_object_layer")
 
 [node name="GroundItemLayer" type="Node2D" parent="Board"]
 script = ExtResource("5_ground_item_layer")

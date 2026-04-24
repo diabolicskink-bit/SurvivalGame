@@ -1,0 +1,105 @@
+[
+  {
+    "id": "wall",
+    "name": "Wall",
+    "description": "A sturdy interior wall.",
+    "category": "Structure",
+    "tags": ["built", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#79807b"
+  },
+  {
+    "id": "tree",
+    "name": "Tree",
+    "description": "A mature tree with a thick trunk.",
+    "category": "Vegetation",
+    "tags": ["natural", "wood", "plant"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#2f7a42"
+  },
+  {
+    "id": "fridge",
+    "name": "Fridge",
+    "description": "A heavy household refrigerator. It is only scenery for now.",
+    "category": "Appliance",
+    "tags": ["appliance", "kitchen", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b5c4c8",
+    "spriteId": "world_object_fridge"
+  },
+  {
+    "id": "wooden_door",
+    "name": "Wooden door",
+    "description": "A plain wooden door. Opening and closing is not implemented yet.",
+    "category": "Structure",
+    "tags": ["built", "door", "wood"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8b5d34"
+  },
+  {
+    "id": "window",
+    "name": "Window",
+    "description": "A simple window set into a wall.",
+    "category": "Structure",
+    "tags": ["built", "glass", "window"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7eb0c6"
+  },
+  {
+    "id": "table",
+    "name": "Table",
+    "description": "A basic table that blocks easy passage.",
+    "category": "Furniture",
+    "tags": ["furniture", "wood"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8a6544"
+  },
+  {
+    "id": "chair",
+    "name": "Chair",
+    "description": "A small chair. It is light enough to step around in this shell.",
+    "category": "Furniture",
+    "tags": ["furniture", "wood"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#9a744a"
+  },
+  {
+    "id": "bed",
+    "name": "Bed",
+    "description": "A bed frame and mattress. Sleeping is not implemented yet.",
+    "category": "Furniture",
+    "tags": ["furniture", "rest"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#786b9a",
+    "spriteId": "world_object_bed"
+  },
+  {
+    "id": "storage_crate",
+    "name": "Storage crate",
+    "description": "A wooden crate. Storage and looting are not implemented yet.",
+    "category": "Container",
+    "tags": ["container_candidate", "wood"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#a17643",
+    "spriteId": "world_object_storage_crate"
+  },
+  {
+    "id": "boulder",
+    "name": "Boulder",
+    "description": "A large rock worn smooth by weather.",
+    "category": "Natural",
+    "tags": ["natural", "stone", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#777d80"
+  }
+]

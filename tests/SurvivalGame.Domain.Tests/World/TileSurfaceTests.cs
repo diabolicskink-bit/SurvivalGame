@@ -13,6 +13,7 @@ public sealed class TileSurfaceTests
         Assert.Equal(5, catalog.Surfaces.Count);
         Assert.Equal("Grass", catalog.Get(PrototypeSurfaces.Grass).Name);
         Assert.Equal("Concrete", catalog.Get(PrototypeSurfaces.Concrete).Name);
+        Assert.Equal("surface_grass", catalog.Get(PrototypeSurfaces.Grass).SpriteId);
     }
 
     [Fact]

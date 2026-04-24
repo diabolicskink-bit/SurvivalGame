@@ -4,47 +4,66 @@ using SurvivalGame.Domain;
 public partial class GameShell : Control
 {
     private const string MainMenuScenePath = "res://src/Godot/MainMenu/MainMenu.tscn";
-    private const int CellSize = 32;
+    private const int BaseCellSize = 32;
+    private const int MinimumCellSize = 18;
+    private const float WorldRegionWidthRatio = 0.5f;
+    private const float WorldRegionHeightRatio = 2.0f / 3.0f;
     private const int LayoutMargin = 24;
     private const int MinimumBoardMargin = 16;
     private const float SidePanelWidth = 346.0f;
+    private const int StatusFontSize = 18;
+    private const int SectionTitleFontSize = 17;
     private static readonly GridBounds MapBounds = new(19, 13);
 
     private ItemCatalog _itemCatalog = null!;
     private TileSurfaceCatalog _surfaceCatalog = null!;
+    private WorldObjectCatalog _worldObjectCatalog = null!;
     private GameActionPipeline _actionPipeline = null!;
     private PrototypeGameState _gameState = null!;
     private Node2D _board = null!;
     private GridView _gridView = null!;
+    private WorldObjectLayer _worldObjectLayer = null!;
     private GroundItemLayer _groundItemLayer = null!;
     private Node2D _playerMarker = null!;
     private PlayerController _playerController = null!;
     private PanelContainer _sidePanel = null!;
     private ActionPanel _actionPanel = null!;
+    private PlayerStatusPanel _statusPanel = null!;
     private InventoryPanel _inventoryPanel = null!;
     private ItemTooltip _itemTooltip = null!;
     private MessageLog _messageLog = null!;
     private Label _turnLabel = null!;
     private Label _positionLabel = null!;
+    private Label _surfaceLabel = null!;
     private Label _modeLabel = null!;
     private GridPosition? _visibleTooltipPosition;
+    private int _cellSize = BaseCellSize;
 
     public override void _Ready()
     {
         _board = GetNode<Node2D>("Board");
         _gridView = GetNode<GridView>("Board/GridView");
+        _worldObjectLayer = GetNode<WorldObjectLayer>("Board/WorldObjectLayer");
         _groundItemLayer = GetNode<GroundItemLayer>("Board/GroundItemLayer");
         _playerMarker = GetNode<Node2D>("Board/PlayerMarker");
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
         _itemCatalog = LoadItemCatalog();
         _surfaceCatalog = LoadSurfaceCatalog();
-        _actionPipeline = new GameActionPipeline(_itemCatalog);
-        _gameState = new PrototypeGameState(MapBounds, CreatePrototypeGroundItems(), CreatePrototypeSurfaceMap(), MapBounds.Center);
+        _worldObjectCatalog = LoadWorldObjectCatalog();
+        _actionPipeline = new GameActionPipeline(_itemCatalog, _worldObjectCatalog);
+        _gameState = new PrototypeGameState(
+            MapBounds,
+            CreatePrototypeGroundItems(),
+            CreatePrototypeSurfaceMap(),
+            CreatePrototypeWorldObjects(),
+            MapBounds.Center
+        );
         AddPrototypeStartingItems();
 
-        _gridView.Configure(_gameState.Surfaces, _surfaceCatalog, CellSize);
-        _groundItemLayer.Configure(_gameState.GroundItems, _itemCatalog, CellSize);
+        _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
+        _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
+        _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize);
         _playerController.MoveRequested += OnMoveRequested;
         UpdatePlayerMarker();
 
@@ -118,10 +137,12 @@ public partial class GameShell : Control
         _modeLabel = CreateStatusLabel();
         _turnLabel = CreateStatusLabel();
         _positionLabel = CreateStatusLabel();
+        _surfaceLabel = CreateStatusLabel();
 
         stack.AddChild(_modeLabel);
         stack.AddChild(_turnLabel);
         stack.AddChild(_positionLabel);
+        stack.AddChild(_surfaceLabel);
 
         var separator = new HSeparator();
         stack.AddChild(separator);
@@ -134,6 +155,16 @@ public partial class GameShell : Control
         };
         _actionPanel.ActionSelected += OnActionSelected;
         stack.AddChild(_actionPanel);
+
+        stack.AddChild(new HSeparator());
+
+        stack.AddChild(CreateSectionTitle("Status"));
+
+        _statusPanel = new PlayerStatusPanel
+        {
+            Name = "PlayerStatusPanel"
+        };
+        stack.AddChild(_statusPanel);
 
         stack.AddChild(new HSeparator());
 
@@ -165,7 +196,7 @@ public partial class GameShell : Control
     private static Label CreateStatusLabel()
     {
         var label = new Label();
-        label.AddThemeFontSizeOverride("font_size", 16);
+        label.AddThemeFontSizeOverride("font_size", StatusFontSize);
         label.AddThemeColorOverride("font_color", new Color(0.88f, 0.91f, 0.86f));
         return label;
     }
@@ -176,7 +207,7 @@ public partial class GameShell : Control
         {
             Text = text
         };
-        label.AddThemeFontSizeOverride("font_size", 15);
+        label.AddThemeFontSizeOverride("font_size", SectionTitleFontSize);
         label.AddThemeColorOverride("font_color", new Color(0.83f, 0.87f, 0.82f));
         return label;
     }
@@ -200,11 +231,13 @@ public partial class GameShell : Control
 
     private void UpdateOverlay()
     {
-        var position = _gameState.PlayerPosition;
+        var position = _gameState.Player.Position;
         _modeLabel.Text = "Mode: Prototype Shell";
-        _turnLabel.Text = $"Turn: {_gameState.TurnCount}";
+        _turnLabel.Text = $"Turn: {_gameState.Turn.CurrentTurn}";
         _positionLabel.Text = $"Position: {position.X}, {position.Y}";
+        _surfaceLabel.Text = $"Surface: {GetSurfaceAt(position).Name}";
         _actionPanel.Display(_actionPipeline.GetAvailableActions(_gameState));
+        _statusPanel.Display(_gameState.Player.Vitals);
         _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog);
     }
 
@@ -240,6 +273,35 @@ public partial class GameShell : Control
         return surfaceMap;
     }
 
+    private static TileObjectMap CreatePrototypeWorldObjects()
+    {
+        var objectMap = new TileObjectMap();
+
+        PlaceWallLine(objectMap, y: 2, xStart: 2, xEnd: 9);
+        objectMap.Place(new GridPosition(2, 3), PrototypeWorldObjects.Wall);
+        objectMap.Place(new GridPosition(2, 4), PrototypeWorldObjects.Wall);
+        objectMap.Place(new GridPosition(9, 3), PrototypeWorldObjects.Window);
+        objectMap.Place(new GridPosition(9, 4), PrototypeWorldObjects.Wall);
+        objectMap.Place(new GridPosition(6, 6), PrototypeWorldObjects.WoodenDoor);
+        objectMap.Place(new GridPosition(8, 3), PrototypeWorldObjects.Fridge);
+        objectMap.Place(new GridPosition(5, 4), PrototypeWorldObjects.Table);
+        objectMap.Place(new GridPosition(5, 5), PrototypeWorldObjects.Chair);
+        objectMap.Place(new GridPosition(12, 3), PrototypeWorldObjects.Bed);
+        objectMap.Place(new GridPosition(15, 5), PrototypeWorldObjects.StorageCrate);
+        objectMap.Place(new GridPosition(1, 10), PrototypeWorldObjects.Tree);
+        objectMap.Place(new GridPosition(17, 2), PrototypeWorldObjects.Boulder);
+
+        return objectMap;
+    }
+
+    private static void PlaceWallLine(TileObjectMap objectMap, int y, int xStart, int xEnd)
+    {
+        for (var x = xStart; x <= xEnd; x++)
+        {
+            objectMap.Place(new GridPosition(x, y), PrototypeWorldObjects.Wall);
+        }
+    }
+
     private static void FillRect(TileSurfaceMap surfaceMap, int x, int y, int width, int height, SurfaceId surfaceId)
     {
         for (var row = y; row < y + height; row++)
@@ -267,6 +329,12 @@ public partial class GameShell : Control
         return new TileSurfaceDefinitionLoader().LoadDirectory(dataPath);
     }
 
+    private static WorldObjectCatalog LoadWorldObjectCatalog()
+    {
+        var dataPath = ProjectSettings.GlobalizePath("res://data/world_objects");
+        return new WorldObjectDefinitionLoader().LoadDirectory(dataPath);
+    }
+
     private void UpdateItemTooltip()
     {
         var hoveredPosition = GetHoveredGridPosition();
@@ -276,12 +344,9 @@ public partial class GameShell : Control
             return;
         }
 
-        var itemStacks = _gameState.GroundItems.ItemsAt(hoveredPosition.Value);
-        if (itemStacks.Count == 0)
-        {
-            HideItemTooltip();
-            return;
-        }
+        var itemStacks = _gameState.World.GroundItems.ItemsAt(hoveredPosition.Value);
+        var surface = GetSurfaceAt(hoveredPosition.Value);
+        var worldObject = GetWorldObjectAt(hoveredPosition.Value);
 
         var cursorPosition = GetViewport().GetMousePosition();
         if (_visibleTooltipPosition == hoveredPosition)
@@ -291,15 +356,28 @@ public partial class GameShell : Control
         }
 
         _visibleTooltipPosition = hoveredPosition;
-        _itemTooltip.Display(hoveredPosition.Value, itemStacks, _itemCatalog, cursorPosition);
+        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, itemStacks, _itemCatalog, cursorPosition);
+    }
+
+    private TileSurfaceDefinition GetSurfaceAt(GridPosition position)
+    {
+        var surfaceId = _gameState.World.Map.Surfaces.GetSurfaceId(position);
+        return _surfaceCatalog.Get(surfaceId);
+    }
+
+    private WorldObjectDefinition? GetWorldObjectAt(GridPosition position)
+    {
+        return _gameState.World.WorldObjects.TryGetObjectAt(position, out var objectId)
+            ? _worldObjectCatalog.Get(objectId)
+            : null;
     }
 
     private GridPosition? GetHoveredGridPosition()
     {
         var boardPosition = _board.ToLocal(GetGlobalMousePosition());
         var cell = new GridPosition(
-            Mathf.FloorToInt(boardPosition.X / CellSize),
-            Mathf.FloorToInt(boardPosition.Y / CellSize)
+            Mathf.FloorToInt(boardPosition.X / _cellSize),
+            Mathf.FloorToInt(boardPosition.Y / _cellSize)
         );
 
         return MapBounds.Contains(cell) ? cell : null;
@@ -314,17 +392,34 @@ public partial class GameShell : Control
     private void UpdateResponsiveLayout()
     {
         var viewportSize = GetViewportRect().Size;
-        var boardSize = new Vector2(MapBounds.Width * CellSize, MapBounds.Height * CellSize);
-        var reservedPanelWidth = SidePanelWidth + (LayoutMargin * 2.0f);
-        var boardAreaWidth = Mathf.Max(boardSize.X + (MinimumBoardMargin * 2.0f), viewportSize.X - reservedPanelWidth);
-        var boardAreaHeight = viewportSize.Y;
-
-        _board.Position = new Vector2(
-            Mathf.Max(MinimumBoardMargin, (boardAreaWidth - boardSize.X) / 2.0f),
-            Mathf.Max(MinimumBoardMargin, (boardAreaHeight - boardSize.Y) / 2.0f)
+        var panelWidth = Mathf.Min(SidePanelWidth, Mathf.Max(280.0f, viewportSize.X * 0.32f));
+        var boardAreaWidth = Mathf.Max(
+            MinimumCellSize * MapBounds.Width,
+            (viewportSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
+        );
+        var boardAreaHeight = Mathf.Max(
+            MinimumCellSize * MapBounds.Height,
+            (viewportSize.Y * WorldRegionHeightRatio) - (LayoutMargin * 2.0f)
+        );
+        var fittedCellSize = Mathf.FloorToInt(Mathf.Min(boardAreaWidth / MapBounds.Width, boardAreaHeight / MapBounds.Height));
+        var nextCellSize = Mathf.Max(
+            MinimumCellSize,
+            fittedCellSize
         );
 
-        _sidePanel.OffsetLeft = -(SidePanelWidth + LayoutMargin);
+        if (_cellSize != nextCellSize)
+        {
+            _cellSize = nextCellSize;
+            _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
+            _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
+            _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize);
+            UpdatePlayerMarker();
+        }
+
+        _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
+        _playerMarker.Scale = Vector2.One * (_cellSize / (float)BaseCellSize);
+
+        _sidePanel.OffsetLeft = -(panelWidth + LayoutMargin);
         _sidePanel.OffsetTop = LayoutMargin;
         _sidePanel.OffsetRight = -LayoutMargin;
         _sidePanel.OffsetBottom = Mathf.Max(460.0f, viewportSize.Y - LayoutMargin);
@@ -332,7 +427,7 @@ public partial class GameShell : Control
 
     private void UpdatePlayerMarker()
     {
-        _playerMarker.Position = CellToBoardPosition(_gameState.PlayerPosition);
+        _playerMarker.Position = CellToBoardPosition(_gameState.Player.Position);
     }
 
     private void OnActionSelected(GameActionKind actionKind)
@@ -355,6 +450,7 @@ public partial class GameShell : Control
         var result = _actionPipeline.Execute(_gameState, request);
 
         UpdatePlayerMarker();
+        _worldObjectLayer.QueueRedraw();
         _groundItemLayer.QueueRedraw();
         UpdateOverlay();
         HideItemTooltip();
@@ -365,11 +461,11 @@ public partial class GameShell : Control
         }
     }
 
-    private static Vector2 CellToBoardPosition(GridPosition cell)
+    private Vector2 CellToBoardPosition(GridPosition cell)
     {
         return new Vector2(
-            (cell.X + 0.5f) * CellSize,
-            (cell.Y + 0.5f) * CellSize
+            (cell.X + 0.5f) * _cellSize,
+            (cell.Y + 0.5f) * _cellSize
         );
     }
 }

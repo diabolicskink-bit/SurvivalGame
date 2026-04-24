@@ -36,6 +36,8 @@ public partial class ItemTooltip : PanelContainer
 
     public void Display(
         GridPosition position,
+        TileSurfaceDefinition surface,
+        WorldObjectDefinition? worldObject,
         IReadOnlyList<GroundItemStack> itemStacks,
         ItemCatalog itemCatalog,
         Vector2 cursorPosition
@@ -43,15 +45,50 @@ public partial class ItemTooltip : PanelContainer
     {
         ClearContent();
 
-        _content.AddChild(CreateLabel($"Tile {position.X}, {position.Y}", 13, new Color(0.63f, 0.72f, 0.68f)));
+        _content.AddChild(CreateLabel($"Tile {position.X}, {position.Y}", 15, new Color(0.63f, 0.72f, 0.68f)));
+        _content.AddChild(CreateLabel(surface.Name, 17, new Color(0.9f, 0.93f, 0.86f)));
 
+        if (!string.IsNullOrWhiteSpace(surface.Description))
+        {
+            _content.AddChild(CreateLabel(surface.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
+        }
+
+        if (surface.Tags.Count > 0)
+        {
+            _content.AddChild(CreateLabel($"Tags: {string.Join(", ", surface.Tags)}", 14, new Color(0.58f, 0.68f, 0.66f)));
+        }
+
+        if (worldObject is not null)
+        {
+            _content.AddChild(CreateLabel("Object", 15, new Color(0.63f, 0.72f, 0.68f)));
+            _content.AddChild(CreateLabel(worldObject.Name, 17, new Color(0.9f, 0.93f, 0.86f)));
+
+            if (!string.IsNullOrWhiteSpace(worldObject.Description))
+            {
+                _content.AddChild(CreateLabel(worldObject.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
+            }
+
+            _content.AddChild(CreateLabel(
+                worldObject.BlocksMovement ? "Blocks movement" : "Does not block movement",
+                14,
+                new Color(0.58f, 0.68f, 0.66f)
+            ));
+        }
+
+        var hasShownItemsHeader = false;
         foreach (var stack in itemStacks)
         {
-            _content.AddChild(CreateLabel(FormatItemStack(stack, itemCatalog), 15, new Color(0.9f, 0.93f, 0.86f)));
+            if (!hasShownItemsHeader)
+            {
+                _content.AddChild(CreateLabel("Items", 15, new Color(0.63f, 0.72f, 0.68f)));
+                hasShownItemsHeader = true;
+            }
+
+            _content.AddChild(CreateLabel(FormatItemStack(stack, itemCatalog), 17, new Color(0.9f, 0.93f, 0.86f)));
 
             if (itemCatalog.TryGet(stack.ItemId, out var item) && !string.IsNullOrWhiteSpace(item.Description))
             {
-                _content.AddChild(CreateLabel(item.Description, 12, new Color(0.68f, 0.75f, 0.71f)));
+                _content.AddChild(CreateLabel(item.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
             }
         }
 

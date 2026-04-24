@@ -6,7 +6,8 @@
     "category": "Natural",
     "tags": ["outdoor", "soft", "plant"],
     "movementCost": 1,
-    "mapColor": "#3f6f42"
+    "mapColor": "#3f6f42",
+    "spriteId": "surface_grass"
   },
   {
     "id": "carpet",
@@ -15,7 +16,8 @@
     "category": "Interior",
     "tags": ["fabric", "soft", "floor"],
     "movementCost": 1,
-    "mapColor": "#68455a"
+    "mapColor": "#68455a",
+    "spriteId": "surface_carpet"
   },
   {
     "id": "concrete",
@@ -24,7 +26,8 @@
     "category": "Built",
     "tags": ["hard", "urban", "floor"],
     "movementCost": 1,
-    "mapColor": "#555f5d"
+    "mapColor": "#555f5d",
+    "spriteId": "surface_concrete"
   },
   {
     "id": "tile",
@@ -33,7 +36,8 @@
     "category": "Built",
     "tags": ["hard", "floor", "ceramic"],
     "movementCost": 1,
-    "mapColor": "#687d81"
+    "mapColor": "#687d81",
+    "spriteId": "surface_tile"
   },
   {
     "id": "ice",
@@ -42,6 +46,7 @@
     "category": "Natural",
     "tags": ["cold", "slick", "frozen", "slippery"],
     "movementCost": 1,
-    "mapColor": "#8ec8d5"
+    "mapColor": "#8ec8d5",
+    "spriteId": "surface_ice"
   }
 ]

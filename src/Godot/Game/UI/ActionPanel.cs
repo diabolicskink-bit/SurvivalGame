@@ -5,6 +5,8 @@ using SurvivalGame.Domain;
 
 public partial class ActionPanel : VBoxContainer
 {
+    private const int ButtonFontSize = 16;
+
     public event Action<GameActionKind>? ActionSelected;
 
     public override void _Ready()
@@ -28,6 +30,7 @@ public partial class ActionPanel : VBoxContainer
                 CustomMinimumSize = new Vector2(0, 34),
                 FocusMode = Control.FocusModeEnum.None
             };
+            button.AddThemeFontSizeOverride("font_size", ButtonFontSize);
 
             var actionKind = action.Kind;
             button.Pressed += () => ActionSelected?.Invoke(actionKind);

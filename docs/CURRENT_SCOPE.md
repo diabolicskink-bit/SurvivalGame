@@ -4,7 +4,7 @@
 
 - Main menu with title, subtitle, New Run, and Quit actions.
 - Gameplay shell scene with a simple placeholder top-down grid.
-- Resizable gameplay layout that keeps the board and side panel fitted to the current viewport.
+- Resizable gameplay layout that places the world board in the top-left half-width, top two-thirds-height area and keeps the side panel fitted to the right.
 - Player marker placed near the centre of the grid.
 - Discrete tile movement with WASD and arrow keys.
 - Boundary checks that prevent movement outside the map.
@@ -21,18 +21,37 @@
 - Nested type paths are derived from category and tags, such as `Weapon -> gun -> rifle -> ak47`.
 - Prototype starting inventory items for display testing.
 - Prototype item stacks placed on a few map tiles and rendered as simple markers.
-- Hover tooltip for tiles containing item stacks, showing item names, quantities, and descriptions.
+- Hover tooltip for tiles, showing surface details and any item names, quantities, and descriptions.
 - JSON-backed prototype terrain/surface definitions under `data/surfaces/`.
-- Surface definitions include id, name, description, category, tags, movement cost, and map color.
+- Surface definitions include id, name, description, category, tags, movement cost, map color, and optional sprite id.
 - Surface tags are the current lightweight property mechanism, for example ice has a `slippery` tag.
 - Prototype map surface layout using grass, carpet, concrete, tile, and ice.
+- Generated sprite assets for grass, carpet, concrete, ceramic tile, and ice surfaces.
+- UI overlay shows the surface beneath the player.
+- Domain-level player vital tracking for health, hunger, thirst, fatigue, sleep debt, pain, and body temperature.
+- Read-only gameplay UI section showing the player's tracked vitals.
+- Domain-level player equipment loadout with slots for main hand, off hand, head, body, legs, feet, and back.
+- Equipment slot definitions validate accepted `ItemTypePath` values.
+- JSON-backed prototype static world object definitions under `data/world_objects/`.
+- Ten common world objects: wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, and boulder.
+- Prototype world object placement on the map with simple rendering.
+- Generated sprite assets for fridge, bed, and storage crate.
+- Movement collision against world objects marked as blocking movement.
+- Hover tooltip shows world object details when a tile contains one.
 
 ## Not Included Yet
 
+- Opening, closing, moving, destroying, building, using, searching, or looting world objects.
+- Container contents for fridges, crates, or other objects.
+- Damage, healing, death, or health effects.
+- Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
 - Surface-driven movement effects such as sliding on ice.
 - Item drop, use, equip, or inspect actions.
+- Equip and unequip actions.
+- Equipment UI.
+- Equipment item effects or stat modifiers.
 - Item effects, durability, damage, ammo, or behavior.
-- Inventory weight, capacity, containers, or equipment slots.
+- Inventory weight, capacity, containers, or equipment containers.
 - Hunger, thirst, fatigue, or other survival meters.
 - Enemies, NPCs, or combat.
 - Procedural generation.

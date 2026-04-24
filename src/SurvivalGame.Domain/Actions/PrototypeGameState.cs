@@ -4,9 +4,7 @@ public sealed class PrototypeGameState
 {
     public PrototypeGameState(GridBounds mapBounds, TileItemMap groundItems, GridPosition startPosition)
         : this(
-            mapBounds,
-            groundItems,
-            new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete),
+            CreateWorldState(mapBounds, groundItems, new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete), new TileObjectMap()),
             startPosition
         )
     {
@@ -18,45 +16,73 @@ public sealed class PrototypeGameState
         TileSurfaceMap surfaces,
         GridPosition startPosition
     )
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, new TileObjectMap()), startPosition)
     {
-        ArgumentNullException.ThrowIfNull(groundItems);
-        ArgumentNullException.ThrowIfNull(surfaces);
-
-        if (surfaces.Bounds != mapBounds)
-        {
-            throw new ArgumentException("Surface map bounds must match the game state's map bounds.", nameof(surfaces));
-        }
-
-        MapBounds = mapBounds;
-        GroundItems = groundItems;
-        Surfaces = surfaces;
-        PlayerPosition = mapBounds.Clamp(startPosition);
     }
 
-    public GridBounds MapBounds { get; }
+    public PrototypeGameState(
+        GridBounds mapBounds,
+        TileItemMap groundItems,
+        TileSurfaceMap surfaces,
+        TileObjectMap worldObjects,
+        GridPosition startPosition
+    )
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects), startPosition)
+    {
+    }
 
-    public PlayerState Player { get; } = new();
+    public PrototypeGameState(WorldState world, GridPosition startPosition)
+    {
+        ArgumentNullException.ThrowIfNull(world);
 
-    public TileItemMap GroundItems { get; }
+        World = world;
+        Player = new PlayerState(world.Map.Clamp(startPosition));
+    }
 
-    public TileSurfaceMap Surfaces { get; }
+    public TurnState Turn { get; } = new();
 
-    public GridPosition PlayerPosition { get; private set; }
+    public PlayerState Player { get; }
 
-    public int TurnCount { get; private set; }
+    public WorldState World { get; }
+
+    public GridBounds MapBounds => World.Map.Bounds;
+
+    public TileItemMap GroundItems => World.GroundItems;
+
+    public TileSurfaceMap Surfaces => World.Map.Surfaces;
+
+    public TileObjectMap WorldObjects => World.WorldObjects;
+
+    public GridPosition PlayerPosition => Player.Position;
+
+    public int TurnCount => Turn.CurrentTurn;
 
     public void SetPlayerPosition(GridPosition position)
     {
-        if (!MapBounds.Contains(position))
+        if (!World.Map.Contains(position))
         {
             throw new ArgumentOutOfRangeException(nameof(position), "Player position must be inside the map bounds.");
         }
 
-        PlayerPosition = position;
+        Player.SetPosition(position);
     }
 
     public void AdvanceTurn()
     {
-        TurnCount++;
+        Turn.Advance();
+    }
+
+    private static WorldState CreateWorldState(
+        GridBounds mapBounds,
+        TileItemMap groundItems,
+        TileSurfaceMap surfaces,
+        TileObjectMap worldObjects
+    )
+    {
+        return new WorldState(
+            new MapState(mapBounds, surfaces),
+            groundItems,
+            worldObjects
+        );
     }
 }

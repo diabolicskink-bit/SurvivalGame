@@ -65,6 +65,8 @@ public sealed class TileSurfaceDefinitionLoader
 
         public string? MapColor { get; set; }
 
+        public string? SpriteId { get; set; }
+
         public TileSurfaceDefinition ToDefinition(string sourcePath)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -89,7 +91,8 @@ public sealed class TileSurfaceDefinitionLoader
                 Category,
                 Tags,
                 MovementCost,
-                MapColor
+                MapColor,
+                SpriteId
             );
         }
     }

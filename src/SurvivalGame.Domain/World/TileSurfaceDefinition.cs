@@ -9,7 +9,8 @@ public sealed record TileSurfaceDefinition
         string category,
         IEnumerable<string>? tags = null,
         int movementCost = 1,
-        string? mapColor = null
+        string? mapColor = null,
+        string? spriteId = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -36,6 +37,7 @@ public sealed record TileSurfaceDefinition
         Tags = NormalizeList(tags);
         MovementCost = movementCost;
         MapColor = string.IsNullOrWhiteSpace(mapColor) ? "#303834" : mapColor.Trim();
+        SpriteId = NormalizeOptional(spriteId);
     }
 
     public SurfaceId Id { get; }
@@ -51,6 +53,8 @@ public sealed record TileSurfaceDefinition
     public int MovementCost { get; }
 
     public string MapColor { get; }
+
+    public string? SpriteId { get; }
 
     public bool HasTag(string tag)
     {
@@ -71,5 +75,10 @@ public sealed record TileSurfaceDefinition
             })
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }

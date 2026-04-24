@@ -33,11 +33,13 @@ public sealed record GameActionResult(bool Succeeded, bool AdvancedTurn, IReadOn
 public sealed class GameActionPipeline
 {
     private readonly ItemCatalog _itemCatalog;
+    private readonly WorldObjectCatalog? _worldObjectCatalog;
 
-    public GameActionPipeline(ItemCatalog itemCatalog)
+    public GameActionPipeline(ItemCatalog itemCatalog, WorldObjectCatalog? worldObjectCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
         _itemCatalog = itemCatalog;
+        _worldObjectCatalog = worldObjectCatalog;
     }
 
     public IReadOnlyList<AvailableAction> GetAvailableActions(PrototypeGameState state)
@@ -49,7 +51,7 @@ public sealed class GameActionPipeline
             new(GameActionKind.Wait, "Wait")
         };
 
-        if (state.GroundItems.ItemsAt(state.PlayerPosition).Count > 0)
+        if (state.World.GroundItems.ItemsAt(state.Player.Position).Count > 0)
         {
             actions.Add(new AvailableAction(GameActionKind.Pickup, "Pick Up"));
         }
@@ -73,31 +75,55 @@ public sealed class GameActionPipeline
 
     private static GameActionResult Wait(PrototypeGameState state)
     {
-        state.AdvanceTurn();
+        state.Turn.Advance();
         return GameActionResult.Success(advancedTurn: true, "Waited.");
     }
 
-    private static GameActionResult Move(PrototypeGameState state, GridOffset direction)
+    private GameActionResult Move(PrototypeGameState state, GridOffset direction)
     {
         if (direction == GridOffset.Zero)
         {
             return GameActionResult.Failure("No movement direction selected.");
         }
 
-        var nextPosition = state.PlayerPosition + direction;
-        if (!state.MapBounds.Contains(nextPosition))
+        var nextPosition = state.Player.Position + direction;
+        if (!state.World.Map.Contains(nextPosition))
         {
             return GameActionResult.Failure("Cannot move there.");
         }
 
+        if (IsBlockedByWorldObject(state, nextPosition, out var blockerName))
+        {
+            return GameActionResult.Failure($"Blocked by {blockerName}.");
+        }
+
         state.SetPlayerPosition(nextPosition);
-        state.AdvanceTurn();
+        state.Turn.Advance();
         return GameActionResult.Success(advancedTurn: true, $"Moved to {nextPosition.X}, {nextPosition.Y}.");
+    }
+
+    private bool IsBlockedByWorldObject(PrototypeGameState state, GridPosition position, out string blockerName)
+    {
+        blockerName = "something";
+
+        if (!state.World.WorldObjects.TryGetObjectAt(position, out var objectId))
+        {
+            return false;
+        }
+
+        if (_worldObjectCatalog is null || !_worldObjectCatalog.TryGet(objectId, out var worldObject))
+        {
+            blockerName = objectId.ToString();
+            return true;
+        }
+
+        blockerName = worldObject.Name;
+        return worldObject.BlocksMovement;
     }
 
     private GameActionResult Pickup(PrototypeGameState state)
     {
-        var itemStacks = state.GroundItems.TakeAllAt(state.PlayerPosition);
+        var itemStacks = state.World.GroundItems.TakeAllAt(state.Player.Position);
         if (itemStacks.Count == 0)
         {
             return GameActionResult.Failure("There is nothing to pick up.");
@@ -108,7 +134,7 @@ public sealed class GameActionPipeline
             state.Player.Inventory.Add(stack.ItemId, stack.Quantity);
         }
 
-        state.AdvanceTurn();
+        state.Turn.Advance();
         var messages = itemStacks
             .Select(stack => $"Picked up {FormatStack(stack)}.")
             .ToArray();
