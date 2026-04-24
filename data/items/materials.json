@@ -1,0 +1,26 @@
+[
+  {
+    "id": "stone",
+    "name": "Stone",
+    "description": "A fist-sized stone.",
+    "category": "Material",
+    "tags": ["rock", "natural"],
+    "maxStackSize": 20,
+    "weight": 0.3,
+    "iconId": "stone",
+    "spriteId": "item_stone",
+    "actions": []
+  },
+  {
+    "id": "branch",
+    "name": "Branch",
+    "description": "A dry branch that could become useful later.",
+    "category": "Material",
+    "tags": ["wood", "natural"],
+    "maxStackSize": 20,
+    "weight": 0.2,
+    "iconId": "branch",
+    "spriteId": "item_branch",
+    "actions": []
+  }
+]

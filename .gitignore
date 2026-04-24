@@ -1,0 +1,14 @@
+# Godot local editor/cache data
+.godot/
+
+# .NET build output
+bin/
+obj/
+
+# Visual Studio / Rider local state
+.vs/
+.vscode/
+.idea/
+
+# Godot may create project backups during SDK upgrades
+*.csproj.old

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "grass",
+    "name": "Grass",
+    "description": "Short, rough grass over packed soil.",
+    "category": "Natural",
+    "tags": ["outdoor", "soft", "plant"],
+    "movementCost": 1,
+    "mapColor": "#3f6f42"
+  },
+  {
+    "id": "carpet",
+    "name": "Carpet",
+    "description": "Worn indoor carpet with a little give underfoot.",
+    "category": "Interior",
+    "tags": ["fabric", "soft", "floor"],
+    "movementCost": 1,
+    "mapColor": "#68455a"
+  },
+  {
+    "id": "concrete",
+    "name": "Concrete",
+    "description": "Cold poured concrete, scuffed and cracked.",
+    "category": "Built",
+    "tags": ["hard", "urban", "floor"],
+    "movementCost": 1,
+    "mapColor": "#555f5d"
+  },
+  {
+    "id": "tile",
+    "name": "Tile",
+    "description": "Hard ceramic floor tile.",
+    "category": "Built",
+    "tags": ["hard", "floor", "ceramic"],
+    "movementCost": 1,
+    "mapColor": "#687d81"
+  },
+  {
+    "id": "ice",
+    "name": "Ice",
+    "description": "A slick frozen surface. Future movement rules can treat it as slippery.",
+    "category": "Natural",
+    "tags": ["cold", "slick", "frozen", "slippery"],
+    "movementCost": 1,
+    "mapColor": "#8ec8d5"
+  }
+]

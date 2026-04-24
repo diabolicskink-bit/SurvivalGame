@@ -1,0 +1,375 @@
+using Godot;
+using SurvivalGame.Domain;
+
+public partial class GameShell : Control
+{
+    private const string MainMenuScenePath = "res://src/Godot/MainMenu/MainMenu.tscn";
+    private const int CellSize = 32;
+    private const int LayoutMargin = 24;
+    private const int MinimumBoardMargin = 16;
+    private const float SidePanelWidth = 346.0f;
+    private static readonly GridBounds MapBounds = new(19, 13);
+
+    private ItemCatalog _itemCatalog = null!;
+    private TileSurfaceCatalog _surfaceCatalog = null!;
+    private GameActionPipeline _actionPipeline = null!;
+    private PrototypeGameState _gameState = null!;
+    private Node2D _board = null!;
+    private GridView _gridView = null!;
+    private GroundItemLayer _groundItemLayer = null!;
+    private Node2D _playerMarker = null!;
+    private PlayerController _playerController = null!;
+    private PanelContainer _sidePanel = null!;
+    private ActionPanel _actionPanel = null!;
+    private InventoryPanel _inventoryPanel = null!;
+    private ItemTooltip _itemTooltip = null!;
+    private MessageLog _messageLog = null!;
+    private Label _turnLabel = null!;
+    private Label _positionLabel = null!;
+    private Label _modeLabel = null!;
+    private GridPosition? _visibleTooltipPosition;
+
+    public override void _Ready()
+    {
+        _board = GetNode<Node2D>("Board");
+        _gridView = GetNode<GridView>("Board/GridView");
+        _groundItemLayer = GetNode<GroundItemLayer>("Board/GroundItemLayer");
+        _playerMarker = GetNode<Node2D>("Board/PlayerMarker");
+        _playerController = GetNode<PlayerController>("Board/PlayerController");
+
+        _itemCatalog = LoadItemCatalog();
+        _surfaceCatalog = LoadSurfaceCatalog();
+        _actionPipeline = new GameActionPipeline(_itemCatalog);
+        _gameState = new PrototypeGameState(MapBounds, CreatePrototypeGroundItems(), CreatePrototypeSurfaceMap(), MapBounds.Center);
+        AddPrototypeStartingItems();
+
+        _gridView.Configure(_gameState.Surfaces, _surfaceCatalog, CellSize);
+        _groundItemLayer.Configure(_gameState.GroundItems, _itemCatalog, CellSize);
+        _playerController.MoveRequested += OnMoveRequested;
+        UpdatePlayerMarker();
+
+        BuildOverlay();
+        UpdateResponsiveLayout();
+        UpdateOverlay();
+        _messageLog.AddMessage("New run started.");
+    }
+
+    public override void _Process(double delta)
+    {
+        UpdateItemTooltip();
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
+        {
+            return;
+        }
+
+        if (keyEvent.Keycode == Key.Escape)
+        {
+            GetViewport().SetInputAsHandled();
+            GetTree().ChangeSceneToFile(MainMenuScenePath);
+        }
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationResized && _sidePanel is not null)
+        {
+            UpdateResponsiveLayout();
+        }
+    }
+
+    private void OnMoveRequested(GridOffset direction)
+    {
+        ExecuteAction(new MoveActionRequest(direction));
+    }
+
+    private void BuildOverlay()
+    {
+        var uiLayer = GetNode<CanvasLayer>("UI");
+
+        _sidePanel = new PanelContainer
+        {
+            AnchorLeft = 1.0f,
+            AnchorTop = 0.0f,
+            AnchorRight = 1.0f,
+            AnchorBottom = 0.0f,
+            OffsetLeft = -(SidePanelWidth + LayoutMargin),
+            OffsetTop = LayoutMargin,
+            OffsetRight = -LayoutMargin,
+            OffsetBottom = 460.0f
+        };
+        _sidePanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        uiLayer.AddChild(_sidePanel);
+
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 18);
+        margin.AddThemeConstantOverride("margin_top", 16);
+        margin.AddThemeConstantOverride("margin_right", 18);
+        margin.AddThemeConstantOverride("margin_bottom", 16);
+        _sidePanel.AddChild(margin);
+
+        var stack = new VBoxContainer();
+        stack.AddThemeConstantOverride("separation", 8);
+        margin.AddChild(stack);
+
+        _modeLabel = CreateStatusLabel();
+        _turnLabel = CreateStatusLabel();
+        _positionLabel = CreateStatusLabel();
+
+        stack.AddChild(_modeLabel);
+        stack.AddChild(_turnLabel);
+        stack.AddChild(_positionLabel);
+
+        var separator = new HSeparator();
+        stack.AddChild(separator);
+
+        stack.AddChild(CreateSectionTitle("Actions"));
+
+        _actionPanel = new ActionPanel
+        {
+            Name = "ActionPanel"
+        };
+        _actionPanel.ActionSelected += OnActionSelected;
+        stack.AddChild(_actionPanel);
+
+        stack.AddChild(new HSeparator());
+
+        stack.AddChild(CreateSectionTitle("Inventory"));
+
+        _inventoryPanel = new InventoryPanel
+        {
+            Name = "InventoryPanel"
+        };
+        stack.AddChild(_inventoryPanel);
+
+        stack.AddChild(new HSeparator());
+
+        stack.AddChild(CreateSectionTitle("Log"));
+
+        _messageLog = new MessageLog
+        {
+            Name = "MessageLog"
+        };
+        stack.AddChild(_messageLog);
+
+        _itemTooltip = new ItemTooltip
+        {
+            Name = "ItemTooltip"
+        };
+        uiLayer.AddChild(_itemTooltip);
+    }
+
+    private static Label CreateStatusLabel()
+    {
+        var label = new Label();
+        label.AddThemeFontSizeOverride("font_size", 16);
+        label.AddThemeColorOverride("font_color", new Color(0.88f, 0.91f, 0.86f));
+        return label;
+    }
+
+    private static Label CreateSectionTitle(string text)
+    {
+        var label = new Label
+        {
+            Text = text
+        };
+        label.AddThemeFontSizeOverride("font_size", 15);
+        label.AddThemeColorOverride("font_color", new Color(0.83f, 0.87f, 0.82f));
+        return label;
+    }
+
+    private static StyleBoxFlat CreatePanelStyle()
+    {
+        return new StyleBoxFlat
+        {
+            BgColor = new Color(0.072f, 0.085f, 0.095f, 0.94f),
+            BorderColor = new Color(0.2f, 0.31f, 0.29f),
+            BorderWidthLeft = 1,
+            BorderWidthTop = 1,
+            BorderWidthRight = 1,
+            BorderWidthBottom = 1,
+            CornerRadiusTopLeft = 8,
+            CornerRadiusTopRight = 8,
+            CornerRadiusBottomRight = 8,
+            CornerRadiusBottomLeft = 8
+        };
+    }
+
+    private void UpdateOverlay()
+    {
+        var position = _gameState.PlayerPosition;
+        _modeLabel.Text = "Mode: Prototype Shell";
+        _turnLabel.Text = $"Turn: {_gameState.TurnCount}";
+        _positionLabel.Text = $"Position: {position.X}, {position.Y}";
+        _actionPanel.Display(_actionPipeline.GetAvailableActions(_gameState));
+        _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog);
+    }
+
+    private void AddPrototypeStartingItems()
+    {
+        _gameState.Player.Inventory.Add(PrototypeItems.Stone, 3);
+        _gameState.Player.Inventory.Add(PrototypeItems.Branch, 2);
+        _gameState.Player.Inventory.Add(PrototypeItems.WaterBottle);
+        _gameState.Player.Inventory.Add(PrototypeItems.Ak47);
+    }
+
+    private static TileItemMap CreatePrototypeGroundItems()
+    {
+        var itemMap = new TileItemMap();
+
+        itemMap.Place(new GridPosition(4, 4), PrototypeItems.Stone, 2);
+        itemMap.Place(new GridPosition(7, 9), PrototypeItems.Branch, 3);
+        itemMap.Place(new GridPosition(13, 5), PrototypeItems.WaterBottle);
+        itemMap.Place(new GridPosition(16, 10), PrototypeItems.Ak47);
+
+        return itemMap;
+    }
+
+    private static TileSurfaceMap CreatePrototypeSurfaceMap()
+    {
+        var surfaceMap = new TileSurfaceMap(MapBounds, PrototypeSurfaces.Grass);
+
+        FillRect(surfaceMap, x: 2, y: 2, width: 8, height: 5, PrototypeSurfaces.Concrete);
+        FillRect(surfaceMap, x: 3, y: 3, width: 3, height: 3, PrototypeSurfaces.Carpet);
+        FillRect(surfaceMap, x: 11, y: 2, width: 5, height: 4, PrototypeSurfaces.Tile);
+        FillRect(surfaceMap, x: 12, y: 8, width: 4, height: 3, PrototypeSurfaces.Ice);
+
+        return surfaceMap;
+    }
+
+    private static void FillRect(TileSurfaceMap surfaceMap, int x, int y, int width, int height, SurfaceId surfaceId)
+    {
+        for (var row = y; row < y + height; row++)
+        {
+            for (var column = x; column < x + width; column++)
+            {
+                var position = new GridPosition(column, row);
+                if (MapBounds.Contains(position))
+                {
+                    surfaceMap.SetSurface(position, surfaceId);
+                }
+            }
+        }
+    }
+
+    private static ItemCatalog LoadItemCatalog()
+    {
+        var dataPath = ProjectSettings.GlobalizePath("res://data/items");
+        return new ItemDefinitionLoader().LoadDirectory(dataPath);
+    }
+
+    private static TileSurfaceCatalog LoadSurfaceCatalog()
+    {
+        var dataPath = ProjectSettings.GlobalizePath("res://data/surfaces");
+        return new TileSurfaceDefinitionLoader().LoadDirectory(dataPath);
+    }
+
+    private void UpdateItemTooltip()
+    {
+        var hoveredPosition = GetHoveredGridPosition();
+        if (hoveredPosition is null)
+        {
+            HideItemTooltip();
+            return;
+        }
+
+        var itemStacks = _gameState.GroundItems.ItemsAt(hoveredPosition.Value);
+        if (itemStacks.Count == 0)
+        {
+            HideItemTooltip();
+            return;
+        }
+
+        var cursorPosition = GetViewport().GetMousePosition();
+        if (_visibleTooltipPosition == hoveredPosition)
+        {
+            _itemTooltip.MoveTo(cursorPosition);
+            return;
+        }
+
+        _visibleTooltipPosition = hoveredPosition;
+        _itemTooltip.Display(hoveredPosition.Value, itemStacks, _itemCatalog, cursorPosition);
+    }
+
+    private GridPosition? GetHoveredGridPosition()
+    {
+        var boardPosition = _board.ToLocal(GetGlobalMousePosition());
+        var cell = new GridPosition(
+            Mathf.FloorToInt(boardPosition.X / CellSize),
+            Mathf.FloorToInt(boardPosition.Y / CellSize)
+        );
+
+        return MapBounds.Contains(cell) ? cell : null;
+    }
+
+    private void HideItemTooltip()
+    {
+        _visibleTooltipPosition = null;
+        _itemTooltip.HideTooltip();
+    }
+
+    private void UpdateResponsiveLayout()
+    {
+        var viewportSize = GetViewportRect().Size;
+        var boardSize = new Vector2(MapBounds.Width * CellSize, MapBounds.Height * CellSize);
+        var reservedPanelWidth = SidePanelWidth + (LayoutMargin * 2.0f);
+        var boardAreaWidth = Mathf.Max(boardSize.X + (MinimumBoardMargin * 2.0f), viewportSize.X - reservedPanelWidth);
+        var boardAreaHeight = viewportSize.Y;
+
+        _board.Position = new Vector2(
+            Mathf.Max(MinimumBoardMargin, (boardAreaWidth - boardSize.X) / 2.0f),
+            Mathf.Max(MinimumBoardMargin, (boardAreaHeight - boardSize.Y) / 2.0f)
+        );
+
+        _sidePanel.OffsetLeft = -(SidePanelWidth + LayoutMargin);
+        _sidePanel.OffsetTop = LayoutMargin;
+        _sidePanel.OffsetRight = -LayoutMargin;
+        _sidePanel.OffsetBottom = Mathf.Max(460.0f, viewportSize.Y - LayoutMargin);
+    }
+
+    private void UpdatePlayerMarker()
+    {
+        _playerMarker.Position = CellToBoardPosition(_gameState.PlayerPosition);
+    }
+
+    private void OnActionSelected(GameActionKind actionKind)
+    {
+        GameActionRequest? request = actionKind switch
+        {
+            GameActionKind.Wait => new WaitActionRequest(),
+            GameActionKind.Pickup => new PickupActionRequest(),
+            _ => null
+        };
+
+        if (request is not null)
+        {
+            ExecuteAction(request);
+        }
+    }
+
+    private void ExecuteAction(GameActionRequest request)
+    {
+        var result = _actionPipeline.Execute(_gameState, request);
+
+        UpdatePlayerMarker();
+        _groundItemLayer.QueueRedraw();
+        UpdateOverlay();
+        HideItemTooltip();
+
+        foreach (var message in result.Messages)
+        {
+            _messageLog.AddMessage(message);
+        }
+    }
+
+    private static Vector2 CellToBoardPosition(GridPosition cell)
+    {
+        return new Vector2(
+            (cell.X + 0.5f) * CellSize,
+            (cell.Y + 0.5f) * CellSize
+        );
+    }
+}

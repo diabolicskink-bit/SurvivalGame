@@ -1,0 +1,14 @@
+[
+  {
+    "id": "ak47",
+    "name": "AK-47",
+    "description": "A rugged rifle. It is only a definition for now.",
+    "category": "Weapon",
+    "tags": ["gun", "rifle", "ak47"],
+    "maxStackSize": 1,
+    "weight": 4.3,
+    "iconId": "rifle_ak47",
+    "spriteId": "item_ak47",
+    "actions": ["equip"]
+  }
+]

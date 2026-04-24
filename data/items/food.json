@@ -1,0 +1,26 @@
+[
+  {
+    "id": "canned_beans",
+    "name": "Canned beans",
+    "description": "A dented tin of beans. Still sealed.",
+    "category": "Food",
+    "tags": ["food", "sealed", "non_perishable"],
+    "maxStackSize": 4,
+    "weight": 0.4,
+    "iconId": "canned_food",
+    "spriteId": "item_canned_beans",
+    "actions": ["eat"]
+  },
+  {
+    "id": "water_bottle",
+    "name": "Water bottle",
+    "description": "A sealed plastic bottle of clean water.",
+    "category": "Food",
+    "tags": ["drink", "water", "sealed"],
+    "maxStackSize": 4,
+    "weight": 0.5,
+    "iconId": "water_bottle",
+    "spriteId": "item_water_bottle",
+    "actions": ["drink"]
+  }
+]

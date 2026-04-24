@@ -1,0 +1,14 @@
+[
+  {
+    "id": "worn_jacket",
+    "name": "Worn jacket",
+    "description": "A scuffed jacket with a stubborn zipper.",
+    "category": "Clothing",
+    "tags": ["outerwear", "torso"],
+    "maxStackSize": 1,
+    "weight": 1.1,
+    "iconId": "jacket_worn",
+    "spriteId": "item_worn_jacket",
+    "actions": ["wear"]
+  }
+]

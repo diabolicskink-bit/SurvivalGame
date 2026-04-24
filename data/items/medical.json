@@ -1,0 +1,14 @@
+[
+  {
+    "id": "clean_bandage",
+    "name": "Clean bandage",
+    "description": "A clean strip of fabric suitable for dressing wounds.",
+    "category": "Medical",
+    "tags": ["medical", "bandage", "wound_treatment"],
+    "maxStackSize": 10,
+    "weight": 0.05,
+    "iconId": "bandage_clean",
+    "spriteId": "item_bandage_clean",
+    "actions": ["apply_to_wound"]
+  }
+]

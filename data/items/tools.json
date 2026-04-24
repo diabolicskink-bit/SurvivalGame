@@ -1,0 +1,14 @@
+[
+  {
+    "id": "pocket_knife",
+    "name": "Pocket knife",
+    "description": "A folding knife with a worn grip.",
+    "category": "Tool",
+    "tags": ["cutting", "small_tool"],
+    "maxStackSize": 1,
+    "weight": 0.15,
+    "iconId": "pocket_knife",
+    "spriteId": "item_pocket_knife",
+    "actions": ["cut"]
+  }
+]
