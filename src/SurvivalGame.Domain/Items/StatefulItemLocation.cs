@@ -14,11 +14,15 @@ public sealed record StatefulItemLocation
     private StatefulItemLocation(
         StatefulItemLocationKind kind,
         GridPosition? position = null,
+        string? siteId = null,
         EquipmentSlotId? equipmentSlotId = null,
         StatefulItemId? parentItemId = null)
     {
         Kind = kind;
         Position = position;
+        SiteId = kind == StatefulItemLocationKind.Ground
+            ? NormalizeSiteId(siteId)
+            : null;
         EquipmentSlotId = equipmentSlotId;
         ParentItemId = parentItemId;
     }
@@ -26,6 +30,8 @@ public sealed record StatefulItemLocation
     public StatefulItemLocationKind Kind { get; }
 
     public GridPosition? Position { get; }
+
+    public string? SiteId { get; }
 
     public EquipmentSlotId? EquipmentSlotId { get; }
 
@@ -36,9 +42,16 @@ public sealed record StatefulItemLocation
         return new StatefulItemLocation(StatefulItemLocationKind.PlayerInventory);
     }
 
-    public static StatefulItemLocation Ground(GridPosition position)
+    public static StatefulItemLocation Ground(GridPosition position, string? siteId = null)
     {
-        return new StatefulItemLocation(StatefulItemLocationKind.Ground, position: position);
+        return new StatefulItemLocation(StatefulItemLocationKind.Ground, position: position, siteId: siteId);
+    }
+
+    private static string NormalizeSiteId(string? siteId)
+    {
+        return string.IsNullOrWhiteSpace(siteId)
+            ? PrototypeGameState.DefaultSiteId
+            : siteId.Trim();
     }
 
     public static StatefulItemLocation Equipment(EquipmentSlotId slotId)

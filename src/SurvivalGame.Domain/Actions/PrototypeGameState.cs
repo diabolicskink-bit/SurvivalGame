@@ -2,10 +2,13 @@ namespace SurvivalGame.Domain;
 
 public sealed class PrototypeGameState
 {
+    public const string DefaultSiteId = "prototype_local";
+
     public PrototypeGameState(GridBounds mapBounds, TileItemMap groundItems, GridPosition startPosition)
         : this(
             CreateWorldState(mapBounds, groundItems, new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete), new TileObjectMap()),
-            startPosition
+            startPosition,
+            DefaultSiteId
         )
     {
     }
@@ -16,7 +19,7 @@ public sealed class PrototypeGameState
         TileSurfaceMap surfaces,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, new TileObjectMap()), startPosition)
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, new TileObjectMap()), startPosition, DefaultSiteId)
     {
     }
 
@@ -27,7 +30,7 @@ public sealed class PrototypeGameState
         TileObjectMap worldObjects,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects), startPosition)
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects), startPosition, DefaultSiteId)
     {
     }
 
@@ -39,25 +42,63 @@ public sealed class PrototypeGameState
         NpcRoster npcs,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects, npcs), startPosition)
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects, npcs), startPosition, DefaultSiteId)
     {
     }
 
     public PrototypeGameState(WorldState world, GridPosition startPosition)
+        : this(world, startPosition, DefaultSiteId)
     {
-        ArgumentNullException.ThrowIfNull(world);
-
-        World = world;
-        Player = new PlayerState(world.Map.Clamp(startPosition));
     }
 
-    public WorldTime Time { get; } = new();
+    public PrototypeGameState(WorldState world, GridPosition startPosition, string siteId)
+        : this(
+            world,
+            startPosition,
+            new PlayerState(),
+            new WorldTime(),
+            new StatefulItemStore(),
+            siteId
+        )
+    {
+    }
+
+    public PrototypeGameState(
+        WorldState world,
+        GridPosition startPosition,
+        PlayerState player,
+        WorldTime time,
+        StatefulItemStore statefulItems,
+        string siteId
+    )
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(player);
+        ArgumentNullException.ThrowIfNull(time);
+        ArgumentNullException.ThrowIfNull(statefulItems);
+
+        if (string.IsNullOrWhiteSpace(siteId))
+        {
+            throw new ArgumentException("Site id cannot be empty.", nameof(siteId));
+        }
+
+        World = world;
+        Player = player;
+        Time = time;
+        StatefulItems = statefulItems;
+        SiteId = siteId.Trim();
+        Player.SetPosition(world.Map.Clamp(startPosition));
+    }
+
+    public string SiteId { get; }
+
+    public WorldTime Time { get; }
 
     public PlayerState Player { get; }
 
     public WorldState World { get; }
 
-    public StatefulItemStore StatefulItems { get; } = new();
+    public StatefulItemStore StatefulItems { get; }
 
     public GridBounds MapBounds => World.Map.Bounds;
 

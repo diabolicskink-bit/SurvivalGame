@@ -51,6 +51,7 @@ public partial class ItemTooltip : PanelContainer
         IReadOnlyList<GroundItemStack> itemStacks,
         IReadOnlyList<StatefulItem> statefulItems,
         ItemCatalog itemCatalog,
+        NpcCatalog? npcCatalog,
         Vector2 cursorPosition
     )
     {
@@ -90,10 +91,38 @@ public partial class ItemTooltip : PanelContainer
         {
             _content.AddChild(CreateLabel("NPC", 15, new Color(0.63f, 0.72f, 0.68f)));
             _content.AddChild(CreateLabel(npc.Name, 17, new Color(0.9f, 0.93f, 0.86f)));
+            if (npcCatalog is not null && npcCatalog.TryGet(npc.DefinitionId, out var definition))
+            {
+                _content.AddChild(CreateLabel(
+                    $"{definition.Species} - {definition.Behavior.Kind}",
+                    14,
+                    new Color(0.68f, 0.75f, 0.71f)
+                ));
+
+                if (!string.IsNullOrWhiteSpace(definition.Description))
+                {
+                    _content.AddChild(CreateLabel(definition.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
+                }
+
+                if (definition.Tags.Count > 0)
+                {
+                    _content.AddChild(CreateLabel(
+                        $"Tags: {string.Join(", ", definition.Tags)}",
+                        14,
+                        new Color(0.58f, 0.68f, 0.66f)
+                    ));
+                }
+            }
+
             _content.AddChild(CreateLabel(
                 $"Health: {npc.Health.Current}/{npc.Health.Maximum}",
                 14,
                 new Color(0.68f, 0.75f, 0.71f)
+            ));
+            _content.AddChild(CreateLabel(
+                npc.BlocksMovement ? "Blocks movement" : "Does not block movement",
+                14,
+                new Color(0.58f, 0.68f, 0.66f)
             ));
         }
 

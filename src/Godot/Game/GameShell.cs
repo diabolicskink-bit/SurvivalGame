@@ -17,12 +17,12 @@ public partial class GameShell : Control
     private const float MinimumWidePanelWidth = 620.0f;
     private const int StatusFontSize = 18;
     private const int SectionTitleFontSize = 17;
-    private static readonly GridBounds MapBounds = new(19, 13);
 
     private ItemCatalog _itemCatalog = null!;
     private FirearmCatalog _firearmCatalog = null!;
     private TileSurfaceCatalog _surfaceCatalog = null!;
     private WorldObjectCatalog _worldObjectCatalog = null!;
+    private NpcCatalog _npcCatalog = null!;
     private GameActionPipeline _actionPipeline = null!;
     private PrototypeGameState _gameState = null!;
     private Node2D _board = null!;
@@ -47,10 +47,18 @@ public partial class GameShell : Control
     private Label _surfaceLabel = null!;
     private Label _targetLabel = null!;
     private Label _modeLabel = null!;
+    private Button _returnToOverworldButton = null!;
     private SelectedItemRef? _selectedItem;
     private NpcId? _selectedTargetNpcId;
     private GridPosition? _visibleTooltipPosition;
+    private GridBounds _mapBounds = new(1, 1);
     private int _cellSize = BaseCellSize;
+
+    public event Action? ReturnToOverworldRequested;
+
+    public PrototypeGameplaySession? Session { get; set; }
+
+    public bool ShowsReturnToOverworld { get; set; }
 
     public override void _Ready()
     {
@@ -62,32 +70,34 @@ public partial class GameShell : Control
         _playerMarker = GetNode<Node2D>("Board/PlayerMarker");
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
-        _itemCatalog = LoadItemCatalog();
-        _firearmCatalog = LoadFirearmCatalog();
-        _surfaceCatalog = LoadSurfaceCatalog();
-        _worldObjectCatalog = LoadWorldObjectCatalog();
-        _actionPipeline = new GameActionPipeline(_itemCatalog, _worldObjectCatalog, _firearmCatalog);
-        _gameState = new PrototypeGameState(
-            MapBounds,
-            CreatePrototypeGroundItems(),
-            CreatePrototypeSurfaceMap(),
-            CreatePrototypeWorldObjects(),
-            CreatePrototypeNpcs(),
-            MapBounds.Center
-        );
-        AddPrototypeStartingItems();
+        var isStandaloneSession = Session is null;
+        var session = Session ?? PrototypeSessionFactory.CreateGameplaySession();
+        _itemCatalog = session.ItemCatalog;
+        _firearmCatalog = session.FirearmCatalog;
+        _surfaceCatalog = session.SurfaceCatalog;
+        _worldObjectCatalog = session.WorldObjectCatalog;
+        _npcCatalog = session.NpcCatalog;
+        _actionPipeline = session.ActionPipeline;
+        _gameState = session.GameState;
+        _mapBounds = _gameState.MapBounds;
 
         _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
         _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-        _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
-        _npcLayer.Configure(_gameState.World.Npcs, _cellSize);
+        _groundItemLayer.Configure(
+            _gameState.World.GroundItems,
+            _itemCatalog,
+            _cellSize,
+            _gameState.StatefulItems,
+            _gameState.SiteId
+        );
+        _npcLayer.Configure(_gameState.World.Npcs, _npcCatalog, _cellSize);
         _playerController.MoveRequested += OnMoveRequested;
         UpdatePlayerMarker();
 
         BuildOverlay();
         UpdateResponsiveLayout();
         UpdateOverlay();
-        _messageLog.AddMessage("New run started.");
+        _messageLog.AddMessage(isStandaloneSession ? "New run started." : "Entered local site.");
     }
 
     public override void _Process(double delta)
@@ -121,7 +131,7 @@ public partial class GameShell : Control
         if (keyEvent.Keycode == Key.Escape)
         {
             GetViewport().SetInputAsHandled();
-            GetTree().ChangeSceneToFile(MainMenuScenePath);
+            ReturnFromLocalOrExit();
         }
     }
 
@@ -136,6 +146,17 @@ public partial class GameShell : Control
     private void OnMoveRequested(GridOffset direction)
     {
         ExecuteAction(new MoveActionRequest(direction));
+    }
+
+    private void ReturnFromLocalOrExit()
+    {
+        if (ShowsReturnToOverworld)
+        {
+            ReturnToOverworldRequested?.Invoke();
+            return;
+        }
+
+        GetTree().ChangeSceneToFile(MainMenuScenePath);
     }
 
     private void BuildOverlay()
@@ -180,6 +201,15 @@ public partial class GameShell : Control
         stack.AddChild(_positionLabel);
         stack.AddChild(_surfaceLabel);
         stack.AddChild(_targetLabel);
+
+        _returnToOverworldButton = new Button
+        {
+            Text = "Return to Overworld",
+            Visible = ShowsReturnToOverworld,
+            CustomMinimumSize = new Vector2(0, 38)
+        };
+        _returnToOverworldButton.Pressed += ReturnFromLocalOrExit;
+        stack.AddChild(_returnToOverworldButton);
 
         var separator = new HSeparator();
         stack.AddChild(separator);
@@ -386,7 +416,7 @@ public partial class GameShell : Control
         var availableActions = _actionPipeline.GetAvailableActions(_gameState);
         EnsureSelectedItemStillValid();
 
-        _modeLabel.Text = "Mode: Prototype Shell";
+        _modeLabel.Text = $"Mode: {Session?.SiteDisplayName ?? "Prototype Shell"}";
         _timeLabel.Text = $"Time: {_gameState.Time.ElapsedTicks} ticks";
         _positionLabel.Text = $"Position: {position.X}, {position.Y}";
         _surfaceLabel.Text = $"Surface: {GetSurfaceAt(position).Name}";
@@ -414,7 +444,7 @@ public partial class GameShell : Control
     private IReadOnlyList<AvailableAction> GetGlobalActions(IReadOnlyList<AvailableAction> availableActions)
     {
         var actions = availableActions
-            .Where(action => action.Kind is GameActionKind.Wait or GameActionKind.Pickup)
+            .Where(action => action.Kind is GameActionKind.Wait or GameActionKind.Pickup or GameActionKind.RefuelVehicle)
             .ToList();
 
         if (GetSelectedTargetNpc() is { } target)
@@ -607,174 +637,6 @@ public partial class GameShell : Control
             && control.GetGlobalRect().HasPoint(viewportPosition);
     }
 
-    private void AddPrototypeStartingItems()
-    {
-        _gameState.Player.Inventory.Add(PrototypeItems.Stone, 3);
-        _gameState.Player.Inventory.Add(PrototypeItems.Branch, 2);
-        _gameState.Player.Inventory.Add(PrototypeItems.WaterBottle);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 35);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmHollowPoint, 20);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo762x39Standard, 60);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo308Standard, 20);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeBuckshot, 20);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeSlug, 10);
-        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo22LrStandard, 100);
-        AddPrototypeStatefulItems();
-    }
-
-    private void AddPrototypeStatefulItems()
-    {
-        _gameState.StatefulItems.Create(PrototypeFirearms.Pistol9mm, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeItems.Ak47, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeItems.HuntingRifle, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeFirearms.Shotgun12Gauge, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeFirearms.Rifle22, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-
-        var loadedMagazine = _gameState.StatefulItems.Create(
-            PrototypeFirearms.Magazine9mmStandard,
-            1,
-            StatefulItemLocation.PlayerInventory(),
-            _firearmCatalog
-        );
-        loadedMagazine.FeedDevice?.Load(_firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 15);
-
-        _gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmExtended, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeFirearms.MagazineAk30Round, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-        _gameState.StatefulItems.Create(PrototypeFirearms.MagazineAkDamaged20Round, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
-
-        var droppedMagazine = _gameState.StatefulItems.Create(
-            PrototypeFirearms.Magazine9mmStandard,
-            1,
-            StatefulItemLocation.Ground(new GridPosition(11, 7)),
-            _firearmCatalog
-        );
-        droppedMagazine.FeedDevice?.Load(_firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmHollowPoint), 8);
-
-        var backpack = _gameState.StatefulItems.Create(
-            new ItemId("school_backpack"),
-            1,
-            StatefulItemLocation.PlayerInventory(),
-            _firearmCatalog
-        );
-        var food = _gameState.StatefulItems.Create(
-            new ItemId("canned_beans"),
-            1,
-            StatefulItemLocation.PlayerInventory(),
-            _firearmCatalog
-        );
-        _gameState.StatefulItems.MoveToContained(food.Id, backpack.Id);
-    }
-
-    private static TileItemMap CreatePrototypeGroundItems()
-    {
-        var itemMap = new TileItemMap();
-
-        itemMap.Place(new GridPosition(4, 4), PrototypeItems.Stone, 2);
-        itemMap.Place(new GridPosition(7, 9), PrototypeItems.Branch, 3);
-        itemMap.Place(new GridPosition(13, 5), PrototypeItems.WaterBottle);
-        itemMap.Place(new GridPosition(16, 10), PrototypeItems.Ak47);
-        itemMap.Place(new GridPosition(8, 7), PrototypeItems.BaseballCap);
-        itemMap.Place(new GridPosition(10, 7), PrototypeItems.RunningShoes);
-
-        return itemMap;
-    }
-
-    private static TileSurfaceMap CreatePrototypeSurfaceMap()
-    {
-        var surfaceMap = new TileSurfaceMap(MapBounds, PrototypeSurfaces.Grass);
-
-        FillRect(surfaceMap, x: 2, y: 2, width: 8, height: 5, PrototypeSurfaces.Concrete);
-        FillRect(surfaceMap, x: 3, y: 3, width: 3, height: 3, PrototypeSurfaces.Carpet);
-        FillRect(surfaceMap, x: 11, y: 2, width: 5, height: 4, PrototypeSurfaces.Tile);
-        FillRect(surfaceMap, x: 12, y: 8, width: 4, height: 3, PrototypeSurfaces.Ice);
-
-        return surfaceMap;
-    }
-
-    private static TileObjectMap CreatePrototypeWorldObjects()
-    {
-        var objectMap = new TileObjectMap();
-
-        PlaceWallLine(objectMap, y: 2, xStart: 2, xEnd: 9);
-        objectMap.Place(new GridPosition(2, 3), PrototypeWorldObjects.Wall);
-        objectMap.Place(new GridPosition(2, 4), PrototypeWorldObjects.Wall);
-        objectMap.Place(new GridPosition(9, 3), PrototypeWorldObjects.Window);
-        objectMap.Place(new GridPosition(9, 4), PrototypeWorldObjects.Wall);
-        objectMap.Place(new GridPosition(6, 6), PrototypeWorldObjects.WoodenDoor);
-        objectMap.Place(new GridPosition(8, 3), PrototypeWorldObjects.Fridge);
-        objectMap.Place(new GridPosition(5, 4), PrototypeWorldObjects.Table);
-        objectMap.Place(new GridPosition(5, 5), PrototypeWorldObjects.Chair);
-        objectMap.Place(new GridPosition(12, 3), PrototypeWorldObjects.Bed);
-        objectMap.Place(new GridPosition(15, 5), PrototypeWorldObjects.StorageCrate);
-        objectMap.Place(new GridPosition(1, 10), PrototypeWorldObjects.Tree);
-        objectMap.Place(new GridPosition(17, 2), PrototypeWorldObjects.Boulder);
-
-        return objectMap;
-    }
-
-    private static NpcRoster CreatePrototypeNpcs()
-    {
-        var npcs = new NpcRoster();
-
-        npcs.Add(new NpcState(
-            PrototypeNpcs.TestDummy,
-            "Test Dummy",
-            new GridPosition(14, 8),
-            currentHealth: 200,
-            maximumHealth: 200
-        ));
-
-        return npcs;
-    }
-
-    private static void PlaceWallLine(TileObjectMap objectMap, int y, int xStart, int xEnd)
-    {
-        for (var x = xStart; x <= xEnd; x++)
-        {
-            objectMap.Place(new GridPosition(x, y), PrototypeWorldObjects.Wall);
-        }
-    }
-
-    private static void FillRect(TileSurfaceMap surfaceMap, int x, int y, int width, int height, SurfaceId surfaceId)
-    {
-        for (var row = y; row < y + height; row++)
-        {
-            for (var column = x; column < x + width; column++)
-            {
-                var position = new GridPosition(column, row);
-                if (MapBounds.Contains(position))
-                {
-                    surfaceMap.SetSurface(position, surfaceId);
-                }
-            }
-        }
-    }
-
-    private static ItemCatalog LoadItemCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/items");
-        return new ItemDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static FirearmCatalog LoadFirearmCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/firearms");
-        return new FirearmDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static TileSurfaceCatalog LoadSurfaceCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/surfaces");
-        return new TileSurfaceDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static WorldObjectCatalog LoadWorldObjectCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/world_objects");
-        return new WorldObjectDefinitionLoader().LoadDirectory(dataPath);
-    }
-
     private void UpdateItemTooltip()
     {
         var cursorPosition = GetViewport().GetMousePosition();
@@ -792,7 +654,7 @@ public partial class GameShell : Control
         }
 
         var itemStacks = _gameState.World.GroundItems.ItemsAt(hoveredPosition.Value);
-        var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value);
+        var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value, _gameState.SiteId);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
         var npc = GetNpcAt(hoveredPosition.Value);
@@ -804,7 +666,17 @@ public partial class GameShell : Control
         }
 
         _visibleTooltipPosition = hoveredPosition;
-        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, npc, itemStacks, statefulItems, _itemCatalog, cursorPosition);
+        _itemTooltip.Display(
+            hoveredPosition.Value,
+            surface,
+            worldObject,
+            npc,
+            itemStacks,
+            statefulItems,
+            _itemCatalog,
+            _npcCatalog,
+            cursorPosition
+        );
     }
 
     private TileSurfaceDefinition GetSurfaceAt(GridPosition position)
@@ -850,7 +722,7 @@ public partial class GameShell : Control
             Mathf.FloorToInt(boardPosition.Y / _cellSize)
         );
 
-        return MapBounds.Contains(cell) ? cell : null;
+        return _mapBounds.Contains(cell) ? cell : null;
     }
 
     private void HideItemTooltip()
@@ -863,14 +735,14 @@ public partial class GameShell : Control
     {
         var viewportSize = GetViewportRect().Size;
         var boardAreaWidth = Mathf.Max(
-            MinimumCellSize * MapBounds.Width,
+            MinimumCellSize * _mapBounds.Width,
             (viewportSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
         );
         var boardAreaHeight = Mathf.Max(
-            MinimumCellSize * MapBounds.Height,
+            MinimumCellSize * _mapBounds.Height,
             (viewportSize.Y * WorldRegionHeightRatio) - (LayoutMargin * 2.0f)
         );
-        var fittedCellSize = Mathf.FloorToInt(Mathf.Min(boardAreaWidth / MapBounds.Width, boardAreaHeight / MapBounds.Height));
+        var fittedCellSize = Mathf.FloorToInt(Mathf.Min(boardAreaWidth / _mapBounds.Width, boardAreaHeight / _mapBounds.Height));
         var nextCellSize = Mathf.Max(
             MinimumCellSize,
             fittedCellSize
@@ -881,15 +753,21 @@ public partial class GameShell : Control
             _cellSize = nextCellSize;
             _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
             _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-            _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
-            _npcLayer.Configure(_gameState.World.Npcs, _cellSize);
+            _groundItemLayer.Configure(
+                _gameState.World.GroundItems,
+                _itemCatalog,
+                _cellSize,
+                _gameState.StatefulItems,
+                _gameState.SiteId
+            );
+            _npcLayer.Configure(_gameState.World.Npcs, _npcCatalog, _cellSize);
             UpdatePlayerMarker();
         }
 
         _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
         _playerMarker.Scale = Vector2.One * (_cellSize / (float)BaseCellSize);
 
-        var boardPixelSize = new Vector2(MapBounds.Width * _cellSize, MapBounds.Height * _cellSize);
+        var boardPixelSize = new Vector2(_mapBounds.Width * _cellSize, _mapBounds.Height * _cellSize);
         var boardRight = _board.Position.X + boardPixelSize.X;
         var boardBottom = _board.Position.Y + boardPixelSize.Y;
         var logTop = boardBottom + 14.0f;
@@ -930,6 +808,7 @@ public partial class GameShell : Control
         {
             GameActionKind.Wait => new WaitActionRequest(),
             GameActionKind.Pickup => new PickupActionRequest(),
+            GameActionKind.RefuelVehicle => new RefuelVehicleActionRequest(),
             _ => null
         };
 

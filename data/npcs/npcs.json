@@ -1,0 +1,92 @@
+[
+  {
+    "id": "test_dummy",
+    "name": "Test Dummy",
+    "description": "A stationary prototype target used to verify targeting, collision, and firearm state.",
+    "species": "Training Dummy",
+    "tags": ["prototype", "inert", "target"],
+    "maximumHealth": 200,
+    "blocksMovement": true,
+    "mapColor": "#c75a3b",
+    "behavior": {
+      "kind": "Inert",
+      "perceptionRange": 0,
+      "tags": ["does_not_act"]
+    }
+  },
+  {
+    "id": "cautious_survivor",
+    "name": "Cautious Survivor",
+    "description": "A wary survivor keeping distance until the social and faction systems exist.",
+    "species": "Human",
+    "tags": ["civilian", "survivor", "prototype"],
+    "maximumHealth": 100,
+    "blocksMovement": true,
+    "mapColor": "#6f9f72",
+    "behavior": {
+      "kind": "Passive",
+      "perceptionRange": 6,
+      "tags": ["avoids_conflict"]
+    }
+  },
+  {
+    "id": "wandering_scavenger",
+    "name": "Wandering Scavenger",
+    "description": "A prototype scavenger profile for future looting, suspicion, and negotiation behavior.",
+    "species": "Human",
+    "tags": ["civilian", "scavenger", "prototype"],
+    "maximumHealth": 95,
+    "blocksMovement": true,
+    "mapColor": "#b89052",
+    "behavior": {
+      "kind": "Wander",
+      "perceptionRange": 7,
+      "tags": ["searches_area"]
+    }
+  },
+  {
+    "id": "injured_traveller",
+    "name": "Injured Traveller",
+    "description": "A non-hostile prototype NPC for future aid, trade, or dialogue interactions.",
+    "species": "Human",
+    "tags": ["civilian", "injured", "prototype"],
+    "maximumHealth": 65,
+    "blocksMovement": true,
+    "mapColor": "#8f7bb6",
+    "behavior": {
+      "kind": "Passive",
+      "perceptionRange": 4,
+      "tags": ["needs_help"]
+    }
+  },
+  {
+    "id": "quiet_mechanic",
+    "name": "Quiet Mechanic",
+    "description": "A reserved mechanic profile for future vehicle knowledge, repair dialogue, or settlement roles.",
+    "species": "Human",
+    "tags": ["civilian", "mechanic", "prototype"],
+    "maximumHealth": 110,
+    "blocksMovement": true,
+    "mapColor": "#5f8fa3",
+    "behavior": {
+      "kind": "Passive",
+      "perceptionRange": 5,
+      "tags": ["vehicle_knowledge"]
+    }
+  },
+  {
+    "id": "field_researcher",
+    "name": "Field Researcher",
+    "description": "A careful observer profile for future lore, mapping, or environmental information.",
+    "species": "Human",
+    "tags": ["civilian", "researcher", "prototype"],
+    "maximumHealth": 85,
+    "blocksMovement": true,
+    "mapColor": "#6f8fc9",
+    "behavior": {
+      "kind": "Passive",
+      "perceptionRange": 8,
+      "tags": ["observant"]
+    }
+  }
+]

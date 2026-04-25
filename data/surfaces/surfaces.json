@@ -48,5 +48,14 @@
     "movementCost": 1,
     "mapColor": "#8ec8d5",
     "spriteId": "surface_ice"
+  },
+  {
+    "id": "asphalt",
+    "name": "Asphalt",
+    "description": "Dark worn asphalt with patched cracks and faded oil stains.",
+    "category": "Built",
+    "tags": ["hard", "urban", "road", "vehicle_surface"],
+    "movementCost": 1,
+    "mapColor": "#303437"
   }
 ]

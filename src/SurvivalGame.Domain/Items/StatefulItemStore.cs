@@ -50,10 +50,21 @@ public sealed class StatefulItemStore
             .ToArray();
     }
 
-    public IReadOnlyList<StatefulItem> OnGround(GridPosition position)
+    public IReadOnlyList<StatefulItem> OnGround(GridPosition position, string? siteId = null)
     {
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.Ground && item.Location.Position == position)
+            .Where(item => item.Location.Kind == StatefulItemLocationKind.Ground
+                && item.Location.Position == position
+                && string.Equals(item.Location.SiteId, NormalizeSiteId(siteId), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => item.Id.Value)
+            .ToArray();
+    }
+
+    public IReadOnlyList<StatefulItem> OnGroundInSite(string? siteId)
+    {
+        return Items
+            .Where(item => item.Location.Kind == StatefulItemLocationKind.Ground
+                && string.Equals(item.Location.SiteId, NormalizeSiteId(siteId), StringComparison.OrdinalIgnoreCase))
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
@@ -103,9 +114,9 @@ public sealed class StatefulItemStore
         MoveItem(itemId, StatefulItemLocation.PlayerInventory());
     }
 
-    public void MoveToGround(StatefulItemId itemId, GridPosition position)
+    public void MoveToGround(StatefulItemId itemId, GridPosition position, string? siteId = null)
     {
-        MoveItem(itemId, StatefulItemLocation.Ground(position));
+        MoveItem(itemId, StatefulItemLocation.Ground(position, siteId));
     }
 
     public void MoveToEquipment(StatefulItemId itemId, EquipmentSlotId slotId)
@@ -143,6 +154,13 @@ public sealed class StatefulItemStore
         }
 
         item.MoveTo(location);
+    }
+
+    private static string NormalizeSiteId(string? siteId)
+    {
+        return string.IsNullOrWhiteSpace(siteId)
+            ? PrototypeGameState.DefaultSiteId
+            : siteId.Trim();
     }
 
     private static void AttachKnownState(StatefulItem item, FirearmCatalog? firearmCatalog)

@@ -2,7 +2,7 @@ using Godot;
 
 public partial class MainMenu : Control
 {
-    private const string GameShellScenePath = "res://src/Godot/Game/GameShell.tscn";
+    private const string GameSessionShellScenePath = "res://src/Godot/Game/GameSessionShell.tscn";
 
     public override void _Ready()
     {
@@ -54,7 +54,7 @@ public partial class MainMenu : Control
 
         var subtitle = new Label
         {
-            Text = "Initial shell",
+            Text = "Overworld travel shell",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         subtitle.AddThemeFontSizeOverride("font_size", 18);
@@ -103,7 +103,7 @@ public partial class MainMenu : Control
 
     private void OnNewRunPressed()
     {
-        GetTree().ChangeSceneToFile(GameShellScenePath);
+        GetTree().ChangeSceneToFile(GameSessionShellScenePath);
     }
 
     private void OnQuitPressed()

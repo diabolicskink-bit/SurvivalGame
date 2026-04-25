@@ -28,7 +28,8 @@ public enum GameActionKind
     LoadStatefulWeapon,
     ReloadStatefulWeapon,
     TestFireStatefulWeapon,
-    ShootNpc
+    ShootNpc,
+    RefuelVehicle
 }
 
 public abstract record GameActionRequest(GameActionKind Kind);
@@ -110,6 +111,8 @@ public sealed record TestFireStatefulWeaponActionRequest(StatefulItemId WeaponIt
 public sealed record ShootNpcActionRequest(NpcId TargetNpcId)
     : GameActionRequest(GameActionKind.ShootNpc);
 
+public sealed record RefuelVehicleActionRequest() : GameActionRequest(GameActionKind.RefuelVehicle);
+
 public sealed record AvailableAction(GameActionKind Kind, string Label, GameActionRequest? Request = null);
 
 public sealed record GameActionResult(bool Succeeded, int ElapsedTicks, IReadOnlyList<string> Messages)
@@ -140,21 +143,25 @@ public sealed class GameActionPipeline
     public const int EquipItemTickCost = 0;
     public const int UnequipItemTickCost = 0;
     public const int ShootTickCost = 100;
+    public const int RefuelVehicleTickCost = 100;
 
     private readonly ItemCatalog _itemCatalog;
     private readonly WorldObjectCatalog? _worldObjectCatalog;
     private readonly FirearmActionService? _firearmActions;
+    private readonly VehicleFuelState? _vehicleFuelState;
 
     public GameActionPipeline(
         ItemCatalog itemCatalog,
         WorldObjectCatalog? worldObjectCatalog = null,
-        FirearmCatalog? firearmCatalog = null
+        FirearmCatalog? firearmCatalog = null,
+        VehicleFuelState? vehicleFuelState = null
     )
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
         _itemCatalog = itemCatalog;
         _worldObjectCatalog = worldObjectCatalog;
         _firearmActions = firearmCatalog is null ? null : new FirearmActionService(firearmCatalog);
+        _vehicleFuelState = vehicleFuelState;
     }
 
     public IReadOnlyList<AvailableAction> GetAvailableActions(PrototypeGameState state)
@@ -169,6 +176,15 @@ public sealed class GameActionPipeline
         if (state.World.GroundItems.ItemsAt(state.Player.Position).Count > 0)
         {
             actions.Add(new AvailableAction(GameActionKind.Pickup, "Pick Up", new PickupActionRequest()));
+        }
+
+        if (CanRefuelVehicle(state))
+        {
+            actions.Add(new AvailableAction(
+                GameActionKind.RefuelVehicle,
+                "Refuel Vehicle",
+                new RefuelVehicleActionRequest()
+            ));
         }
 
         actions.AddRange(GetAvailableStatefulItemActions(state));
@@ -259,6 +275,7 @@ public sealed class GameActionPipeline
                 service => service.TestFireStatefulWeapon(state, testStatefulWeapon.WeaponItemId)
             ),
             ShootNpcActionRequest shootNpc => ShootNpc(state, shootNpc.TargetNpcId),
+            RefuelVehicleActionRequest => RefuelVehicle(state),
             _ => GameActionResult.Failure("That action is not supported.")
         };
     }
@@ -282,6 +299,32 @@ public sealed class GameActionPipeline
         return GameActionResult.Success(
             result.ElapsedTicks,
             result.Messages.Concat(new[] { $"Time +{result.ElapsedTicks}." }).ToArray()
+        );
+    }
+
+    private GameActionResult RefuelVehicle(PrototypeGameState state)
+    {
+        if (_vehicleFuelState is null)
+        {
+            return GameActionResult.Failure("No vehicle fuel state is available.");
+        }
+
+        if (_vehicleFuelState.IsFull)
+        {
+            return GameActionResult.Failure("Vehicle fuel is already full.");
+        }
+
+        if (!IsAdjacentToFuelPump(state))
+        {
+            return GameActionResult.Failure("You need to stand next to a fuel pump.");
+        }
+
+        _vehicleFuelState.Refill();
+        state.AdvanceTime(RefuelVehicleTickCost);
+
+        return GameActionResult.Success(
+            RefuelVehicleTickCost,
+            $"Refueled vehicle to {_vehicleFuelState.CurrentFuel:0.0}/{_vehicleFuelState.Capacity:0.0}. Time +{RefuelVehicleTickCost}."
         );
     }
 
@@ -380,7 +423,7 @@ public sealed class GameActionPipeline
 
     private IEnumerable<AvailableAction> GetAvailableStatefulItemActions(PrototypeGameState state)
     {
-        foreach (var item in state.StatefulItems.OnGround(state.Player.Position))
+        foreach (var item in state.StatefulItems.OnGround(state.Player.Position, state.SiteId))
         {
             yield return new AvailableAction(
                 GameActionKind.PickupStatefulItem,
@@ -497,7 +540,7 @@ public sealed class GameActionPipeline
 
     private static bool IsBlockedByNpc(PrototypeGameState state, GridPosition position, out string npcName)
     {
-        if (state.World.Npcs.TryGetAt(position, out var npc))
+        if (state.World.Npcs.TryGetAt(position, out var npc) && npc.BlocksMovement)
         {
             npcName = npc.Name;
             return true;
@@ -531,7 +574,9 @@ public sealed class GameActionPipeline
     private GameActionResult PickupStatefulItem(PrototypeGameState state, StatefulItemId itemId)
     {
         var item = state.StatefulItems.Get(itemId);
-        if (item.Location.Kind != StatefulItemLocationKind.Ground || item.Location.Position != state.Player.Position)
+        if (item.Location.Kind != StatefulItemLocationKind.Ground
+            || item.Location.Position != state.Player.Position
+            || !string.Equals(item.Location.SiteId, state.SiteId, StringComparison.OrdinalIgnoreCase))
         {
             return GameActionResult.Failure("That item is not on this tile.");
         }
@@ -553,7 +598,7 @@ public sealed class GameActionPipeline
             return GameActionResult.Failure("That item is not freely available to drop.");
         }
 
-        state.StatefulItems.MoveToGround(item.Id, state.Player.Position);
+        state.StatefulItems.MoveToGround(item.Id, state.Player.Position, state.SiteId);
         return GameActionResult.Success(
             0,
             $"Dropped {FormatStatefulItem(item)}."
@@ -849,11 +894,39 @@ public sealed class GameActionPipeline
         return location.Kind switch
         {
             StatefulItemLocationKind.PlayerInventory => "inventory",
-            StatefulItemLocationKind.Ground => $"ground {location.Position?.X}, {location.Position?.Y}",
+            StatefulItemLocationKind.Ground => location.SiteId is null
+                ? $"ground {location.Position?.X}, {location.Position?.Y}"
+                : $"ground {location.SiteId} {location.Position?.X}, {location.Position?.Y}",
             StatefulItemLocationKind.Equipment => $"equipment {location.EquipmentSlotId}",
             StatefulItemLocationKind.Inserted => $"inserted in {location.ParentItemId}",
             StatefulItemLocationKind.Contained => $"inside {location.ParentItemId}",
             _ => location.Kind.ToString()
         };
+    }
+
+    private bool CanRefuelVehicle(PrototypeGameState state)
+    {
+        return _vehicleFuelState is not null
+            && !_vehicleFuelState.IsFull
+            && IsAdjacentToFuelPump(state);
+    }
+
+    private static bool IsAdjacentToFuelPump(PrototypeGameState state)
+    {
+        var offsets = new[]
+        {
+            GridOffset.Up,
+            GridOffset.Down,
+            GridOffset.Left,
+            GridOffset.Right
+        };
+
+        return offsets.Any(offset =>
+        {
+            var position = state.Player.Position + offset;
+            return state.World.Map.Contains(position)
+                && state.World.WorldObjects.TryGetObjectAt(position, out var objectId)
+                && objectId == PrototypeWorldObjects.FuelPump;
+        });
     }
 }

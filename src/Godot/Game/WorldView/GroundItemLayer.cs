@@ -13,13 +13,20 @@ public partial class GroundItemLayer : Node2D
     private TileItemMap? _itemMap;
     private StatefulItemStore? _statefulItems;
     private ItemCatalog? _itemCatalog;
+    private string? _siteId;
 
-    public void Configure(TileItemMap itemMap, ItemCatalog itemCatalog, int cellSize, StatefulItemStore? statefulItems = null)
+    public void Configure(
+        TileItemMap itemMap,
+        ItemCatalog itemCatalog,
+        int cellSize,
+        StatefulItemStore? statefulItems = null,
+        string? siteId = null)
     {
         _itemMap = itemMap;
         _statefulItems = statefulItems;
         _itemCatalog = itemCatalog;
         _cellSize = cellSize;
+        _siteId = siteId;
         QueueRedraw();
     }
 
@@ -40,7 +47,7 @@ public partial class GroundItemLayer : Node2D
             return;
         }
 
-        foreach (var item in _statefulItems.Items.Where(item => item.Location.Kind == StatefulItemLocationKind.Ground))
+        foreach (var item in _statefulItems.OnGroundInSite(_siteId))
         {
             if (item.Location.Position is not null)
             {

@@ -6,14 +6,16 @@ namespace SurvivalGame.Domain.Tests;
 public sealed class WorldObjectTests
 {
     [Fact]
-    public void WorldObjectDataLoadsTenPrototypeObjects()
+    public void WorldObjectDataLoadsPrototypeObjects()
     {
         var catalog = LoadWorldObjectCatalog();
 
-        Assert.Equal(10, catalog.Objects.Count);
+        Assert.Equal(20, catalog.Objects.Count);
         Assert.Equal("Wall", catalog.Get(PrototypeWorldObjects.Wall).Name);
         Assert.Equal("Fridge", catalog.Get(PrototypeWorldObjects.Fridge).Name);
         Assert.Equal("Tree", catalog.Get(PrototypeWorldObjects.Tree).Name);
+        Assert.Equal("Fuel pump", catalog.Get(PrototypeWorldObjects.FuelPump).Name);
+        Assert.Equal("Glass door", catalog.Get(PrototypeWorldObjects.GlassDoor).Name);
         Assert.Equal("world_object_fridge", catalog.Get(PrototypeWorldObjects.Fridge).SpriteId);
     }
 
@@ -24,6 +26,11 @@ public sealed class WorldObjectTests
 
         Assert.True(catalog.Get(PrototypeWorldObjects.Wall).BlocksMovement);
         Assert.True(catalog.Get(PrototypeWorldObjects.Fridge).BlocksMovement);
+        Assert.True(catalog.Get(PrototypeWorldObjects.FuelPump).BlocksMovement);
+        Assert.True(catalog.Get(PrototypeWorldObjects.CheckoutCounter).BlocksMovement);
+        Assert.True(catalog.Get(PrototypeWorldObjects.StoreShelf).BlocksMovement);
+        Assert.True(catalog.Get(PrototypeWorldObjects.AbandonedVehicle).BlocksMovement);
+        Assert.False(catalog.Get(PrototypeWorldObjects.GlassDoor).BlocksMovement);
         Assert.False(catalog.Get(PrototypeWorldObjects.Chair).BlocksMovement);
     }
 

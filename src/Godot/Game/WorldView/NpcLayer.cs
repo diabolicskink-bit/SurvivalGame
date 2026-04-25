@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using SurvivalGame.Domain;
 
@@ -5,10 +6,12 @@ public partial class NpcLayer : Node2D
 {
     private int _cellSize = 32;
     private NpcRoster? _npcs;
+    private NpcCatalog? _npcCatalog;
 
-    public void Configure(NpcRoster npcs, int cellSize)
+    public void Configure(NpcRoster npcs, NpcCatalog npcCatalog, int cellSize)
     {
         _npcs = npcs;
+        _npcCatalog = npcCatalog;
         _cellSize = cellSize;
         QueueRedraw();
     }
@@ -30,12 +33,13 @@ public partial class NpcLayer : Node2D
     {
         var center = CellToBoardPosition(npc.Position);
         var radius = Mathf.Max(5.0f, _cellSize * 0.26f);
+        var baseColor = GetNpcColor(npc);
         var outerColor = npc.IsDisabled
             ? new Color(0.28f, 0.28f, 0.25f)
-            : new Color(0.78f, 0.34f, 0.22f);
+            : baseColor;
         var innerColor = npc.IsDisabled
             ? new Color(0.46f, 0.45f, 0.39f)
-            : new Color(0.96f, 0.68f, 0.38f);
+            : baseColor.Lightened(0.32f);
 
         DrawCircle(center + new Vector2(2, 3), radius, new Color(0.01f, 0.012f, 0.01f, 0.45f));
         DrawCircle(center, radius, outerColor);
@@ -44,6 +48,16 @@ public partial class NpcLayer : Node2D
         DrawLine(center + new Vector2(0, -radius * 0.55f), center + new Vector2(0, radius * 0.55f), new Color(0.22f, 0.09f, 0.06f), 1.5f);
 
         DrawHealthBar(center, npc.Health);
+    }
+
+    private Color GetNpcColor(NpcState npc)
+    {
+        if (_npcCatalog is null || !_npcCatalog.TryGet(npc.DefinitionId, out var definition))
+        {
+            return new Color(0.78f, 0.34f, 0.22f);
+        }
+
+        return ParseHtmlColor(definition.MapColor, new Color(0.78f, 0.34f, 0.22f));
     }
 
     private void DrawHealthBar(Vector2 center, BoundedMeter health)
@@ -64,5 +78,31 @@ public partial class NpcLayer : Node2D
             (cell.X + 0.5f) * _cellSize,
             (cell.Y + 0.5f) * _cellSize
         );
+    }
+
+    private static Color ParseHtmlColor(string? value, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var hex = value.Trim().TrimStart('#');
+        if (hex.Length != 6)
+        {
+            return fallback;
+        }
+
+        try
+        {
+            var red = Convert.ToInt32(hex.Substring(0, 2), 16) / 255.0f;
+            var green = Convert.ToInt32(hex.Substring(2, 2), 16) / 255.0f;
+            var blue = Convert.ToInt32(hex.Substring(4, 2), 16) / 255.0f;
+            return new Color(red, green, blue);
+        }
+        catch (FormatException)
+        {
+            return fallback;
+        }
     }
 }

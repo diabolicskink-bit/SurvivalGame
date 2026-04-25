@@ -309,3 +309,33 @@
 - Added unequip support for legacy stack-backed equipment so equipped stack items can return to inventory.
 - Kept stack-backed action costs explicit and currently free for inspect, drop, equip, and unequip.
 - Added domain tests for stack action availability, inspection, drop quantity handling, safe drop failure, and legacy equipment unequip.
+
+## 2026-04-25 - First Overworld Travel Shell
+
+- Added a prototype overworld travel state in domain code with continuous map positions, click destinations, travel methods, fixed points of interest, vehicle fuel, and shared world-time advancement.
+- Added walking, pushbike, and vehicle prototype travel methods, with only vehicle travel consuming fuel.
+- Added domain tests for smooth travel, destination redirection, method-dependent speed, fuel consumption, fuel depletion stopping travel, non-fuel continuation, and nearby point-of-interest detection.
+- Added an overworld Godot screen with a simple map/background, travel party marker, destination line, fixed point-of-interest markers, travel method controls, time display, fuel display when relevant, messages, and Enter Site action.
+- Added a run session shell that starts New Run at the overworld, enters the existing local gameplay scene from nearby points of interest, and returns to the overworld while preserving overworld state and the existing local player/inventory/equipment/firearm state.
+- Refactored prototype local-state creation into `PrototypeSessionFactory` so the local scene can run standalone or inside the overworld/local session.
+- Kept roads, pathfinding, settlements, trading, camping, saving/loading, enemy parties, ambushes, weather, vehicle upgrades, repairs, storage, and new combat systems out of scope.
+
+## 2026-04-25 - JSON-Backed NPC Definition Foundation
+
+- Added reusable NPC definition ids, JSON-backed NPC definitions, NPC catalogs, simple behavior profiles, and an NPC definition loader.
+- Added `data/npcs/npcs.json` with the inert Test Dummy definition used by the current prototype map plus five additional prototype NPC definitions: Cautious Survivor, Wandering Scavenger, Injured Traveller, Quiet Mechanic, and Field Researcher.
+- Split runtime NPC identity from reusable definition identity so spawned NPCs can preserve instance state while pointing back to shared content data.
+- Updated prototype session creation to load NPC definitions from JSON and spawn the test dummy from its definition.
+- Updated NPC rendering and hover tooltips to use definition data such as map color, species, tags, behavior kind, and blocking state.
+- Added domain tests for NPC definition creation, JSON loading, catalog duplicate validation, runtime definition linkage, and state creation from definitions.
+- Kept active NPC AI, decision planning, perception, memory, factions, dialogue, schedules, melee combat, hostile combat, and pathfinding out of scope.
+
+## 2026-04-25 - Route 18 Gas Station Site
+
+- Added Route 18 Gas Station as a fixed overworld point of interest that routes to a dedicated local site.
+- Added a hand-authored 40x28 gas station local map with asphalt forecourt, concrete pump island and parking area, tiled store interior, back room/staff area, restroom corner, perimeter grass, and blocked scenery objects.
+- Added asphalt surface data plus gas station world object definitions for fuel pumps, canopy posts, signage, glass doors, counters, shelves, restroom fixtures, trash bins, bollards, and abandoned vehicles.
+- Updated local site/session creation so the default prototype site and gas station keep separate map/object/NPC/ground-stack state while sharing world time, player inventory, equipment, stateful items, firearm/feed state, and vehicle fuel.
+- Added a prototype Refuel Vehicle action that appears next to a fuel pump when vehicle fuel is below capacity, restores fuel to 15.0, and advances world time by 100 ticks.
+- Added tests for gas station map content, surface/object loading, object collision, site-scoped stateful ground items, and refuel action availability/resolution.
+- Kept finite station fuel reserves, payment, fuel cans, pump power, trading, loot, repairs, NPC spawning, saving/loading, and procedural generation out of scope.

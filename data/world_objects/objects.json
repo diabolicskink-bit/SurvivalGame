@@ -101,5 +101,105 @@
     "blocksMovement": true,
     "blocksSight": true,
     "mapColor": "#777d80"
+  },
+  {
+    "id": "fuel_pump",
+    "name": "Fuel pump",
+    "description": "A battered pump with enough working fuel for the prototype refuel action.",
+    "category": "Service Station",
+    "tags": ["fuel", "pump", "refuel_source"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#c45a3f"
+  },
+  {
+    "id": "gas_station_canopy_post",
+    "name": "Canopy post",
+    "description": "A steel post holding up the pump canopy.",
+    "category": "Structure",
+    "tags": ["built", "support", "fuel_station"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8d9494"
+  },
+  {
+    "id": "gas_station_sign",
+    "name": "Gas station sign",
+    "description": "A faded roadside price sign. Prices and trading are not implemented.",
+    "category": "Structure",
+    "tags": ["built", "sign", "fuel_station"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#d8bd50"
+  },
+  {
+    "id": "glass_door",
+    "name": "Glass door",
+    "description": "A shopfront glass door left passable for this prototype.",
+    "category": "Structure",
+    "tags": ["built", "door", "glass"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#84b8c8"
+  },
+  {
+    "id": "checkout_counter",
+    "name": "Checkout counter",
+    "description": "A counter with an empty register and dusty display trays.",
+    "category": "Furniture",
+    "tags": ["furniture", "counter", "store"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#9a744a"
+  },
+  {
+    "id": "store_shelf",
+    "name": "Store shelf",
+    "description": "A convenience-store shelf. Looting shelf contents is not implemented.",
+    "category": "Furniture",
+    "tags": ["furniture", "shelf", "store", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8a6544"
+  },
+  {
+    "id": "restroom_fixture",
+    "name": "Restroom fixture",
+    "description": "A grimy restroom fixture. Using plumbing is not implemented.",
+    "category": "Fixture",
+    "tags": ["fixture", "restroom"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b7c6c8"
+  },
+  {
+    "id": "trash_bin",
+    "name": "Trash bin",
+    "description": "A metal trash bin. Searching containers is not implemented.",
+    "category": "Container",
+    "tags": ["container_candidate", "trash"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#5b6668"
+  },
+  {
+    "id": "parking_bollard",
+    "name": "Parking bollard",
+    "description": "A short concrete bollard protecting the storefront.",
+    "category": "Structure",
+    "tags": ["built", "barrier", "parking"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#c7b47a"
+  },
+  {
+    "id": "abandoned_vehicle",
+    "name": "Abandoned vehicle",
+    "description": "A dead vehicle blocking part of the lot. Repairs and vehicle salvage are not implemented.",
+    "category": "Vehicle",
+    "tags": ["vehicle", "wreck", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#59636f"
   }
 ]

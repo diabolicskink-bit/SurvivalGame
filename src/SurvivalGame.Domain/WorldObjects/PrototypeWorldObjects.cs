@@ -12,4 +12,14 @@ public static class PrototypeWorldObjects
     public static readonly WorldObjectId Bed = new("bed");
     public static readonly WorldObjectId StorageCrate = new("storage_crate");
     public static readonly WorldObjectId Boulder = new("boulder");
+    public static readonly WorldObjectId FuelPump = new("fuel_pump");
+    public static readonly WorldObjectId GasStationCanopyPost = new("gas_station_canopy_post");
+    public static readonly WorldObjectId GasStationSign = new("gas_station_sign");
+    public static readonly WorldObjectId GlassDoor = new("glass_door");
+    public static readonly WorldObjectId CheckoutCounter = new("checkout_counter");
+    public static readonly WorldObjectId StoreShelf = new("store_shelf");
+    public static readonly WorldObjectId RestroomFixture = new("restroom_fixture");
+    public static readonly WorldObjectId TrashBin = new("trash_bin");
+    public static readonly WorldObjectId ParkingBollard = new("parking_bollard");
+    public static readonly WorldObjectId AbandonedVehicle = new("abandoned_vehicle");
 }

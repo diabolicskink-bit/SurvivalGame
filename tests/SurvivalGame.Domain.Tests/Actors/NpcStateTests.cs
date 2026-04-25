@@ -17,10 +17,12 @@ public sealed class NpcStateTests
         );
 
         Assert.Equal(PrototypeNpcs.TestDummy, npc.Id);
+        Assert.Equal(new NpcDefinitionId(PrototypeNpcs.TestDummy.Value), npc.DefinitionId);
         Assert.Equal("Test Dummy", npc.Name);
         Assert.Equal(new GridPosition(2, 3), npc.Position);
         Assert.Equal(200, npc.Health.Current);
         Assert.Equal(200, npc.Health.Maximum);
+        Assert.True(npc.BlocksMovement);
     }
 
     [Fact]
@@ -70,5 +72,29 @@ public sealed class NpcStateTests
         Assert.Equal(155, secondDamage);
         Assert.Equal(0, npc.Health.Current);
         Assert.True(npc.IsDisabled);
+    }
+
+    [Fact]
+    public void NpcDefinitionCreatesRuntimeState()
+    {
+        var definition = new NpcDefinition(
+            PrototypeNpcs.TestDummyDefinition,
+            "Test Dummy",
+            "Stationary target.",
+            "Training Dummy",
+            maximumHealth: 200,
+            tags: new[] { "prototype", "target" },
+            blocksMovement: false,
+            behavior: new NpcBehaviorProfile(NpcBehaviorKind.Inert)
+        );
+
+        var npc = definition.CreateState(PrototypeNpcs.TestDummy, new GridPosition(4, 5));
+
+        Assert.Equal(PrototypeNpcs.TestDummy, npc.Id);
+        Assert.Equal(PrototypeNpcs.TestDummyDefinition, npc.DefinitionId);
+        Assert.Equal("Test Dummy", npc.Name);
+        Assert.Equal(new GridPosition(4, 5), npc.Position);
+        Assert.Equal(200, npc.Health.Current);
+        Assert.False(npc.BlocksMovement);
     }
 }
