@@ -16,6 +16,7 @@ public partial class GameShell : Control
     private static readonly GridBounds MapBounds = new(19, 13);
 
     private ItemCatalog _itemCatalog = null!;
+    private FirearmCatalog _firearmCatalog = null!;
     private TileSurfaceCatalog _surfaceCatalog = null!;
     private WorldObjectCatalog _worldObjectCatalog = null!;
     private GameActionPipeline _actionPipeline = null!;
@@ -27,8 +28,11 @@ public partial class GameShell : Control
     private Node2D _playerMarker = null!;
     private PlayerController _playerController = null!;
     private PanelContainer _sidePanel = null!;
+    private PanelContainer _logPanel = null!;
     private ActionPanel _actionPanel = null!;
     private PlayerStatusPanel _statusPanel = null!;
+    private EquipmentPanel _equipmentPanel = null!;
+    private FirearmPanel _firearmPanel = null!;
     private InventoryPanel _inventoryPanel = null!;
     private ItemTooltip _itemTooltip = null!;
     private MessageLog _messageLog = null!;
@@ -49,9 +53,10 @@ public partial class GameShell : Control
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
         _itemCatalog = LoadItemCatalog();
+        _firearmCatalog = LoadFirearmCatalog();
         _surfaceCatalog = LoadSurfaceCatalog();
         _worldObjectCatalog = LoadWorldObjectCatalog();
-        _actionPipeline = new GameActionPipeline(_itemCatalog, _worldObjectCatalog);
+        _actionPipeline = new GameActionPipeline(_itemCatalog, _worldObjectCatalog, _firearmCatalog);
         _gameState = new PrototypeGameState(
             MapBounds,
             CreatePrototypeGroundItems(),
@@ -63,7 +68,7 @@ public partial class GameShell : Control
 
         _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
         _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-        _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize);
+        _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
         _playerController.MoveRequested += OnMoveRequested;
         UpdatePlayerMarker();
 
@@ -123,12 +128,15 @@ public partial class GameShell : Control
         _sidePanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
         uiLayer.AddChild(_sidePanel);
 
+        var scroll = new ScrollContainer();
+        _sidePanel.AddChild(scroll);
+
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left", 18);
         margin.AddThemeConstantOverride("margin_top", 16);
         margin.AddThemeConstantOverride("margin_right", 18);
         margin.AddThemeConstantOverride("margin_bottom", 16);
-        _sidePanel.AddChild(margin);
+        scroll.AddChild(margin);
 
         var stack = new VBoxContainer();
         stack.AddThemeConstantOverride("separation", 8);
@@ -168,6 +176,26 @@ public partial class GameShell : Control
 
         stack.AddChild(new HSeparator());
 
+        stack.AddChild(CreateSectionTitle("Equipment"));
+
+        _equipmentPanel = new EquipmentPanel
+        {
+            Name = "EquipmentPanel"
+        };
+        stack.AddChild(_equipmentPanel);
+
+        stack.AddChild(new HSeparator());
+
+        stack.AddChild(CreateSectionTitle("Firearms"));
+
+        _firearmPanel = new FirearmPanel
+        {
+            Name = "FirearmPanel"
+        };
+        stack.AddChild(_firearmPanel);
+
+        stack.AddChild(new HSeparator());
+
         stack.AddChild(CreateSectionTitle("Inventory"));
 
         _inventoryPanel = new InventoryPanel
@@ -176,15 +204,35 @@ public partial class GameShell : Control
         };
         stack.AddChild(_inventoryPanel);
 
-        stack.AddChild(new HSeparator());
+        _logPanel = new PanelContainer
+        {
+            Name = "LogPanel",
+            AnchorLeft = 0.0f,
+            AnchorTop = 0.0f,
+            AnchorRight = 0.0f,
+            AnchorBottom = 0.0f
+        };
+        _logPanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        uiLayer.AddChild(_logPanel);
 
-        stack.AddChild(CreateSectionTitle("Log"));
+        var logMargin = new MarginContainer();
+        logMargin.AddThemeConstantOverride("margin_left", 18);
+        logMargin.AddThemeConstantOverride("margin_top", 14);
+        logMargin.AddThemeConstantOverride("margin_right", 18);
+        logMargin.AddThemeConstantOverride("margin_bottom", 14);
+        _logPanel.AddChild(logMargin);
+
+        var logStack = new VBoxContainer();
+        logStack.AddThemeConstantOverride("separation", 8);
+        logMargin.AddChild(logStack);
+
+        logStack.AddChild(CreateSectionTitle("Log"));
 
         _messageLog = new MessageLog
         {
             Name = "MessageLog"
         };
-        stack.AddChild(_messageLog);
+        logStack.AddChild(_messageLog);
 
         _itemTooltip = new ItemTooltip
         {
@@ -238,7 +286,9 @@ public partial class GameShell : Control
         _surfaceLabel.Text = $"Surface: {GetSurfaceAt(position).Name}";
         _actionPanel.Display(_actionPipeline.GetAvailableActions(_gameState));
         _statusPanel.Display(_gameState.Player.Vitals);
-        _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog);
+        _equipmentPanel.Display(_gameState.Player.Equipment, _itemCatalog, _gameState.StatefulItems);
+        _firearmPanel.Display(_gameState.Player, _firearmCatalog, _gameState.StatefulItems);
+        _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog, _gameState.StatefulItems);
     }
 
     private void AddPrototypeStartingItems()
@@ -246,7 +296,58 @@ public partial class GameShell : Control
         _gameState.Player.Inventory.Add(PrototypeItems.Stone, 3);
         _gameState.Player.Inventory.Add(PrototypeItems.Branch, 2);
         _gameState.Player.Inventory.Add(PrototypeItems.WaterBottle);
-        _gameState.Player.Inventory.Add(PrototypeItems.Ak47);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 35);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmHollowPoint, 20);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo762x39Standard, 60);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo308Standard, 20);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeBuckshot, 20);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeSlug, 10);
+        _gameState.Player.Inventory.Add(PrototypeFirearms.Ammo22LrStandard, 100);
+        AddPrototypeStatefulItems();
+    }
+
+    private void AddPrototypeStatefulItems()
+    {
+        _gameState.StatefulItems.Create(PrototypeFirearms.Pistol9mm, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeItems.Ak47, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeItems.HuntingRifle, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeFirearms.Shotgun12Gauge, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeFirearms.Rifle22, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+
+        var loadedMagazine = _gameState.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            _firearmCatalog
+        );
+        loadedMagazine.FeedDevice?.Load(_firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 15);
+
+        _gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmExtended, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeFirearms.MagazineAk30Round, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+        _gameState.StatefulItems.Create(PrototypeFirearms.MagazineAkDamaged20Round, 1, StatefulItemLocation.PlayerInventory(), _firearmCatalog);
+
+        var droppedMagazine = _gameState.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Ground(new GridPosition(11, 7)),
+            _firearmCatalog
+        );
+        droppedMagazine.FeedDevice?.Load(_firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmHollowPoint), 8);
+
+        var backpack = _gameState.StatefulItems.Create(
+            new ItemId("school_backpack"),
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            _firearmCatalog
+        );
+        var food = _gameState.StatefulItems.Create(
+            new ItemId("canned_beans"),
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            _firearmCatalog
+        );
+        _gameState.StatefulItems.MoveToContained(food.Id, backpack.Id);
     }
 
     private static TileItemMap CreatePrototypeGroundItems()
@@ -257,6 +358,8 @@ public partial class GameShell : Control
         itemMap.Place(new GridPosition(7, 9), PrototypeItems.Branch, 3);
         itemMap.Place(new GridPosition(13, 5), PrototypeItems.WaterBottle);
         itemMap.Place(new GridPosition(16, 10), PrototypeItems.Ak47);
+        itemMap.Place(new GridPosition(8, 7), PrototypeItems.BaseballCap);
+        itemMap.Place(new GridPosition(10, 7), PrototypeItems.RunningShoes);
 
         return itemMap;
     }
@@ -323,6 +426,12 @@ public partial class GameShell : Control
         return new ItemDefinitionLoader().LoadDirectory(dataPath);
     }
 
+    private static FirearmCatalog LoadFirearmCatalog()
+    {
+        var dataPath = ProjectSettings.GlobalizePath("res://data/firearms");
+        return new FirearmDefinitionLoader().LoadDirectory(dataPath);
+    }
+
     private static TileSurfaceCatalog LoadSurfaceCatalog()
     {
         var dataPath = ProjectSettings.GlobalizePath("res://data/surfaces");
@@ -345,6 +454,7 @@ public partial class GameShell : Control
         }
 
         var itemStacks = _gameState.World.GroundItems.ItemsAt(hoveredPosition.Value);
+        var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
 
@@ -356,7 +466,7 @@ public partial class GameShell : Control
         }
 
         _visibleTooltipPosition = hoveredPosition;
-        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, itemStacks, _itemCatalog, cursorPosition);
+        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, itemStacks, statefulItems, _itemCatalog, cursorPosition);
     }
 
     private TileSurfaceDefinition GetSurfaceAt(GridPosition position)
@@ -412,7 +522,7 @@ public partial class GameShell : Control
             _cellSize = nextCellSize;
             _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
             _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-            _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize);
+            _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
             UpdatePlayerMarker();
         }
 
@@ -423,6 +533,13 @@ public partial class GameShell : Control
         _sidePanel.OffsetTop = LayoutMargin;
         _sidePanel.OffsetRight = -LayoutMargin;
         _sidePanel.OffsetBottom = Mathf.Max(460.0f, viewportSize.Y - LayoutMargin);
+
+        var boardPixelSize = new Vector2(MapBounds.Width * _cellSize, MapBounds.Height * _cellSize);
+        var logTop = _board.Position.Y + boardPixelSize.Y + 14.0f;
+        _logPanel.OffsetLeft = _board.Position.X;
+        _logPanel.OffsetTop = logTop;
+        _logPanel.OffsetRight = _board.Position.X + boardPixelSize.X;
+        _logPanel.OffsetBottom = Mathf.Max(logTop + 128.0f, viewportSize.Y - LayoutMargin);
     }
 
     private void UpdatePlayerMarker()
@@ -430,9 +547,9 @@ public partial class GameShell : Control
         _playerMarker.Position = CellToBoardPosition(_gameState.Player.Position);
     }
 
-    private void OnActionSelected(GameActionKind actionKind)
+    private void OnActionSelected(AvailableAction action)
     {
-        GameActionRequest? request = actionKind switch
+        GameActionRequest? request = action.Request ?? action.Kind switch
         {
             GameActionKind.Wait => new WaitActionRequest(),
             GameActionKind.Pickup => new PickupActionRequest(),

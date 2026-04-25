@@ -10,7 +10,7 @@ public partial class InventoryPanel : VBoxContainer
         AddThemeConstantOverride("separation", 4);
     }
 
-    public void Display(PlayerInventory inventory, ItemCatalog itemCatalog)
+    public void Display(PlayerInventory inventory, ItemCatalog itemCatalog, StatefulItemStore statefulItems)
     {
         foreach (var child in GetChildren())
         {
@@ -18,7 +18,8 @@ public partial class InventoryPanel : VBoxContainer
             child.QueueFree();
         }
 
-        if (inventory.IsEmpty)
+        var statefulInventoryItems = statefulItems.InPlayerInventory();
+        if (inventory.IsEmpty && statefulInventoryItems.Count == 0)
         {
             AddChild(CreateItemLabel("Empty", muted: true));
             return;
@@ -27,6 +28,11 @@ public partial class InventoryPanel : VBoxContainer
         foreach (var stack in inventory.Items)
         {
             AddChild(CreateItemLabel(FormatItemStack(stack, itemCatalog)));
+        }
+
+        foreach (var item in statefulInventoryItems)
+        {
+            AddChild(CreateItemLabel(FormatStatefulItem(item, itemCatalog)));
         }
     }
 
@@ -39,6 +45,25 @@ public partial class InventoryPanel : VBoxContainer
         }
 
         return $"{itemName} x{stack.Quantity}";
+    }
+
+    private static string FormatStatefulItem(StatefulItem item, ItemCatalog itemCatalog)
+    {
+        var itemName = item.ItemId.ToString();
+        if (itemCatalog.TryGet(item.ItemId, out var definition))
+        {
+            itemName = definition.DisplayName;
+        }
+
+        if (item.FeedDevice is not null)
+        {
+            var loadedText = item.FeedDevice.LoadedAmmunitionVariant is null
+                ? $"0/{item.FeedDevice.Capacity}"
+                : $"{item.FeedDevice.LoadedCount}/{item.FeedDevice.Capacity} {item.FeedDevice.LoadedAmmunitionVariant}";
+            return $"{itemName} [{item.Id}] - {loadedText}";
+        }
+
+        return $"{itemName} [{item.Id}]";
     }
 
     private static Label CreateItemLabel(string text, bool muted = false)

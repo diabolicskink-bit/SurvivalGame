@@ -32,6 +32,27 @@
 - Read-only gameplay UI section showing the player's tracked vitals.
 - Domain-level player equipment loadout with slots for main hand, off hand, head, body, legs, feet, and back.
 - Equipment slot definitions validate accepted `ItemTypePath` values.
+- Prototype equippable item definitions for each current equipment slot.
+- Clickable Equip action for held items that match an empty equipment slot.
+- Equipping transfers one item from inventory into the chosen empty slot and does not advance the turn.
+- Read-only gameplay UI section showing every equipment slot, including empty slots.
+- Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
+- Domain-level firearm, ammunition, and feed-device definitions loaded from JSON under `data/firearms/`.
+- Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
+- Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
+- Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, AK 30-round magazine, and AK damaged 20-round magazine.
+- Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
+- Clickable prototype actions for loading/unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round.
+- Read-only firearm UI section showing weapon/feed loaded state.
+- Starting inventory includes firearm, ammunition, and feed-device examples for manual testing.
+- First-pass stateful item model for specific items that need identity.
+- Stateful items have stable runtime ids, item definition ids, quantity, condition, location, optional contained items, and optional firearm/feed state.
+- Stateful item locations currently include player inventory, equipment, ground, inserted into another item, and contained inside another item.
+- Stateful item pickup, drop, inspect, equip, and unequip actions go through the domain action pipeline.
+- Stateful firearm/feed actions support loading ammunition into specific feed devices, unloading them, inserting/removing them from specific weapons, loading built-in feeds, and test firing one round.
+- Loaded state is preserved when a stateful magazine is inserted, removed, dropped, picked back up, or inspected.
+- The prototype starts with specific stateful weapons, magazines, and a backpack-with-contents example for manual testing.
+- Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
 - Ten common world objects: wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, and boulder.
 - Prototype world object placement on the map with simple rendering.
@@ -46,11 +67,18 @@
 - Damage, healing, death, or health effects.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
 - Surface-driven movement effects such as sliding on ice.
-- Item drop, use, equip, or inspect actions.
-- Equip and unequip actions.
-- Equipment UI.
+- Generic item use actions.
+- Equipment replacement actions.
 - Equipment item effects or stat modifiers.
-- Item effects, durability, damage, ammo, or behavior.
+- Full combat, damage, accuracy, recoil, sound propagation, jamming, durability, weapon condition, or ballistics.
+- Mixed ammunition inside a single feed device; unload before switching ammunition variants.
+- Full migration of all inventory content to stateful items; simple identical content still uses stack counts.
+- Full container UI or transfer actions for placing items into/taking items out of containers.
+- Full item condition mechanics, durability loss, repair, spoilage, or degradation.
+- Stateful item save/load persistence.
+- Item drop/use/inspect flows for simple stack inventory entries.
+- Unequip actions for legacy stack-backed equipment entries.
+- Item effects or equipment stat modifiers.
 - Inventory weight, capacity, containers, or equipment containers.
 - Hunger, thirst, fatigue, or other survival meters.
 - Enemies, NPCs, or combat.

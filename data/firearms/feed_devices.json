@@ -1,0 +1,34 @@
+[
+  {
+    "itemId": "magazine_9mm_standard",
+    "name": "9mm standard pistol magazine",
+    "kind": "DetachableMagazine",
+    "ammoSize": "9mm",
+    "capacity": 15,
+    "compatibleWeaponFamilies": ["9mm_pistol"]
+  },
+  {
+    "itemId": "magazine_9mm_extended",
+    "name": "9mm extended pistol magazine",
+    "kind": "DetachableMagazine",
+    "ammoSize": "9mm",
+    "capacity": 24,
+    "compatibleWeaponFamilies": ["9mm_pistol"]
+  },
+  {
+    "itemId": "magazine_ak_30_round",
+    "name": "AK 30-round magazine",
+    "kind": "DetachableMagazine",
+    "ammoSize": "7.62x39mm",
+    "capacity": 30,
+    "compatibleWeaponFamilies": ["ak_rifle"]
+  },
+  {
+    "itemId": "magazine_ak_damaged_20_round",
+    "name": "AK damaged 20-round magazine",
+    "kind": "DetachableMagazine",
+    "ammoSize": "7.62x39mm",
+    "capacity": 20,
+    "compatibleWeaponFamilies": ["ak_rifle"]
+  }
+]

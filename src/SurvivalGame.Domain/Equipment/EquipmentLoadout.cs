@@ -23,6 +23,8 @@ public sealed class EquipmentLoadout
 
     public IReadOnlyCollection<EquipmentSlotDefinition> Slots => SlotCatalog.Slots;
 
+    public IReadOnlyCollection<EquippedItemRef> EquippedItems => _equippedItems.Values.ToArray();
+
     public static EquipmentLoadout CreateDefault()
     {
         return new EquipmentLoadout(EquipmentSlotCatalog.CreateDefault());
@@ -53,6 +55,12 @@ public sealed class EquipmentLoadout
         _validator.ValidateCanOccupy(slot, item);
 
         _equippedItems[slotId] = item;
+    }
+
+    public bool ContainsItem(ItemId itemId)
+    {
+        ArgumentNullException.ThrowIfNull(itemId);
+        return _equippedItems.Values.Any(item => item.ItemId == itemId);
     }
 
     private void EnsureSlotExists(EquipmentSlotId slotId)

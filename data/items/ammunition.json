@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ammo_9mm_standard",
+    "name": "9mm standard rounds",
+    "description": "Standard 9mm pistol cartridges.",
+    "category": "Ammunition",
+    "tags": ["9mm", "Standard"],
+    "maxStackSize": 50,
+    "weight": 0.012,
+    "iconId": "ammo_9mm_standard",
+    "spriteId": "item_ammo_9mm_standard",
+    "actions": []
+  },
+  {
+    "id": "ammo_9mm_hollow_point",
+    "name": "9mm hollow point rounds",
+    "description": "9mm hollow point cartridges.",
+    "category": "Ammunition",
+    "tags": ["9mm", "HollowPoint"],
+    "maxStackSize": 50,
+    "weight": 0.012,
+    "iconId": "ammo_9mm_hollow_point",
+    "spriteId": "item_ammo_9mm_hollow_point",
+    "actions": []
+  },
+  {
+    "id": "ammo_762x39_standard",
+    "name": "7.62x39mm standard rounds",
+    "description": "Standard intermediate rifle cartridges.",
+    "category": "Ammunition",
+    "tags": ["7.62x39mm", "Standard"],
+    "maxStackSize": 40,
+    "weight": 0.016,
+    "iconId": "ammo_762x39_standard",
+    "spriteId": "item_ammo_762x39_standard",
+    "actions": []
+  },
+  {
+    "id": "ammo_308_standard",
+    "name": ".308 standard rounds",
+    "description": "Full-power .308 rifle cartridges.",
+    "category": "Ammunition",
+    "tags": [".308", "Standard"],
+    "maxStackSize": 20,
+    "weight": 0.024,
+    "iconId": "ammo_308_standard",
+    "spriteId": "item_ammo_308_standard",
+    "actions": []
+  },
+  {
+    "id": "ammo_12_gauge_buckshot",
+    "name": "12 gauge buckshot shells",
+    "description": "12 gauge shells loaded with buckshot.",
+    "category": "Ammunition",
+    "tags": ["12Gauge", "Buckshot"],
+    "maxStackSize": 25,
+    "weight": 0.045,
+    "iconId": "ammo_12_gauge_buckshot",
+    "spriteId": "item_ammo_12_gauge_buckshot",
+    "actions": []
+  },
+  {
+    "id": "ammo_12_gauge_slug",
+    "name": "12 gauge slug shells",
+    "description": "12 gauge shells loaded with single slugs.",
+    "category": "Ammunition",
+    "tags": ["12Gauge", "Slug"],
+    "maxStackSize": 25,
+    "weight": 0.046,
+    "iconId": "ammo_12_gauge_slug",
+    "spriteId": "item_ammo_12_gauge_slug",
+    "actions": []
+  },
+  {
+    "id": "ammo_22lr_standard",
+    "name": ".22 LR rounds",
+    "description": "Small rimfire cartridges for .22 LR firearms.",
+    "category": "Ammunition",
+    "tags": [".22LR", "Standard"],
+    "maxStackSize": 100,
+    "weight": 0.004,
+    "iconId": "ammo_22lr_standard",
+    "spriteId": "item_ammo_22lr_standard",
+    "actions": []
+  }
+]

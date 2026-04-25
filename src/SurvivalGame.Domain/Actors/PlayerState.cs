@@ -18,6 +18,8 @@ public sealed class PlayerState
 
     public EquipmentLoadout Equipment { get; } = EquipmentLoadout.CreateDefault();
 
+    public PlayerFirearmState Firearms { get; } = new();
+
     public PlayerVitals Vitals { get; } = new();
 
     public void SetPosition(GridPosition position)

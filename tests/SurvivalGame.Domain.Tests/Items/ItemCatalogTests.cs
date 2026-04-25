@@ -57,6 +57,39 @@ public sealed class ItemCatalogTests
         Assert.True(bandage.AllowsAction("apply_to_wound"));
     }
 
+    [Theory]
+    [InlineData("kitchen_knife", "Kitchen knife", "Weapon", "Weapon|Melee|Blade|Knife")]
+    [InlineData("hunting_rifle", "Hunting rifle", "Weapon", "Weapon|Gun|Rifle|HuntingRifle")]
+    [InlineData("flashlight", "Flashlight", "Tool", "Tool|Light|Flashlight")]
+    [InlineData("pot_lid", "Pot lid", "Armor", "Armor|Shield|Improvised|PotLid")]
+    [InlineData("baseball_cap", "Baseball cap", "Clothing", "Clothing|Head|Cap|BaseballCap")]
+    [InlineData("motorcycle_helmet", "Motorcycle helmet", "Armor", "Armor|Head|Helmet|MotorcycleHelmet")]
+    [InlineData("hoodie", "Hoodie", "Clothing", "Clothing|Body|Jacket|Hoodie")]
+    [InlineData("leather_jacket", "Leather jacket", "Armor", "Armor|Body|Jacket|LeatherJacket")]
+    [InlineData("work_jeans", "Work jeans", "Clothing", "Clothing|Legs|Pants|WorkJeans")]
+    [InlineData("cargo_pants", "Cargo pants", "Clothing", "Clothing|Legs|Pants|CargoPants")]
+    [InlineData("running_shoes", "Running shoes", "Clothing", "Clothing|Feet|Shoes|RunningShoes")]
+    [InlineData("work_boots", "Work boots", "Clothing", "Clothing|Feet|Boots|WorkBoots")]
+    [InlineData("school_backpack", "School backpack", "Container", "Container|Back|Backpack|SchoolBackpack")]
+    [InlineData("hiking_pack", "Hiking pack", "Container", "Container|Back|Backpack|HikingPack")]
+    public void ItemDataLoadsPrototypeEquipmentDefinitions(
+        string id,
+        string expectedName,
+        string expectedCategory,
+        string expectedTypePath)
+    {
+        var catalog = LoadItemCatalog();
+        var expectedTypeSegments = expectedTypePath.Split('|');
+
+        var item = catalog.Get(new ItemId(id));
+
+        Assert.Equal(expectedName, item.Name);
+        Assert.Equal(expectedCategory, item.Category);
+        Assert.True(item.TypePath.IsA(new ItemTypePath(expectedTypeSegments)));
+        Assert.True(item.AllowsAction("equip"));
+        Assert.Equal(1, item.MaxStackSize);
+    }
+
     [Fact]
     public void CatalogRejectsDuplicateItemIds()
     {

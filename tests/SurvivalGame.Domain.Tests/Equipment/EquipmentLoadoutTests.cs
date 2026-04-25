@@ -62,7 +62,24 @@ public sealed class EquipmentLoadoutTests
 
         Assert.True(mainHand.Accepts(new ItemTypePath("Weapon", "Gun", "Rifle")));
         Assert.True(head.Accepts(new ItemTypePath("Clothing", "Head", "Helmet")));
+        Assert.True(head.Accepts(new ItemTypePath("Armor", "Head", "Helmet")));
         Assert.False(head.Accepts(new ItemTypePath("Clothing", "Feet", "Boots")));
+    }
+
+    [Fact]
+    public void SlotDefinitionsAcceptPrototypeEquipmentItemTypes()
+    {
+        var catalog = EquipmentSlotCatalog.CreateDefault();
+
+        Assert.True(catalog.Get(EquipmentSlotId.MainHand).Accepts(new ItemTypePath("Weapon", "Melee", "Blade", "Knife")));
+        Assert.True(catalog.Get(EquipmentSlotId.MainHand).Accepts(new ItemTypePath("Weapon", "Gun", "Rifle", "HuntingRifle")));
+        Assert.True(catalog.Get(EquipmentSlotId.OffHand).Accepts(new ItemTypePath("Tool", "Light", "Flashlight")));
+        Assert.True(catalog.Get(EquipmentSlotId.OffHand).Accepts(new ItemTypePath("Armor", "Shield", "Improvised", "PotLid")));
+        Assert.True(catalog.Get(EquipmentSlotId.Head).Accepts(new ItemTypePath("Clothing", "Head", "Cap", "BaseballCap")));
+        Assert.True(catalog.Get(EquipmentSlotId.Body).Accepts(new ItemTypePath("Armor", "Body", "Jacket", "LeatherJacket")));
+        Assert.True(catalog.Get(EquipmentSlotId.Legs).Accepts(new ItemTypePath("Clothing", "Legs", "Pants", "CargoPants")));
+        Assert.True(catalog.Get(EquipmentSlotId.Feet).Accepts(new ItemTypePath("Clothing", "Feet", "Boots", "WorkBoots")));
+        Assert.True(catalog.Get(EquipmentSlotId.Back).Accepts(new ItemTypePath("Container", "Back", "Backpack", "HikingPack")));
     }
 
     [Fact]

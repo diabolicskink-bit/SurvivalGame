@@ -20,19 +20,19 @@ public sealed class EquipmentSlotCatalog
             EquipmentSlotId.OffHand,
             "Off hand",
             EquipmentSlotGroup.Hands,
-            new[] { new ItemTypePath("Weapon"), new ItemTypePath("Tool") }
+            new[] { new ItemTypePath("Weapon"), new ItemTypePath("Tool"), new ItemTypePath("Armor", "Shield") }
         ));
         catalog.Add(new EquipmentSlotDefinition(
             EquipmentSlotId.Head,
             "Head",
             EquipmentSlotGroup.Worn,
-            new[] { new ItemTypePath("Clothing", "Head") }
+            new[] { new ItemTypePath("Clothing", "Head"), new ItemTypePath("Armor", "Head") }
         ));
         catalog.Add(new EquipmentSlotDefinition(
             EquipmentSlotId.Body,
             "Body",
             EquipmentSlotGroup.Worn,
-            new[] { new ItemTypePath("Clothing", "Body") }
+            new[] { new ItemTypePath("Clothing", "Body"), new ItemTypePath("Armor", "Body") }
         ));
         catalog.Add(new EquipmentSlotDefinition(
             EquipmentSlotId.Legs,
@@ -50,7 +50,7 @@ public sealed class EquipmentSlotCatalog
             EquipmentSlotId.Back,
             "Back",
             EquipmentSlotGroup.Carried,
-            new[] { new ItemTypePath("Clothing", "Back"), new ItemTypePath("Equipment", "Back") }
+            new[] { new ItemTypePath("Clothing", "Back"), new ItemTypePath("Equipment", "Back"), new ItemTypePath("Container", "Back") }
         ));
 
         return catalog;

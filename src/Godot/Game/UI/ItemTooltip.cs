@@ -39,6 +39,7 @@ public partial class ItemTooltip : PanelContainer
         TileSurfaceDefinition surface,
         WorldObjectDefinition? worldObject,
         IReadOnlyList<GroundItemStack> itemStacks,
+        IReadOnlyList<StatefulItem> statefulItems,
         ItemCatalog itemCatalog,
         Vector2 cursorPosition
     )
@@ -92,6 +93,22 @@ public partial class ItemTooltip : PanelContainer
             }
         }
 
+        foreach (var item in statefulItems)
+        {
+            if (!hasShownItemsHeader)
+            {
+                _content.AddChild(CreateLabel("Items", 15, new Color(0.63f, 0.72f, 0.68f)));
+                hasShownItemsHeader = true;
+            }
+
+            _content.AddChild(CreateLabel(FormatStatefulItem(item, itemCatalog), 17, new Color(0.9f, 0.93f, 0.86f)));
+
+            if (itemCatalog.TryGet(item.ItemId, out var definition) && !string.IsNullOrWhiteSpace(definition.Description))
+            {
+                _content.AddChild(CreateLabel(definition.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
+            }
+        }
+
         Position = cursorPosition + new Vector2(OffsetFromCursor, OffsetFromCursor);
         Visible = true;
     }
@@ -124,6 +141,26 @@ public partial class ItemTooltip : PanelContainer
         }
 
         return stack.Quantity == 1 ? itemName : $"{itemName} x{stack.Quantity}";
+    }
+
+    private static string FormatStatefulItem(StatefulItem item, ItemCatalog itemCatalog)
+    {
+        var itemName = item.ItemId.ToString();
+        if (itemCatalog.TryGet(item.ItemId, out var definition))
+        {
+            itemName = definition.Name;
+        }
+
+        if (item.FeedDevice is not null)
+        {
+            var loadedText = item.FeedDevice.LoadedAmmunitionVariant is null
+                ? $"0/{item.FeedDevice.Capacity}"
+                : $"{item.FeedDevice.LoadedCount}/{item.FeedDevice.Capacity} {item.FeedDevice.LoadedAmmunitionVariant}";
+
+            return $"{itemName} [{item.Id}] - {loadedText}";
+        }
+
+        return $"{itemName} [{item.Id}]";
     }
 
     private static Label CreateLabel(string text, int fontSize, Color color)

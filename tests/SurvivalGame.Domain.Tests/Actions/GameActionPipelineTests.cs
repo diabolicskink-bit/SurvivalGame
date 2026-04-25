@@ -43,6 +43,32 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void EquipIsAvailableForHeldEquipableItemsWithMatchingEmptySlots()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.BaseballCap);
+        state.Player.Inventory.Add(PrototypeItems.RunningShoes);
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.Contains(actions, action => action.Kind == GameActionKind.EquipItem && action.Label == "Equip Baseball cap (Head)");
+        Assert.Contains(actions, action => action.Kind == GameActionKind.EquipItem && action.Label == "Equip Running shoes (Feet)");
+    }
+
+    [Fact]
+    public void EquipIsNotAvailableForItemsThatDoNotAllowEquip()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.Stone);
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.DoesNotContain(actions, action => action.Kind == GameActionKind.EquipItem && action.Label.Contains("Stone"));
+    }
+
+    [Fact]
     public void WaitAdvancesTurn()
     {
         var pipeline = CreatePipeline();
@@ -145,11 +171,132 @@ public sealed class GameActionPipelineTests
         Assert.Equal(0, state.Turn.CurrentTurn);
     }
 
+    [Fact]
+    public void EquipMovesItemFromInventoryToSlotWithoutAdvancingTurn()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.BaseballCap);
+
+        var result = pipeline.Execute(
+            state,
+            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
+        Assert.True(state.Player.Equipment.TryGetEquippedItem(EquipmentSlotId.Head, out var equippedItem));
+        Assert.Equal(PrototypeItems.BaseballCap, equippedItem.ItemId);
+        Assert.Contains("Equipped Baseball cap to Head.", result.Messages);
+    }
+
+    [Fact]
+    public void EquipFailsWithoutAdvancingTurnWhenItemIsNotHeld()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+
+        var result = pipeline.Execute(
+            state,
+            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
+    }
+
+    [Fact]
+    public void EquipFailsWithoutRemovingItemWhenSlotRejectsType()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.RunningShoes);
+
+        var result = pipeline.Execute(
+            state,
+            new EquipItemActionRequest(PrototypeItems.RunningShoes, EquipmentSlotId.Head)
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.RunningShoes));
+        Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
+    }
+
+    [Fact]
+    public void EquipFailsWithoutAdvancingTurnWhenSlotDoesNotExist()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.BaseballCap);
+
+        var result = pipeline.Execute(
+            state,
+            new EquipItemActionRequest(PrototypeItems.BaseballCap, new EquipmentSlotId("Tail"))
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
+        Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
+    }
+
+    [Fact]
+    public void EquipFailsWithoutRemovingItemWhenSlotIsOccupied()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.BaseballCap);
+        state.Player.Inventory.Add(new ItemId("motorcycle_helmet"));
+        state.Player.Equipment.OccupySlot(
+            EquipmentSlotId.Head,
+            new EquippedItemRef(new ItemId("motorcycle_helmet"), new ItemTypePath("Armor", "Head", "Helmet"))
+        );
+
+        var result = pipeline.Execute(
+            state,
+            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
+        Assert.True(state.Player.Equipment.TryGetEquippedItem(EquipmentSlotId.Head, out var equippedItem));
+        Assert.Equal(new ItemId("motorcycle_helmet"), equippedItem.ItemId);
+    }
+
     private static GameActionPipeline CreatePipeline(WorldObjectCatalog? worldObjectCatalog = null)
     {
         var catalog = new ItemCatalog();
         catalog.Add(new ItemDefinition(PrototypeItems.Stone, "Stone", "", "Material"));
         catalog.Add(new ItemDefinition(PrototypeItems.Branch, "Branch", "", "Material"));
+        catalog.Add(new ItemDefinition(
+            PrototypeItems.BaseballCap,
+            "Baseball cap",
+            "",
+            "Clothing",
+            new[] { "Head", "Cap", "BaseballCap" },
+            actions: new[] { "equip" }
+        ));
+        catalog.Add(new ItemDefinition(
+            PrototypeItems.RunningShoes,
+            "Running shoes",
+            "",
+            "Clothing",
+            new[] { "Feet", "Shoes", "RunningShoes" },
+            actions: new[] { "equip" }
+        ));
+        catalog.Add(new ItemDefinition(
+            new ItemId("motorcycle_helmet"),
+            "Motorcycle helmet",
+            "",
+            "Armor",
+            new[] { "Head", "Helmet", "MotorcycleHelmet" },
+            actions: new[] { "equip" }
+        ));
 
         return new GameActionPipeline(catalog, worldObjectCatalog);
     }

@@ -194,3 +194,52 @@
 - Added default slots for main hand, off hand, head, body, legs, feet, and back.
 - Added tests for default slots, empty/occupied slots, accepted type paths, and invalid type rejection.
 - Kept equip/unequip actions, inventory transfer, equipment UI, and item effects out of scope.
+
+## 2026-04-25 - Prototype Equipment Item Definitions
+
+- Added JSON item definitions for two candidate items per equipment slot.
+- Expanded equipment slot accepted type paths so armor helmets, armor jackets, off-hand shields, and back containers validate against the current slot model.
+- Added tests that load the new item definitions and check their type paths against equipment slots.
+- Kept equip/unequip actions, item effects, sprites, inventory transfer, and equipment UI out of scope.
+
+## 2026-04-25 - Basic Equip Action And Equipment UI
+
+- Added an Equip Item action request handled by the central domain action pipeline.
+- Made equip actions available only for held items with `equip` item actions that match an empty equipment slot.
+- Equipping now transfers one item from inventory into the chosen empty slot without advancing the turn.
+- Added a Godot equipment panel that displays all equipment slots, including empty slots.
+- Placed a baseball cap and running shoes on the prototype map so they can be picked up and equipped.
+- Added domain tests for equip action availability, no-turn equip resolution, invalid slot rejection, and occupied slot rejection.
+- Kept unequip, equipment replacement, item effects, stat modifiers, equipment sprites, and equipment-specific UI interactions out of scope.
+
+## 2026-04-25 - First Firearm Ammunition And Feed System
+
+- Added domain definitions and JSON loaders for firearms, ammunition, and feed devices.
+- Added example weapons for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
+- Added ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm, .308, 12 gauge buckshot, 12 gauge slug, and .22 LR.
+- Added feed devices for 9mm standard/extended pistol magazines and AK 30-round/damaged 20-round magazines.
+- Added runtime firearm state for loaded feed devices, inserted detachable magazines, and built-in weapon feeds.
+- Added action-pipeline requests for loading, unloading, inserting, removing, loading directly-fed weapons, and test firing one round.
+- Added a prototype firearm status UI and starting inventory content so the system can be manually tested in Godot.
+- Added tests for ammunition size/type compatibility, feed device capacity, inventory count changes, magazine compatibility, loaded/empty state, and test-fire round consumption.
+- Kept combat, enemies, damage, ballistics, sound propagation, recoil, jamming, durability, weapon condition, saving/loading, and advanced UI out of scope.
+
+## 2026-04-25 - Firearm Feature Hardening Review
+
+- Reviewed the firearm/ammunition/feed-device model for domain ownership, naming, mutation safety, UI clarity, and test coverage.
+- Removed unused feed-device runtime metadata that was not pulling its weight.
+- Changed firearm action availability queries so they no longer create runtime weapon or feed-device state.
+- Tightened failed firearm actions so wrong ammunition, missing ammunition, and empty test-fire attempts do not create placeholder runtime state.
+- Updated the firearm panel location text to distinguish inserted feed devices from carried feed devices using domain state.
+- Added tests for read-only action queries and failed-action mutation safety.
+- Kept the existing scope unchanged: no combat, damage, jamming, durability, recoil, accuracy, sound propagation, saving/loading, procedural generation, or crafting.
+
+## 2026-04-25 - First Stateful Item Model
+
+- Added a domain stateful item store for specific items with runtime ids, locations, optional condition, contained items, and firearm/feed state.
+- Added stateful item locations for player inventory, equipment, ground, inserted items, and contained items.
+- Added action-pipeline support for picking up, dropping, inspecting, equipping, and unequipping stateful items.
+- Extended firearm handling so specific magazines and weapons preserve loaded state when inserted, removed, dropped, picked up, equipped, inspected, and test fired.
+- Updated prototype UI panels and hover tooltips to display enough stateful item detail for manual testing.
+- Added tests for separate same-type item state, state preservation across insert/remove/drop/pickup/equip, container contents, invalid action safety, and inspection details.
+- Kept simple stack inventory for identical bulk items and avoided combat, item effects, durability mechanics, saving/loading, crafting, and advanced UI.

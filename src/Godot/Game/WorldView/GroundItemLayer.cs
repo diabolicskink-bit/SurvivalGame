@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SurvivalGame.Domain;
 
@@ -10,11 +11,13 @@ public partial class GroundItemLayer : Node2D
     private readonly Dictionary<string, Texture2D?> _spriteCache = new();
     private int _cellSize = 32;
     private TileItemMap? _itemMap;
+    private StatefulItemStore? _statefulItems;
     private ItemCatalog? _itemCatalog;
 
-    public void Configure(TileItemMap itemMap, ItemCatalog itemCatalog, int cellSize)
+    public void Configure(TileItemMap itemMap, ItemCatalog itemCatalog, int cellSize, StatefulItemStore? statefulItems = null)
     {
         _itemMap = itemMap;
+        _statefulItems = statefulItems;
         _itemCatalog = itemCatalog;
         _cellSize = cellSize;
         QueueRedraw();
@@ -30,6 +33,19 @@ public partial class GroundItemLayer : Node2D
         foreach (var placedItem in _itemMap.AllItems)
         {
             DrawItemMarker(placedItem);
+        }
+
+        if (_statefulItems is null)
+        {
+            return;
+        }
+
+        foreach (var item in _statefulItems.Items.Where(item => item.Location.Kind == StatefulItemLocationKind.Ground))
+        {
+            if (item.Location.Position is not null)
+            {
+                DrawItemMarker(new PlacedItemStack(item.Location.Position.Value, new GroundItemStack(item.ItemId, item.Quantity)));
+            }
         }
     }
 

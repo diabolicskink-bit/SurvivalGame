@@ -1,0 +1,50 @@
+[
+  {
+    "id": "magazine_9mm_standard",
+    "name": "9mm standard pistol magazine",
+    "description": "A standard 15-round magazine for a compatible 9mm pistol.",
+    "category": "FeedDevice",
+    "tags": ["DetachableMagazine", "9mm", "Pistol"],
+    "maxStackSize": 1,
+    "weight": 0.18,
+    "iconId": "magazine_9mm_standard",
+    "spriteId": "item_magazine_9mm_standard",
+    "actions": []
+  },
+  {
+    "id": "magazine_9mm_extended",
+    "name": "9mm extended pistol magazine",
+    "description": "An extended 24-round magazine for a compatible 9mm pistol.",
+    "category": "FeedDevice",
+    "tags": ["DetachableMagazine", "9mm", "Pistol", "Extended"],
+    "maxStackSize": 1,
+    "weight": 0.28,
+    "iconId": "magazine_9mm_extended",
+    "spriteId": "item_magazine_9mm_extended",
+    "actions": []
+  },
+  {
+    "id": "magazine_ak_30_round",
+    "name": "AK 30-round magazine",
+    "description": "A curved 30-round magazine for compatible AK-style rifles.",
+    "category": "FeedDevice",
+    "tags": ["DetachableMagazine", "7.62x39mm", "AK"],
+    "maxStackSize": 1,
+    "weight": 0.35,
+    "iconId": "magazine_ak_30_round",
+    "spriteId": "item_magazine_ak_30_round",
+    "actions": []
+  },
+  {
+    "id": "magazine_ak_damaged_20_round",
+    "name": "AK damaged 20-round magazine",
+    "description": "A battered AK-compatible magazine with reduced capacity.",
+    "category": "FeedDevice",
+    "tags": ["DetachableMagazine", "7.62x39mm", "AK", "Damaged"],
+    "maxStackSize": 1,
+    "weight": 0.31,
+    "iconId": "magazine_ak_damaged_20_round",
+    "spriteId": "item_magazine_ak_damaged_20_round",
+    "actions": []
+  }
+]

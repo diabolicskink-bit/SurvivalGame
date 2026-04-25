@@ -2,13 +2,73 @@
   {
     "id": "ak47",
     "name": "AK-47",
-    "description": "A rugged rifle. It is only a definition for now.",
+    "description": "A rugged AK-style rifle chambered in 7.62x39mm.",
     "category": "Weapon",
-    "tags": ["gun", "rifle", "ak47"],
+    "tags": ["Gun", "Rifle", "AK"],
     "maxStackSize": 1,
     "weight": 4.3,
     "iconId": "rifle_ak47",
     "spriteId": "item_ak47",
+    "actions": ["equip"]
+  },
+  {
+    "id": "kitchen_knife",
+    "name": "Kitchen knife",
+    "description": "A plain kitchen knife with a serviceable edge.",
+    "category": "Weapon",
+    "tags": ["Melee", "Blade", "Knife"],
+    "maxStackSize": 1,
+    "weight": 0.25,
+    "iconId": "kitchen_knife",
+    "spriteId": "item_kitchen_knife",
+    "actions": ["equip"]
+  },
+  {
+    "id": "hunting_rifle",
+    "name": "Hunting rifle",
+    "description": "A simple long gun intended for hunting at range.",
+    "category": "Weapon",
+    "tags": ["Gun", "Rifle", "HuntingRifle"],
+    "maxStackSize": 1,
+    "weight": 3.6,
+    "iconId": "hunting_rifle",
+    "spriteId": "item_hunting_rifle",
+    "actions": ["equip"]
+  },
+  {
+    "id": "pistol_9mm",
+    "name": "9mm pistol",
+    "description": "A compact semi-automatic pistol chambered in 9mm.",
+    "category": "Weapon",
+    "tags": ["Gun", "Pistol", "9mm"],
+    "maxStackSize": 1,
+    "weight": 0.9,
+    "iconId": "pistol_9mm",
+    "spriteId": "item_pistol_9mm",
+    "actions": ["equip"]
+  },
+  {
+    "id": "shotgun_12_gauge",
+    "name": "12 gauge shotgun",
+    "description": "A pump shotgun with a tube magazine.",
+    "category": "Weapon",
+    "tags": ["Gun", "Shotgun", "12Gauge"],
+    "maxStackSize": 1,
+    "weight": 3.4,
+    "iconId": "shotgun_12_gauge",
+    "spriteId": "item_shotgun_12_gauge",
+    "actions": ["equip"]
+  },
+  {
+    "id": "rifle_22lr",
+    "name": ".22 rifle",
+    "description": "A light rifle chambered for .22 LR cartridges.",
+    "category": "Weapon",
+    "tags": ["Gun", "Rifle", "22LR"],
+    "maxStackSize": 1,
+    "weight": 2.4,
+    "iconId": "rifle_22lr",
+    "spriteId": "item_rifle_22lr",
     "actions": ["equip"]
   }
 ]

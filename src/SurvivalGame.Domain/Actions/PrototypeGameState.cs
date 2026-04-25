@@ -45,6 +45,8 @@ public sealed class PrototypeGameState
 
     public WorldState World { get; }
 
+    public StatefulItemStore StatefulItems { get; } = new();
+
     public GridBounds MapBounds => World.Map.Bounds;
 
     public TileItemMap GroundItems => World.GroundItems;

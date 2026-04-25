@@ -10,5 +10,17 @@
     "iconId": "pocket_knife",
     "spriteId": "item_pocket_knife",
     "actions": ["cut"]
+  },
+  {
+    "id": "flashlight",
+    "name": "Flashlight",
+    "description": "A handheld flashlight. It has no battery simulation yet.",
+    "category": "Tool",
+    "tags": ["Light", "Flashlight"],
+    "maxStackSize": 1,
+    "weight": 0.35,
+    "iconId": "flashlight",
+    "spriteId": "item_flashlight",
+    "actions": ["equip"]
   }
 ]

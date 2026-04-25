@@ -1,0 +1,42 @@
+[
+  {
+    "itemId": "pistol_9mm",
+    "name": "9mm pistol",
+    "weaponFamily": "9mm_pistol",
+    "acceptedAmmoSizes": ["9mm"],
+    "feedKind": "DetachableMagazine",
+    "compatibleFeedDeviceIds": ["magazine_9mm_standard", "magazine_9mm_extended"]
+  },
+  {
+    "itemId": "ak47",
+    "name": "AK-style rifle",
+    "weaponFamily": "ak_rifle",
+    "acceptedAmmoSizes": ["7.62x39mm"],
+    "feedKind": "DetachableMagazine",
+    "compatibleFeedDeviceIds": ["magazine_ak_30_round", "magazine_ak_damaged_20_round"]
+  },
+  {
+    "itemId": "hunting_rifle",
+    "name": ".308 hunting rifle",
+    "weaponFamily": "hunting_rifle_308",
+    "acceptedAmmoSizes": [".308"],
+    "feedKind": "InternalMagazine",
+    "builtInCapacity": 4
+  },
+  {
+    "itemId": "shotgun_12_gauge",
+    "name": "12 gauge shotgun",
+    "weaponFamily": "pump_shotgun_12_gauge",
+    "acceptedAmmoSizes": ["12 gauge"],
+    "feedKind": "TubeMagazine",
+    "builtInCapacity": 5
+  },
+  {
+    "itemId": "rifle_22lr",
+    "name": ".22 rifle",
+    "weaponFamily": "rifle_22lr",
+    "acceptedAmmoSizes": [".22 LR"],
+    "feedKind": "InternalMagazine",
+    "builtInCapacity": 10
+  }
+]

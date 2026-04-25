@@ -1,0 +1,44 @@
+[
+  {
+    "itemId": "ammo_9mm_standard",
+    "name": "9mm standard rounds",
+    "size": "9mm",
+    "variant": "standard"
+  },
+  {
+    "itemId": "ammo_9mm_hollow_point",
+    "name": "9mm hollow point rounds",
+    "size": "9mm",
+    "variant": "hollow point"
+  },
+  {
+    "itemId": "ammo_762x39_standard",
+    "name": "7.62x39mm standard rounds",
+    "size": "7.62x39mm",
+    "variant": "standard"
+  },
+  {
+    "itemId": "ammo_308_standard",
+    "name": ".308 standard rounds",
+    "size": ".308",
+    "variant": "standard"
+  },
+  {
+    "itemId": "ammo_12_gauge_buckshot",
+    "name": "12 gauge buckshot shells",
+    "size": "12 gauge",
+    "variant": "buckshot"
+  },
+  {
+    "itemId": "ammo_12_gauge_slug",
+    "name": "12 gauge slug shells",
+    "size": "12 gauge",
+    "variant": "slug"
+  },
+  {
+    "itemId": "ammo_22lr_standard",
+    "name": ".22 LR rounds",
+    "size": ".22 LR",
+    "variant": "standard"
+  }
+]

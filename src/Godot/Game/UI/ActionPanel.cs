@@ -7,7 +7,7 @@ public partial class ActionPanel : VBoxContainer
 {
     private const int ButtonFontSize = 16;
 
-    public event Action<GameActionKind>? ActionSelected;
+    public event Action<AvailableAction>? ActionSelected;
 
     public override void _Ready()
     {
@@ -32,8 +32,7 @@ public partial class ActionPanel : VBoxContainer
             };
             button.AddThemeFontSizeOverride("font_size", ButtonFontSize);
 
-            var actionKind = action.Kind;
-            button.Pressed += () => ActionSelected?.Invoke(actionKind);
+            button.Pressed += () => ActionSelected?.Invoke(action);
             AddChild(button);
         }
     }
