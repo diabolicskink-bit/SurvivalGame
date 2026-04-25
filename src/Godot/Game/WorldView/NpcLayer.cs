@@ -30,10 +30,16 @@ public partial class NpcLayer : Node2D
     {
         var center = CellToBoardPosition(npc.Position);
         var radius = Mathf.Max(5.0f, _cellSize * 0.26f);
+        var outerColor = npc.IsDisabled
+            ? new Color(0.28f, 0.28f, 0.25f)
+            : new Color(0.78f, 0.34f, 0.22f);
+        var innerColor = npc.IsDisabled
+            ? new Color(0.46f, 0.45f, 0.39f)
+            : new Color(0.96f, 0.68f, 0.38f);
 
         DrawCircle(center + new Vector2(2, 3), radius, new Color(0.01f, 0.012f, 0.01f, 0.45f));
-        DrawCircle(center, radius, new Color(0.78f, 0.34f, 0.22f));
-        DrawCircle(center, radius * 0.58f, new Color(0.96f, 0.68f, 0.38f));
+        DrawCircle(center, radius, outerColor);
+        DrawCircle(center, radius * 0.58f, innerColor);
         DrawLine(center + new Vector2(-radius * 0.55f, 0), center + new Vector2(radius * 0.55f, 0), new Color(0.22f, 0.09f, 0.06f), 1.5f);
         DrawLine(center + new Vector2(0, -radius * 0.55f), center + new Vector2(0, radius * 0.55f), new Color(0.22f, 0.09f, 0.06f), 1.5f);
 

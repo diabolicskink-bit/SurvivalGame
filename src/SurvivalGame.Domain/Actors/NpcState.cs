@@ -31,6 +31,8 @@ public sealed class NpcState
 
     public BoundedMeter Health { get; private set; }
 
+    public bool IsDisabled => Health.Current <= Health.Minimum;
+
     internal void SetPosition(GridPosition position)
     {
         Position = position;
@@ -39,5 +41,18 @@ public sealed class NpcState
     public void SetHealth(int current)
     {
         Health = Health.WithCurrent(current);
+    }
+
+    public int TakeDamage(int damage)
+    {
+        if (damage < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(damage), "Damage must be at least 1.");
+        }
+
+        var previousHealth = Health.Current;
+        var nextHealth = Math.Max(Health.Minimum, Health.Current - damage);
+        Health = Health.WithCurrent(nextHealth);
+        return previousHealth - nextHealth;
     }
 }

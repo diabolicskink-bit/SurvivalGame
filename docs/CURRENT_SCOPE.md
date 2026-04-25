@@ -17,11 +17,14 @@
 - Failed boundary movement and failed pickup on an empty tile advance world time by 0 ticks.
 - Clickable Wait action button.
 - Clickable Pick Up action button when the player is standing on item stacks.
-- Global action panel now shows general actions only, such as Wait and Pick Up.
+- Global action panel now shows general or selected-target actions, such as Wait, Pick Up, and Shoot.
 - Message log with startup and movement messages.
 - Escape key return from gameplay shell to main menu.
 - Domain-level player inventory tracking by item id and quantity.
 - Selectable gameplay UI section showing the player's held inventory items.
+- Inventory display is grouped into tabs for weapons, weapon parts/ammunition, consumables, and other items.
+- Stack-backed inventory items remain stacked for simple identical quantities such as ammunition and materials.
+- Stack-backed inventory items can be inspected, dropped one at a time, or dropped as a full stack from the contextual item popup.
 - Inventory and equipment are visually separated.
 - Gameplay UI is split into three visible panels: player info/general actions, equipment, and inventory. On wide windows, player info and equipment sit side by side with inventory below them.
 - Clicking an inventory or equipment item opens a small popup with item details and contextual actions.
@@ -46,15 +49,19 @@
 - Prototype equippable item definitions for each current equipment slot.
 - Clickable Equip action for held items that match an empty equipment slot.
 - Equipping transfers one item from inventory into the chosen empty slot and costs 0 ticks.
+- Legacy stack-backed equipped items can be inspected and unequipped back into inventory.
 - Read-only gameplay UI section showing every equipment slot, including empty slots.
 - Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
 - Domain-level firearm, ammunition, and feed-device definitions loaded from JSON under `data/firearms/`.
 - Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
 - Firearm weapon definitions include prototype effective and maximum ranges measured in tiles.
+- Ammunition definitions include prototype damage values.
 - Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
 - Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, AK 30-round magazine, and AK damaged 20-round magazine.
 - Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
 - Clickable prototype actions for loading/unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round.
+- Clickable Reload action for detachable-feed weapons that already have an inserted magazine/feed device and compatible held ammunition.
+- Firearm handling time costs are currently: 10 ticks per round loaded, 25 ticks to remove a feed device, 25 ticks to insert a feed device, and reload as remove + loaded rounds + insert.
 - Selected item details show weapon/feed loaded state for selected firearm-related items.
 - Selected weapon details show prototype effective and maximum range.
 - Starting inventory includes firearm, ammunition, and feed-device examples for manual testing.
@@ -63,6 +70,9 @@
 - Stateful item locations currently include player inventory, equipment, ground, inserted into another item, and contained inside another item.
 - Stateful item pickup, drop, inspect, equip, and unequip actions go through the domain action pipeline.
 - Stateful firearm/feed actions support loading ammunition into specific feed devices, unloading them, inserting/removing them from specific weapons, loading built-in feeds, and test firing one round.
+- Clicking an NPC selects it as the current target and reveals a Shoot action in the global action panel.
+- Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's maximum tile range.
+- Successful shooting consumes one round, applies ammunition damage to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
 - Loaded state is preserved when a stateful magazine is inserted, removed, dropped, picked back up, or inspected.
 - The prototype starts with specific stateful weapons, magazines, and a backpack-with-contents example for manual testing.
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
@@ -76,12 +86,13 @@
 - One inert test dummy NPC on the prototype map with 200/200 health.
 - NPCs render on the world board and block movement into their tile.
 - Hover tooltip shows NPC name and current/max health when a tile contains one.
+- The test dummy can be damaged by equipped firearm shots and visually greys out when reduced to 0 health.
 
 ## Not Included Yet
 
 - Opening, closing, moving, destroying, building, using, searching, or looting world objects.
 - Container contents for fridges, crates, or other objects.
-- Player or NPC damage, healing, death, or health effects.
+- Player damage, healing, death, or health effects.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
 - Terrain-based time modifiers or surface-driven action costs.
 - Actor scheduling, initiative, action queues, or long action interruption.
@@ -91,18 +102,17 @@
 - Generic item use actions.
 - Equipment replacement actions.
 - Equipment item effects or stat modifiers.
-- Range-driven combat, damage, accuracy, recoil, sound propagation, jamming, durability, weapon condition, or ballistics.
+- Accuracy, recoil, sound propagation, jamming, durability, weapon condition, armor, cover, line of sight, miss chances, hit locations, or ballistics.
 - Mixed ammunition inside a single feed device; unload before switching ammunition variants.
 - Full migration of all inventory content to stateful items; simple identical content still uses stack counts.
 - Full container UI or transfer actions for placing items into/taking items out of containers.
 - Full item condition mechanics, durability loss, repair, spoilage, or degradation.
 - Stateful item save/load persistence.
-- Item drop/use/inspect flows for simple stack inventory entries.
-- Unequip actions for legacy stack-backed equipment entries.
+- Generic item use actions for simple stack inventory entries.
 - Item effects or equipment stat modifiers.
 - Inventory weight, capacity, containers, or equipment containers.
 - Hunger, thirst, fatigue, or other survival meters.
-- Enemies, NPC AI, factions, dialogue, schedules, or combat.
+- Enemies, NPC AI, factions, dialogue, schedules, melee combat, hostile combat, or reciprocal combat.
 - Procedural generation.
 - Crafting.
 - Saving or loading.

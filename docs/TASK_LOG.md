@@ -173,7 +173,19 @@
 - Added effective and maximum tile range fields to weapon definitions.
 - Added prototype ranges for the 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
 - Updated selected item details to show weapon range.
-- Kept range as definition/display data only; combat, accuracy, damage, and ballistics are still out of scope.
+- Kept range as definition/display data at this stage; combat, accuracy, damage, and ballistics remained out of scope until the follow-up shooting slice.
+
+## 2026-04-25 - Targeted Shooting Test Dummy
+
+- Added prototype ammunition damage values to firearm data.
+- Added targeted NPC shooting through the domain action pipeline.
+- Shooting now requires an equipped firearm, a loaded round, and a target inside the weapon's maximum tile range.
+- Successful shots consume one round, apply ammunition damage to the NPC, advance time by 100 ticks, and refresh the NPC health bar.
+- Updated Godot input so clicking an NPC tile selects that NPC, shows it as the current target, and reveals a Shoot action in the global action panel.
+- Moved map click targeting into the earlier input path so root UI controls do not swallow board clicks.
+- Put the selected target Shoot action first in the global action list so it remains visible even in tighter panel layouts.
+- Capped and clamped the tile hover tooltip so it stays inside the viewport instead of expanding into a large blank panel.
+- Kept accuracy, misses, cover, line of sight, armor, death/removal, hostile AI, and full combat out of scope.
 
 ## 2026-04-25 - Game State Ownership Refactor
 
@@ -273,9 +285,27 @@
 - Split the gameplay sidebar into three visible panels: player info/general actions, equipment, and inventory.
 - Adjusted the panel layout to use the wider available space beside the map instead of compressing everything into one narrow right column.
 - Fixed inventory row sizing so the inventory list has usable width inside its scroll panel.
-- Changed the global action area to show only general actions such as Wait and Pick Up.
+- Added inventory tabs for weapons, weapon parts/ammunition, consumables, and other items.
+- Shortened item popup action labels so contextual actions do not repeat the selected item's full name.
+- Changed the global action area to show general and selected-target actions such as Wait, Pick Up, and Shoot.
 - Made inventory rows and occupied equipment slots selectable with a visible highlight.
 - Added an item click popup that shows item definition details, quantity/location, stateful item runtime details, and firearm/feed state where available.
 - Moved item-specific actions into the clicked item popup by filtering existing domain action requests for the selected item.
 - Preserved movement, wait, pickup, elapsed tick display, inventory display, equipment display, ground item markers, hover tooltip, and message log behavior.
 - Kept this as a UI/interaction refactor only; no new gameplay systems or item rules were added.
+
+## 2026-04-25 - Inserted Magazine Reload Timing
+
+- Added reload actions for detachable-feed weapons that already have an inserted magazine/feed device.
+- Modelled reload as remove feed device, load compatible held ammunition per round, then reinsert the same feed device.
+- Added first-pass firearm handling tick costs: 10 ticks per loaded round, 25 ticks to remove a feed device, and 25 ticks to insert one.
+- Updated the action pipeline so successful firearm handling action tick costs advance world time.
+- Added tests for reload availability, topping off an inserted stateful magazine, composite reload tick cost, and full-magazine failure safety.
+
+## 2026-04-25 - Stack Item Action Consistency
+
+- Added contextual inspect and drop actions for simple stack-backed inventory items without converting them into stateful item instances.
+- Added drop-one and drop-all stack flows that preserve remaining stack quantities and place dropped quantities on the current tile.
+- Added unequip support for legacy stack-backed equipment so equipped stack items can return to inventory.
+- Kept stack-backed action costs explicit and currently free for inspect, drop, equip, and unequip.
+- Added domain tests for stack action availability, inspection, drop quantity handling, safe drop failure, and legacy equipment unequip.

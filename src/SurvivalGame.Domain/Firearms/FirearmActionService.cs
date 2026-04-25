@@ -2,6 +2,10 @@ namespace SurvivalGame.Domain;
 
 public sealed class FirearmActionService
 {
+    public const int LoadRoundTickCost = 10;
+    public const int RemoveFeedDeviceTickCost = 25;
+    public const int InsertFeedDeviceTickCost = 25;
+
     private readonly FirearmCatalog _catalog;
 
     public FirearmActionService(FirearmCatalog catalog)
@@ -19,6 +23,7 @@ public sealed class FirearmActionService
         AddUnloadFeedDeviceActions(state.Player, actions);
         AddInsertFeedDeviceActions(state.Player, actions);
         AddRemoveFeedDeviceActions(state.Player, actions);
+        AddReloadWeaponActions(state.Player, actions);
         AddLoadWeaponActions(state.Player, actions);
         AddTestFireActions(state.Player, actions);
 
@@ -110,6 +115,8 @@ public sealed class FirearmActionService
                     $"Remove feed from {FormatStatefulName(weaponItem, itemCatalog)}",
                     new RemoveStatefulFeedDeviceActionRequest(weaponItem.Id)
                 ));
+
+                AddReloadStatefulWeaponActions(state, itemCatalog, actions, weaponItem, weaponDefinition);
                 continue;
             }
 
@@ -178,7 +185,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            0,
+            CalculateLoadTicks(loadedQuantity),
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
         );
     }
@@ -246,7 +253,7 @@ public sealed class FirearmActionService
         weaponState.InsertFeedDevice(feedDeviceItemId);
 
         return GameActionResult.Success(
-            0,
+            InsertFeedDeviceTickCost,
             $"Inserted {feedDeviceDefinition.Name} into {weapon.Name}."
         );
     }
@@ -278,7 +285,7 @@ public sealed class FirearmActionService
             : removedFeedDeviceItemId.ToString();
 
         return GameActionResult.Success(
-            0,
+            RemoveFeedDeviceTickCost,
             $"Removed {feedDeviceName} from {weapon.Name}."
         );
     }
@@ -333,8 +340,67 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            0,
+            CalculateLoadTicks(loadedQuantity),
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
+        );
+    }
+
+    public GameActionResult ReloadWeapon(PrototypeGameState state, ItemId weaponItemId, ItemId ammunitionItemId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(weaponItemId);
+        ArgumentNullException.ThrowIfNull(ammunitionItemId);
+
+        if (!TryGetOwnedWeapon(state.Player, weaponItemId, out var weapon))
+        {
+            return GameActionResult.Failure("That weapon is not available.");
+        }
+
+        if (!weapon.UsesDetachableFeedDevice)
+        {
+            return GameActionResult.Failure($"{weapon.Name} does not use a detachable feed device.");
+        }
+
+        if (!state.Player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState)
+            || weaponState.InsertedFeedDeviceItemId is not { } feedDeviceItemId)
+        {
+            return GameActionResult.Failure($"{weapon.Name} has no feed device inserted.");
+        }
+
+        if (!state.Player.Firearms.TryGetFeedDevice(feedDeviceItemId, out var feedDevice))
+        {
+            return GameActionResult.Failure("Inserted feed device state is missing.");
+        }
+
+        if (!_catalog.TryGetFeedDevice(feedDeviceItemId, out var feedDeviceDefinition)
+            || !weapon.CanUseFeedDevice(feedDeviceDefinition))
+        {
+            return GameActionResult.Failure("Inserted feed device is not compatible with that weapon.");
+        }
+
+        if (!_catalog.TryGetAmmunition(ammunitionItemId, out var ammunition))
+        {
+            return GameActionResult.Failure($"Unknown ammunition: {ammunitionItemId}.");
+        }
+
+        var validationMessage = ValidateReload(weapon, feedDevice, ammunition, state.Player.Inventory.CountOf(ammunition.ItemId));
+        if (validationMessage is not null)
+        {
+            return GameActionResult.Failure(validationMessage);
+        }
+
+        var loadedQuantity = CalculateLoadQuantity(feedDevice, state.Player.Inventory.CountOf(ammunition.ItemId));
+
+        weaponState.RemoveFeedDevice();
+        state.Player.Inventory.Add(feedDeviceItemId);
+        feedDevice.Load(ammunition, loadedQuantity);
+        state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
+        state.Player.Inventory.TryRemove(feedDeviceItemId);
+        weaponState.InsertFeedDevice(feedDeviceItemId);
+
+        return GameActionResult.Success(
+            CalculateReloadTicks(loadedQuantity),
+            FormatReloadMessage(loadedQuantity, ammunition.Name, feedDevice.DisplayName)
         );
     }
 
@@ -403,7 +469,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            0,
+            CalculateLoadTicks(loadedQuantity),
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDeviceItem.FeedDevice.DisplayName}."
         );
     }
@@ -476,7 +542,7 @@ public sealed class FirearmActionService
         state.StatefulItems.MoveToInserted(feedDeviceItem.Id, weaponItem.Id);
 
         return GameActionResult.Success(
-            0,
+            InsertFeedDeviceTickCost,
             $"Inserted {feedDeviceDefinition.Name} into {weaponDefinition.Name}."
         );
     }
@@ -501,8 +567,73 @@ public sealed class FirearmActionService
         var feedDevice = state.StatefulItems.Get(removedFeedDeviceItemId.Value);
 
         return GameActionResult.Success(
-            0,
+            RemoveFeedDeviceTickCost,
             $"Removed {GetItemName(feedDevice.ItemId)} from {GetItemName(weaponItem.ItemId)}."
+        );
+    }
+
+    public GameActionResult ReloadStatefulWeapon(PrototypeGameState state, StatefulItemId weaponItemId, ItemId ammunitionItemId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(ammunitionItemId);
+
+        var weaponItem = state.StatefulItems.Get(weaponItemId);
+        if (!IsOwnedStatefulWeapon(weaponItem) || weaponItem.Weapon is null)
+        {
+            return GameActionResult.Failure("That weapon is not available.");
+        }
+
+        if (!_catalog.TryGetWeapon(weaponItem.ItemId, out var weaponDefinition))
+        {
+            return GameActionResult.Failure("That item is not a firearm.");
+        }
+
+        if (!weaponDefinition.UsesDetachableFeedDevice)
+        {
+            return GameActionResult.Failure($"{weaponDefinition.Name} does not use a detachable feed device.");
+        }
+
+        if (weaponItem.Weapon.InsertedFeedDeviceItemId is not { } feedDeviceItemId)
+        {
+            return GameActionResult.Failure($"{weaponDefinition.Name} has no feed device inserted.");
+        }
+
+        var feedDeviceItem = state.StatefulItems.Get(feedDeviceItemId);
+        if (feedDeviceItem.FeedDevice is null
+            || !_catalog.TryGetFeedDevice(feedDeviceItem.ItemId, out var feedDeviceDefinition)
+            || !weaponDefinition.CanUseFeedDevice(feedDeviceDefinition))
+        {
+            return GameActionResult.Failure("Inserted feed device is not compatible with that weapon.");
+        }
+
+        if (!_catalog.TryGetAmmunition(ammunitionItemId, out var ammunition))
+        {
+            return GameActionResult.Failure($"Unknown ammunition: {ammunitionItemId}.");
+        }
+
+        var validationMessage = ValidateReload(
+            weaponDefinition,
+            feedDeviceItem.FeedDevice,
+            ammunition,
+            state.Player.Inventory.CountOf(ammunition.ItemId)
+        );
+        if (validationMessage is not null)
+        {
+            return GameActionResult.Failure(validationMessage);
+        }
+
+        var loadedQuantity = CalculateLoadQuantity(feedDeviceItem.FeedDevice, state.Player.Inventory.CountOf(ammunition.ItemId));
+
+        weaponItem.Weapon.RemoveFeedDevice();
+        state.StatefulItems.MoveToInventory(feedDeviceItem.Id);
+        feedDeviceItem.FeedDevice.Load(ammunition, loadedQuantity);
+        state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
+        weaponItem.Weapon.InsertFeedDevice(feedDeviceItem.Id);
+        state.StatefulItems.MoveToInserted(feedDeviceItem.Id, weaponItem.Id);
+
+        return GameActionResult.Success(
+            CalculateReloadTicks(loadedQuantity),
+            FormatReloadMessage(loadedQuantity, ammunition.Name, feedDeviceItem.FeedDevice.DisplayName)
         );
     }
 
@@ -556,7 +687,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            0,
+            CalculateLoadTicks(loadedQuantity),
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
         );
     }
@@ -584,6 +715,64 @@ public sealed class FirearmActionService
         );
     }
 
+    public GameActionResult ShootEquippedNpc(PrototypeGameState state, NpcId targetNpcId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(targetNpcId);
+
+        if (!state.World.Npcs.TryGet(targetNpcId, out var target))
+        {
+            return GameActionResult.Failure("No target selected.");
+        }
+
+        if (target.IsDisabled)
+        {
+            return GameActionResult.Failure($"{target.Name} is already disabled.");
+        }
+
+        var equippedFirearm = FindEquippedFirearm(state);
+        if (equippedFirearm is null)
+        {
+            return GameActionResult.Failure("No equipped firearm.");
+        }
+
+        var distance = TileDistance(state.Player.Position, target.Position);
+        if (distance > equippedFirearm.Weapon.MaximumRangeTiles)
+        {
+            return GameActionResult.Failure(
+                $"{target.Name} is out of range for {equippedFirearm.Weapon.Name} ({distance}/{equippedFirearm.Weapon.MaximumRangeTiles} tiles)."
+            );
+        }
+
+        if (equippedFirearm.ActiveFeed?.LoadedAmmunitionItemId is not { } ammunitionItemId
+            || equippedFirearm.ActiveFeed.LoadedCount < 1)
+        {
+            return GameActionResult.Failure($"{equippedFirearm.Weapon.Name} is empty.");
+        }
+
+        if (!_catalog.TryGetAmmunition(ammunitionItemId, out var ammunition))
+        {
+            return GameActionResult.Failure($"Unknown ammunition: {ammunitionItemId}.");
+        }
+
+        var consumed = equippedFirearm.ActiveFeed.ConsumeOne();
+        if (consumed is null)
+        {
+            return GameActionResult.Failure($"{equippedFirearm.Weapon.Name} is empty.");
+        }
+
+        var dealtDamage = target.TakeDamage(ammunition.Damage);
+        var status = target.IsDisabled
+            ? $"{target.Name} is disabled."
+            : $"{target.Name} health: {target.Health.Current}/{target.Health.Maximum}.";
+
+        return GameActionResult.Success(
+            0,
+            $"Shot {target.Name} with {equippedFirearm.Weapon.Name} using {ammunition.Name} for {dealtDamage} damage.",
+            status
+        );
+    }
+
     public int GetAvailableRounds(PlayerFirearmState firearmState, WeaponDefinition weapon)
     {
         ArgumentNullException.ThrowIfNull(firearmState);
@@ -600,6 +789,42 @@ public sealed class FirearmActionService
     public bool IsLoaded(PlayerFirearmState firearmState, WeaponDefinition weapon)
     {
         return GetAvailableRounds(firearmState, weapon) > 0;
+    }
+
+    private void AddReloadStatefulWeaponActions(
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        List<AvailableAction> actions,
+        StatefulItem weaponItem,
+        WeaponDefinition weaponDefinition)
+    {
+        if (weaponItem.Weapon?.InsertedFeedDeviceItemId is not { } feedDeviceItemId)
+        {
+            return;
+        }
+
+        if (!state.StatefulItems.TryGet(feedDeviceItemId, out var feedDeviceItem)
+            || feedDeviceItem.FeedDevice is null
+            || feedDeviceItem.FeedDevice.IsFull)
+        {
+            return;
+        }
+
+        foreach (var ammunition in _catalog.Ammunition)
+        {
+            if (state.Player.Inventory.CountOf(ammunition.ItemId) < 1
+                || !weaponDefinition.AcceptsAmmunition(ammunition)
+                || !feedDeviceItem.FeedDevice.CanAccept(ammunition))
+            {
+                continue;
+            }
+
+            actions.Add(new AvailableAction(
+                GameActionKind.ReloadStatefulWeapon,
+                $"Reload {FormatStatefulName(weaponItem, itemCatalog)} with {ammunition.Name}",
+                new ReloadStatefulWeaponActionRequest(weaponItem.Id, ammunition.ItemId)
+            ));
+        }
     }
 
     public FeedDeviceState? GetActiveFeedForStatefulWeapon(PrototypeGameState state, StatefulItem weaponItem)
@@ -718,6 +943,37 @@ public sealed class FirearmActionService
         }
     }
 
+    private void AddReloadWeaponActions(PlayerState player, List<AvailableAction> actions)
+    {
+        foreach (var weapon in OwnedWeapons(player))
+        {
+            if (!weapon.UsesDetachableFeedDevice
+                || !player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState)
+                || weaponState.InsertedFeedDeviceItemId is not { } feedDeviceItemId
+                || !player.Firearms.TryGetFeedDevice(feedDeviceItemId, out var feedDevice)
+                || feedDevice.IsFull)
+            {
+                continue;
+            }
+
+            foreach (var ammunition in _catalog.Ammunition)
+            {
+                if (player.Inventory.CountOf(ammunition.ItemId) < 1
+                    || !weapon.AcceptsAmmunition(ammunition)
+                    || !feedDevice.CanAccept(ammunition))
+                {
+                    continue;
+                }
+
+                actions.Add(new AvailableAction(
+                    GameActionKind.ReloadWeapon,
+                    $"Reload {weapon.Name} with {ammunition.Name}",
+                    new ReloadWeaponActionRequest(weapon.ItemId, ammunition.ItemId)
+                ));
+            }
+        }
+    }
+
     private void AddLoadWeaponActions(PlayerState player, List<AvailableAction> actions)
     {
         foreach (var weapon in OwnedWeapons(player))
@@ -829,6 +1085,50 @@ public sealed class FirearmActionService
         return null;
     }
 
+    private static string? ValidateReload(
+        WeaponDefinition weapon,
+        FeedDeviceState feedDevice,
+        AmmunitionDefinition ammunition,
+        int availableQuantity)
+    {
+        if (!weapon.AcceptsAmmunition(ammunition))
+        {
+            return $"Cannot load {ammunition.Name} into {weapon.Name}.";
+        }
+
+        if (availableQuantity < 1)
+        {
+            return $"No {ammunition.Name} available.";
+        }
+
+        return ValidateCanLoad(feedDevice, ammunition);
+    }
+
+    private static int CalculateLoadQuantity(FeedDeviceState feedDevice, int availableQuantity)
+    {
+        return Math.Min(availableQuantity, feedDevice.Capacity - feedDevice.LoadedCount);
+    }
+
+    private static int CalculateLoadTicks(int loadedQuantity)
+    {
+        return loadedQuantity * LoadRoundTickCost;
+    }
+
+    private static int CalculateReloadTicks(int loadedQuantity)
+    {
+        return RemoveFeedDeviceTickCost + CalculateLoadTicks(loadedQuantity) + InsertFeedDeviceTickCost;
+    }
+
+    private static string FormatReloadMessage(
+        int loadedQuantity,
+        string ammunitionName,
+        string feedDeviceName)
+    {
+        var loadTicks = CalculateLoadTicks(loadedQuantity);
+        return $"Reloaded {loadedQuantity} {ammunitionName} into {feedDeviceName} "
+            + $"(remove {RemoveFeedDeviceTickCost} ticks, load {loadTicks} ticks, insert {InsertFeedDeviceTickCost} ticks).";
+    }
+
     private static string FormatFeedKind(FeedDeviceKind kind)
     {
         return kind switch
@@ -905,4 +1205,49 @@ public sealed class FirearmActionService
 
         return itemId.ToString();
     }
+
+    private EquippedFirearm? FindEquippedFirearm(PrototypeGameState state)
+    {
+        return FindEquippedFirearmInSlot(state, EquipmentSlotId.MainHand)
+            ?? FindEquippedFirearmInSlot(state, EquipmentSlotId.OffHand);
+    }
+
+    private EquippedFirearm? FindEquippedFirearmInSlot(PrototypeGameState state, EquipmentSlotId slotId)
+    {
+        return FindEquippedStatefulFirearmInSlot(state, slotId)
+            ?? FindEquippedStackFirearmInSlot(state, slotId);
+    }
+
+    private EquippedFirearm? FindEquippedStatefulFirearmInSlot(PrototypeGameState state, EquipmentSlotId slotId)
+    {
+        var weaponItem = state.StatefulItems.EquippedIn(slotId);
+        if (weaponItem?.Weapon is null || !_catalog.TryGetWeapon(weaponItem.ItemId, out var weapon))
+        {
+            return null;
+        }
+
+        return new EquippedFirearm(weapon, GetActiveFeedForStatefulWeapon(state, weaponItem));
+    }
+
+    private EquippedFirearm? FindEquippedStackFirearmInSlot(PrototypeGameState state, EquipmentSlotId slotId)
+    {
+        if (!state.Player.Equipment.TryGetEquippedItem(slotId, out var equippedItem)
+            || !_catalog.TryGetWeapon(equippedItem.ItemId, out var weapon))
+        {
+            return null;
+        }
+
+        var activeFeed = state.Player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState)
+            ? state.Player.Firearms.GetActiveFeedForWeapon(weaponState)
+            : null;
+
+        return new EquippedFirearm(weapon, activeFeed);
+    }
+
+    private static int TileDistance(GridPosition from, GridPosition to)
+    {
+        return Math.Max(Math.Abs(from.X - to.X), Math.Abs(from.Y - to.Y));
+    }
+
+    private sealed record EquippedFirearm(WeaponDefinition Weapon, FeedDeviceState? ActiveFeed);
 }

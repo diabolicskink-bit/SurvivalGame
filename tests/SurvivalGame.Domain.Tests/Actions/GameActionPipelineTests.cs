@@ -69,6 +69,58 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void StackItemInspectAndDropActionsAreAvailableForInventoryStacks()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.Stone, 3);
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.InspectItem
+            && action.Request is InspectItemActionRequest request
+            && request.ItemId == PrototypeItems.Stone
+        );
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.DropItemStack
+            && action.Request is DropItemStackActionRequest request
+            && request.ItemId == PrototypeItems.Stone
+            && request.Quantity == 1
+        );
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.DropItemStack
+            && action.Request is DropItemStackActionRequest request
+            && request.ItemId == PrototypeItems.Stone
+            && request.Quantity == 3
+        );
+    }
+
+    [Fact]
+    public void LegacyEquipmentCanBeInspectedAndUnequipped()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Equipment.OccupySlot(
+            EquipmentSlotId.Head,
+            new EquippedItemRef(PrototypeItems.BaseballCap, new ItemTypePath("Clothing", "Head", "Cap"))
+        );
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.InspectItem
+            && action.Request is InspectItemActionRequest request
+            && request.ItemId == PrototypeItems.BaseballCap
+        );
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.UnequipItem
+            && action.Request is UnequipItemActionRequest request
+            && request.SlotId == EquipmentSlotId.Head
+        );
+    }
+
+    [Fact]
     public void WaitAdvancesTimeByOneHundredTicks()
     {
         var pipeline = CreatePipeline();
@@ -294,6 +346,96 @@ public sealed class GameActionPipelineTests
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
         Assert.True(state.Player.Equipment.TryGetEquippedItem(EquipmentSlotId.Head, out var equippedItem));
         Assert.Equal(new ItemId("motorcycle_helmet"), equippedItem.ItemId);
+    }
+
+    [Fact]
+    public void InspectStackItemReportsDetailsWithoutAdvancingTimeOrMutatingInventory()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.Stone, 3);
+
+        var result = pipeline.Execute(state, new InspectItemActionRequest(PrototypeItems.Stone));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.InspectItemTickCost, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(3, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Contains("Stone - Material. Tags: none. Location: Inventory x3.", result.Messages);
+    }
+
+    [Fact]
+    public void DropOneStackItemPreservesRemainingStackAndPlacesDroppedQuantityOnGround()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState(startPosition: new GridPosition(2, 2));
+        state.Player.Inventory.Add(PrototypeItems.Stone, 3);
+
+        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 1));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.DropItemTickCost, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Contains(
+            state.World.GroundItems.ItemsAt(new GridPosition(2, 2)),
+            stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 1
+        );
+        Assert.Contains("Dropped Stone.", result.Messages);
+    }
+
+    [Fact]
+    public void DropAllStackItemsRemovesInventoryStackAndPlacesAllOnGround()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState(startPosition: new GridPosition(2, 2));
+        state.Player.Inventory.Add(PrototypeItems.Stone, 3);
+
+        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 3));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Contains(
+            state.World.GroundItems.ItemsAt(new GridPosition(2, 2)),
+            stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 3
+        );
+        Assert.Contains("Dropped 3 x Stone.", result.Messages);
+    }
+
+    [Fact]
+    public void DropStackItemFailsSafelyWhenQuantityIsUnavailable()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeItems.Stone, 2);
+
+        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 3));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Empty(state.World.GroundItems.ItemsAt(state.Player.Position));
+    }
+
+    [Fact]
+    public void UnequipLegacyEquipmentReturnsItemToInventoryAndClearsSlot()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Equipment.OccupySlot(
+            EquipmentSlotId.Head,
+            new EquippedItemRef(PrototypeItems.BaseballCap, new ItemTypePath("Clothing", "Head", "Cap"))
+        );
+
+        var result = pipeline.Execute(state, new UnequipItemActionRequest(EquipmentSlotId.Head));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.UnequipItemTickCost, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
+        Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
+        Assert.Contains("Unequipped Baseball cap from Head.", result.Messages);
     }
 
     private static GameActionPipeline CreatePipeline(WorldObjectCatalog? worldObjectCatalog = null)

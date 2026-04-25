@@ -57,6 +57,19 @@ public sealed class EquipmentLoadout
         _equippedItems[slotId] = item;
     }
 
+    public bool TryUnequipSlot(EquipmentSlotId slotId, out EquippedItemRef item)
+    {
+        EnsureSlotExists(slotId);
+        if (!_equippedItems.Remove(slotId, out var equippedItem))
+        {
+            item = null!;
+            return false;
+        }
+
+        item = equippedItem;
+        return true;
+    }
+
     public bool ContainsItem(ItemId itemId)
     {
         ArgumentNullException.ThrowIfNull(itemId);

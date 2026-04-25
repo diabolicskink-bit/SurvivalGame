@@ -5,7 +5,11 @@ using SurvivalGame.Domain;
 public partial class ItemTooltip : PanelContainer
 {
     private const float OffsetFromCursor = 18.0f;
-    private const float PreferredWidth = 300.0f;
+    private const float PreferredWidth = 320.0f;
+    private const float ContentWidth = 296.0f;
+    private const float VerticalPadding = 20.0f;
+    private const float ScreenPadding = 12.0f;
+    private const float MaximumHeight = 420.0f;
 
     private VBoxContainer _content = null!;
 
@@ -13,12 +17,15 @@ public partial class ItemTooltip : PanelContainer
     {
         Visible = false;
         MouseFilter = MouseFilterEnum.Ignore;
-        CustomMinimumSize = new Vector2(PreferredWidth, 0);
+        ClipContents = true;
+        CustomMinimumSize = Vector2.Zero;
+        Size = new Vector2(PreferredWidth, 0);
         AddThemeStyleboxOverride("panel", CreatePanelStyle());
 
         var margin = new MarginContainer
         {
-            MouseFilter = MouseFilterEnum.Ignore
+            MouseFilter = MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(PreferredWidth, 0)
         };
         margin.AddThemeConstantOverride("margin_left", 12);
         margin.AddThemeConstantOverride("margin_top", 10);
@@ -28,7 +35,9 @@ public partial class ItemTooltip : PanelContainer
 
         _content = new VBoxContainer
         {
-            MouseFilter = MouseFilterEnum.Ignore
+            MouseFilter = MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(ContentWidth, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         _content.AddThemeConstantOverride("separation", 5);
         margin.AddChild(_content);
@@ -121,13 +130,13 @@ public partial class ItemTooltip : PanelContainer
             }
         }
 
-        Position = cursorPosition + new Vector2(OffsetFromCursor, OffsetFromCursor);
         Visible = true;
+        RefreshLayout(cursorPosition);
     }
 
     public void MoveTo(Vector2 cursorPosition)
     {
-        Position = cursorPosition + new Vector2(OffsetFromCursor, OffsetFromCursor);
+        Position = GetClampedPosition(cursorPosition + new Vector2(OffsetFromCursor, OffsetFromCursor));
     }
 
     public void HideTooltip()
@@ -137,11 +146,36 @@ public partial class ItemTooltip : PanelContainer
 
     private void ClearContent()
     {
+        Size = new Vector2(PreferredWidth, 0);
+
         foreach (var child in _content.GetChildren())
         {
             _content.RemoveChild(child);
             child.QueueFree();
         }
+    }
+
+    private void RefreshLayout(Vector2 cursorPosition)
+    {
+        var viewportSize = GetViewportRect().Size;
+        var maximumHeight = Mathf.Min(MaximumHeight, Mathf.Max(0.0f, viewportSize.Y - (ScreenPadding * 2.0f)));
+        var contentHeight = _content.GetCombinedMinimumSize().Y + VerticalPadding;
+        var height = Mathf.Min(contentHeight, maximumHeight);
+
+        Size = new Vector2(PreferredWidth, height);
+        Position = GetClampedPosition(cursorPosition + new Vector2(OffsetFromCursor, OffsetFromCursor));
+    }
+
+    private Vector2 GetClampedPosition(Vector2 desiredPosition)
+    {
+        var viewportSize = GetViewportRect().Size;
+        var maxX = Mathf.Max(ScreenPadding, viewportSize.X - Size.X - ScreenPadding);
+        var maxY = Mathf.Max(ScreenPadding, viewportSize.Y - Size.Y - ScreenPadding);
+
+        return new Vector2(
+            Mathf.Clamp(desiredPosition.X, ScreenPadding, maxX),
+            Mathf.Clamp(desiredPosition.Y, ScreenPadding, maxY)
+        );
     }
 
     private static string FormatItemStack(GroundItemStack stack, ItemCatalog itemCatalog)
@@ -181,7 +215,9 @@ public partial class ItemTooltip : PanelContainer
         {
             Text = text,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            MouseFilter = MouseFilterEnum.Ignore
+            MouseFilter = MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(ContentWidth, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         label.AddThemeFontSizeOverride("font_size", fontSize);
         label.AddThemeColorOverride("font_color", color);

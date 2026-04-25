@@ -5,12 +5,16 @@ public enum GameActionKind
     Wait,
     Move,
     Pickup,
+    InspectItem,
+    DropItemStack,
     EquipItem,
+    UnequipItem,
     LoadFeedDevice,
     UnloadFeedDevice,
     InsertFeedDevice,
     RemoveFeedDevice,
     LoadWeapon,
+    ReloadWeapon,
     TestFire,
     PickupStatefulItem,
     DropStatefulItem,
@@ -22,7 +26,9 @@ public enum GameActionKind
     InsertStatefulFeedDevice,
     RemoveStatefulFeedDevice,
     LoadStatefulWeapon,
-    TestFireStatefulWeapon
+    ReloadStatefulWeapon,
+    TestFireStatefulWeapon,
+    ShootNpc
 }
 
 public abstract record GameActionRequest(GameActionKind Kind);
@@ -33,7 +39,16 @@ public sealed record MoveActionRequest(GridOffset Direction) : GameActionRequest
 
 public sealed record PickupActionRequest() : GameActionRequest(GameActionKind.Pickup);
 
+public sealed record InspectItemActionRequest(ItemId ItemId)
+    : GameActionRequest(GameActionKind.InspectItem);
+
+public sealed record DropItemStackActionRequest(ItemId ItemId, int Quantity)
+    : GameActionRequest(GameActionKind.DropItemStack);
+
 public sealed record EquipItemActionRequest(ItemId ItemId, EquipmentSlotId SlotId) : GameActionRequest(GameActionKind.EquipItem);
+
+public sealed record UnequipItemActionRequest(EquipmentSlotId SlotId)
+    : GameActionRequest(GameActionKind.UnequipItem);
 
 public sealed record LoadFeedDeviceActionRequest(ItemId FeedDeviceItemId, ItemId AmmunitionItemId)
     : GameActionRequest(GameActionKind.LoadFeedDevice);
@@ -49,6 +64,9 @@ public sealed record RemoveFeedDeviceActionRequest(ItemId WeaponItemId)
 
 public sealed record LoadWeaponActionRequest(ItemId WeaponItemId, ItemId AmmunitionItemId)
     : GameActionRequest(GameActionKind.LoadWeapon);
+
+public sealed record ReloadWeaponActionRequest(ItemId WeaponItemId, ItemId AmmunitionItemId)
+    : GameActionRequest(GameActionKind.ReloadWeapon);
 
 public sealed record TestFireActionRequest(ItemId WeaponItemId)
     : GameActionRequest(GameActionKind.TestFire);
@@ -83,8 +101,14 @@ public sealed record RemoveStatefulFeedDeviceActionRequest(StatefulItemId Weapon
 public sealed record LoadStatefulWeaponActionRequest(StatefulItemId WeaponItemId, ItemId AmmunitionItemId)
     : GameActionRequest(GameActionKind.LoadStatefulWeapon);
 
+public sealed record ReloadStatefulWeaponActionRequest(StatefulItemId WeaponItemId, ItemId AmmunitionItemId)
+    : GameActionRequest(GameActionKind.ReloadStatefulWeapon);
+
 public sealed record TestFireStatefulWeaponActionRequest(StatefulItemId WeaponItemId)
     : GameActionRequest(GameActionKind.TestFireStatefulWeapon);
+
+public sealed record ShootNpcActionRequest(NpcId TargetNpcId)
+    : GameActionRequest(GameActionKind.ShootNpc);
 
 public sealed record AvailableAction(GameActionKind Kind, string Label, GameActionRequest? Request = null);
 
@@ -111,6 +135,11 @@ public sealed class GameActionPipeline
     public const int MoveTickCost = 100;
     public const int WaitTickCost = 100;
     public const int PickupTickCost = 50;
+    public const int InspectItemTickCost = 0;
+    public const int DropItemTickCost = 0;
+    public const int EquipItemTickCost = 0;
+    public const int UnequipItemTickCost = 0;
+    public const int ShootTickCost = 100;
 
     private readonly ItemCatalog _itemCatalog;
     private readonly WorldObjectCatalog? _worldObjectCatalog;
@@ -143,6 +172,7 @@ public sealed class GameActionPipeline
         }
 
         actions.AddRange(GetAvailableStatefulItemActions(state));
+        actions.AddRange(GetAvailableStackItemActions(state));
         actions.AddRange(GetAvailableEquipActions(state));
         if (_firearmActions is not null)
         {
@@ -163,23 +193,36 @@ public sealed class GameActionPipeline
             WaitActionRequest => Wait(state),
             MoveActionRequest move => Move(state, move.Direction),
             PickupActionRequest => Pickup(state),
+            InspectItemActionRequest inspect => InspectItem(state, inspect.ItemId),
+            DropItemStackActionRequest dropStack => DropItemStack(state, dropStack.ItemId, dropStack.Quantity),
             EquipItemActionRequest equip => EquipItem(state, equip.ItemId, equip.SlotId),
+            UnequipItemActionRequest unequip => UnequipItem(state, unequip.SlotId),
             LoadFeedDeviceActionRequest loadFeed => ExecuteFirearmAction(
+                state,
                 service => service.LoadFeedDevice(state, loadFeed.FeedDeviceItemId, loadFeed.AmmunitionItemId)
             ),
             UnloadFeedDeviceActionRequest unloadFeed => ExecuteFirearmAction(
+                state,
                 service => service.UnloadFeedDevice(state, unloadFeed.FeedDeviceItemId)
             ),
             InsertFeedDeviceActionRequest insertFeed => ExecuteFirearmAction(
+                state,
                 service => service.InsertFeedDevice(state, insertFeed.WeaponItemId, insertFeed.FeedDeviceItemId)
             ),
             RemoveFeedDeviceActionRequest removeFeed => ExecuteFirearmAction(
+                state,
                 service => service.RemoveFeedDevice(state, removeFeed.WeaponItemId)
             ),
             LoadWeaponActionRequest loadWeapon => ExecuteFirearmAction(
+                state,
                 service => service.LoadWeapon(state, loadWeapon.WeaponItemId, loadWeapon.AmmunitionItemId)
             ),
+            ReloadWeaponActionRequest reloadWeapon => ExecuteFirearmAction(
+                state,
+                service => service.ReloadWeapon(state, reloadWeapon.WeaponItemId, reloadWeapon.AmmunitionItemId)
+            ),
             TestFireActionRequest testFire => ExecuteFirearmAction(
+                state,
                 service => service.TestFire(state, testFire.WeaponItemId)
             ),
             PickupStatefulItemActionRequest pickupStateful => PickupStatefulItem(state, pickupStateful.ItemId),
@@ -188,32 +231,78 @@ public sealed class GameActionPipeline
             EquipStatefulItemActionRequest equipStateful => EquipStatefulItem(state, equipStateful.ItemId, equipStateful.SlotId),
             UnequipStatefulItemActionRequest unequipStateful => UnequipStatefulItem(state, unequipStateful.ItemId),
             LoadStatefulFeedDeviceActionRequest loadStatefulFeed => ExecuteFirearmAction(
+                state,
                 service => service.LoadStatefulFeedDevice(state, loadStatefulFeed.FeedDeviceItemId, loadStatefulFeed.AmmunitionItemId)
             ),
             UnloadStatefulFeedDeviceActionRequest unloadStatefulFeed => ExecuteFirearmAction(
+                state,
                 service => service.UnloadStatefulFeedDevice(state, unloadStatefulFeed.FeedDeviceItemId)
             ),
             InsertStatefulFeedDeviceActionRequest insertStatefulFeed => ExecuteFirearmAction(
+                state,
                 service => service.InsertStatefulFeedDevice(state, insertStatefulFeed.WeaponItemId, insertStatefulFeed.FeedDeviceItemId)
             ),
             RemoveStatefulFeedDeviceActionRequest removeStatefulFeed => ExecuteFirearmAction(
+                state,
                 service => service.RemoveStatefulFeedDevice(state, removeStatefulFeed.WeaponItemId)
             ),
             LoadStatefulWeaponActionRequest loadStatefulWeapon => ExecuteFirearmAction(
+                state,
                 service => service.LoadStatefulWeapon(state, loadStatefulWeapon.WeaponItemId, loadStatefulWeapon.AmmunitionItemId)
             ),
+            ReloadStatefulWeaponActionRequest reloadStatefulWeapon => ExecuteFirearmAction(
+                state,
+                service => service.ReloadStatefulWeapon(state, reloadStatefulWeapon.WeaponItemId, reloadStatefulWeapon.AmmunitionItemId)
+            ),
             TestFireStatefulWeaponActionRequest testStatefulWeapon => ExecuteFirearmAction(
+                state,
                 service => service.TestFireStatefulWeapon(state, testStatefulWeapon.WeaponItemId)
             ),
+            ShootNpcActionRequest shootNpc => ShootNpc(state, shootNpc.TargetNpcId),
             _ => GameActionResult.Failure("That action is not supported.")
         };
     }
 
-    private GameActionResult ExecuteFirearmAction(Func<FirearmActionService, GameActionResult> action)
+    private GameActionResult ExecuteFirearmAction(
+        PrototypeGameState state,
+        Func<FirearmActionService, GameActionResult> action)
     {
-        return _firearmActions is null
-            ? GameActionResult.Failure("Firearm actions are not available.")
-            : action(_firearmActions);
+        if (_firearmActions is null)
+        {
+            return GameActionResult.Failure("Firearm actions are not available.");
+        }
+
+        var result = action(_firearmActions);
+        if (!result.Succeeded || result.ElapsedTicks == 0)
+        {
+            return result;
+        }
+
+        state.AdvanceTime(result.ElapsedTicks);
+        return GameActionResult.Success(
+            result.ElapsedTicks,
+            result.Messages.Concat(new[] { $"Time +{result.ElapsedTicks}." }).ToArray()
+        );
+    }
+
+    private GameActionResult ShootNpc(PrototypeGameState state, NpcId targetNpcId)
+    {
+        if (_firearmActions is null)
+        {
+            return GameActionResult.Failure("Firearm actions are not available.");
+        }
+
+        var result = _firearmActions.ShootEquippedNpc(state, targetNpcId);
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
+        state.AdvanceTime(ShootTickCost);
+        return GameActionResult.Success(
+            ShootTickCost,
+            result.Messages.Concat(new[] { $"Time +{ShootTickCost}." }).ToArray()
+        );
     }
 
     private IEnumerable<AvailableAction> GetAvailableEquipActions(PrototypeGameState state)
@@ -238,6 +327,54 @@ public sealed class GameActionPipeline
                     new EquipItemActionRequest(item.Id, slot.Id)
                 );
             }
+        }
+    }
+
+    private IEnumerable<AvailableAction> GetAvailableStackItemActions(PrototypeGameState state)
+    {
+        foreach (var stack in state.Player.Inventory.Items)
+        {
+            var itemName = GetItemName(stack.ItemId);
+            yield return new AvailableAction(
+                GameActionKind.InspectItem,
+                $"Inspect {itemName}",
+                new InspectItemActionRequest(stack.ItemId)
+            );
+
+            yield return new AvailableAction(
+                GameActionKind.DropItemStack,
+                $"Drop one {itemName}",
+                new DropItemStackActionRequest(stack.ItemId, 1)
+            );
+
+            if (stack.Quantity > 1)
+            {
+                yield return new AvailableAction(
+                    GameActionKind.DropItemStack,
+                    $"Drop all {stack.Quantity} {itemName}",
+                    new DropItemStackActionRequest(stack.ItemId, stack.Quantity)
+                );
+            }
+        }
+
+        foreach (var slot in state.Player.Equipment.Slots)
+        {
+            if (!state.Player.Equipment.TryGetEquippedItem(slot.Id, out var equippedItem))
+            {
+                continue;
+            }
+
+            var itemName = GetItemName(equippedItem.ItemId);
+            yield return new AvailableAction(
+                GameActionKind.InspectItem,
+                $"Inspect {itemName}",
+                new InspectItemActionRequest(equippedItem.ItemId)
+            );
+            yield return new AvailableAction(
+                GameActionKind.UnequipItem,
+                $"Unequip {itemName}",
+                new UnequipItemActionRequest(slot.Id)
+            );
         }
     }
 
@@ -423,6 +560,38 @@ public sealed class GameActionPipeline
         );
     }
 
+    private GameActionResult InspectItem(PrototypeGameState state, ItemId itemId)
+    {
+        if (state.Player.Inventory.CountOf(itemId) < 1 && !state.Player.Equipment.ContainsItem(itemId))
+        {
+            return GameActionResult.Failure("That item is not available.");
+        }
+
+        return GameActionResult.Success(InspectItemTickCost, DescribeStackItem(itemId, state));
+    }
+
+    private GameActionResult DropItemStack(PrototypeGameState state, ItemId itemId, int quantity)
+    {
+        if (quantity < 1)
+        {
+            return GameActionResult.Failure("Drop quantity must be at least 1.");
+        }
+
+        var currentQuantity = state.Player.Inventory.CountOf(itemId);
+        if (currentQuantity < quantity)
+        {
+            return GameActionResult.Failure("You do not have enough of that item to drop.");
+        }
+
+        state.Player.Inventory.TryRemove(itemId, quantity);
+        state.World.GroundItems.Place(state.Player.Position, itemId, quantity);
+
+        return GameActionResult.Success(
+            DropItemTickCost,
+            $"Dropped {FormatStack(new GroundItemStack(itemId, quantity))}."
+        );
+    }
+
     private GameActionResult EquipStatefulItem(PrototypeGameState state, StatefulItemId itemId, EquipmentSlotId slotId)
     {
         var item = state.StatefulItems.Get(itemId);
@@ -458,7 +627,7 @@ public sealed class GameActionPipeline
 
         state.StatefulItems.MoveToEquipment(item.Id, slot.Id);
         return GameActionResult.Success(
-            0,
+            EquipItemTickCost,
             $"Equipped {FormatStatefulItem(item)} to {slot.DisplayName}."
         );
     }
@@ -473,7 +642,7 @@ public sealed class GameActionPipeline
 
         state.StatefulItems.MoveToInventory(item.Id);
         return GameActionResult.Success(
-            0,
+            UnequipItemTickCost,
             $"Unequipped {FormatStatefulItem(item)}."
         );
     }
@@ -542,8 +711,28 @@ public sealed class GameActionPipeline
         state.Player.Equipment.OccupySlot(slotId, equippedItem);
 
         return GameActionResult.Success(
-            0,
+            EquipItemTickCost,
             $"Equipped {item.Name} to {slot.DisplayName}."
+        );
+    }
+
+    private GameActionResult UnequipItem(PrototypeGameState state, EquipmentSlotId slotId)
+    {
+        if (!state.Player.Equipment.SlotCatalog.TryGet(slotId, out var slot))
+        {
+            return GameActionResult.Failure($"Unknown equipment slot: {slotId}.");
+        }
+
+        if (!state.Player.Equipment.TryUnequipSlot(slotId, out var equippedItem))
+        {
+            return GameActionResult.Failure($"{slot.DisplayName} is empty.");
+        }
+
+        state.Player.Inventory.Add(equippedItem.ItemId);
+
+        return GameActionResult.Success(
+            UnequipItemTickCost,
+            $"Unequipped {GetItemName(equippedItem.ItemId)} from {slot.DisplayName}."
         );
     }
 
@@ -554,6 +743,42 @@ public sealed class GameActionPipeline
             : stack.ItemId.ToString();
 
         return stack.Quantity == 1 ? itemName : $"{stack.Quantity} x {itemName}";
+    }
+
+    private string GetItemName(ItemId itemId)
+    {
+        return _itemCatalog.TryGet(itemId, out var item)
+            ? item.Name
+            : itemId.ToString();
+    }
+
+    private string DescribeStackItem(ItemId itemId, PrototypeGameState state)
+    {
+        var quantity = state.Player.Inventory.CountOf(itemId);
+        var equippedSlots = state.Player.Equipment.Slots
+            .Where(slot => state.Player.Equipment.TryGetEquippedItem(slot.Id, out var equippedItem)
+                && equippedItem.ItemId == itemId)
+            .Select(slot => slot.DisplayName)
+            .ToArray();
+        var location = quantity > 0 && equippedSlots.Length > 0
+            ? $"Inventory x{quantity}; Equipped: {string.Join(", ", equippedSlots)}"
+            : quantity > 0
+                ? $"Inventory x{quantity}"
+                : $"Equipped: {string.Join(", ", equippedSlots)}";
+
+        if (!_itemCatalog.TryGet(itemId, out var definition))
+        {
+            return $"{itemId}. Location: {location}.";
+        }
+
+        var tags = definition.Tags.Count == 0
+            ? "none"
+            : string.Join(", ", definition.Tags);
+        var description = string.IsNullOrWhiteSpace(definition.Description)
+            ? string.Empty
+            : $" {definition.Description}";
+
+        return $"{definition.DisplayName} - {definition.Category}. Tags: {tags}. Location: {location}.{description}";
     }
 
     private bool IsSlotFree(PrototypeGameState state, EquipmentSlotId slotId)

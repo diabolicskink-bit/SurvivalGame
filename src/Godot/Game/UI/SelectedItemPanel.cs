@@ -33,10 +33,10 @@ public partial class SelectedItemPanel : VBoxContainer
             return;
         }
 
-        AddSelectedItemDetails(selectedItem, state, itemCatalog, firearmCatalog);
-        AddChild(new HSeparator());
         AddChild(CreateLabel("Item Actions", HeadingFontSize, new Color(0.86f, 0.9f, 0.82f)));
-        AddContextualActions(contextualActions);
+        AddContextualActions(contextualActions, selectedItem, state, itemCatalog);
+        AddChild(new HSeparator());
+        AddSelectedItemDetails(selectedItem, state, itemCatalog, firearmCatalog);
     }
 
     private void AddSelectedItemDetails(
@@ -150,7 +150,7 @@ public partial class SelectedItemPanel : VBoxContainer
     {
         if (firearmCatalog.TryGetAmmunition(itemId, out var ammunition))
         {
-            AddChild(CreateLabel($"Ammunition: {ammunition.Size}, {ammunition.Variant}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            AddChild(CreateLabel($"Ammunition: {ammunition.Size}, {ammunition.Variant}, {ammunition.Damage} damage", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
         }
 
         if (firearmCatalog.TryGetFeedDevice(itemId, out var feedDevice))
@@ -201,7 +201,11 @@ public partial class SelectedItemPanel : VBoxContainer
         AddFeedDetails(activeFeed);
     }
 
-    private void AddContextualActions(IReadOnlyList<AvailableAction> contextualActions)
+    private void AddContextualActions(
+        IReadOnlyList<AvailableAction> contextualActions,
+        SelectedItemRef selectedItem,
+        PrototypeGameState state,
+        ItemCatalog itemCatalog)
     {
         if (contextualActions.Count == 0)
         {
@@ -213,7 +217,8 @@ public partial class SelectedItemPanel : VBoxContainer
         {
             var button = new Button
             {
-                Text = action.Label,
+                Text = FormatContextualActionLabel(action, selectedItem, state, itemCatalog),
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
                 CustomMinimumSize = new Vector2(0, 34),
                 FocusMode = Control.FocusModeEnum.None
             };
@@ -221,6 +226,85 @@ public partial class SelectedItemPanel : VBoxContainer
             button.Pressed += () => ActionSelected?.Invoke(action);
             AddChild(button);
         }
+    }
+
+    private static string FormatContextualActionLabel(
+        AvailableAction action,
+        SelectedItemRef selectedItem,
+        PrototypeGameState state,
+        ItemCatalog itemCatalog)
+    {
+        return action.Request switch
+        {
+            InspectItemActionRequest => "Inspect",
+            DropItemStackActionRequest dropStack => dropStack.Quantity == 1 ? "Drop one" : $"Drop {dropStack.Quantity}",
+            EquipItemActionRequest equip => $"Equip ({GetSlotDisplayName(state, equip.SlotId)})",
+            UnequipItemActionRequest => "Unequip",
+            InspectStatefulItemActionRequest => "Inspect",
+            DropStatefulItemActionRequest => "Drop",
+            EquipStatefulItemActionRequest equip => $"Equip ({GetSlotDisplayName(state, equip.SlotId)})",
+            UnequipStatefulItemActionRequest => "Unequip",
+            PickupStatefulItemActionRequest => "Pick up",
+
+            LoadFeedDeviceActionRequest load => IsSelectedStackItem(selectedItem, load.FeedDeviceItemId)
+                ? $"Load {GetItemName(load.AmmunitionItemId, itemCatalog)}"
+                : $"Load into {GetItemName(load.FeedDeviceItemId, itemCatalog)}",
+            UnloadFeedDeviceActionRequest => "Unload",
+            InsertFeedDeviceActionRequest insert => IsSelectedStackItem(selectedItem, insert.WeaponItemId)
+                ? $"Insert {GetItemName(insert.FeedDeviceItemId, itemCatalog)}"
+                : $"Insert into {GetItemName(insert.WeaponItemId, itemCatalog)}",
+            RemoveFeedDeviceActionRequest => "Remove feed",
+            LoadWeaponActionRequest loadWeapon => IsSelectedStackItem(selectedItem, loadWeapon.WeaponItemId)
+                ? $"Load {GetItemName(loadWeapon.AmmunitionItemId, itemCatalog)}"
+                : $"Load into {GetItemName(loadWeapon.WeaponItemId, itemCatalog)}",
+            ReloadWeaponActionRequest reloadWeapon => IsSelectedStackItem(selectedItem, reloadWeapon.WeaponItemId)
+                ? $"Reload with {GetItemName(reloadWeapon.AmmunitionItemId, itemCatalog)}"
+                : $"Reload {GetItemName(reloadWeapon.WeaponItemId, itemCatalog)}",
+            TestFireActionRequest => "Test fire",
+
+            LoadStatefulFeedDeviceActionRequest loadStatefulFeed => $"Load {GetItemName(loadStatefulFeed.AmmunitionItemId, itemCatalog)}",
+            UnloadStatefulFeedDeviceActionRequest => "Unload",
+            InsertStatefulFeedDeviceActionRequest insertStatefulFeed => IsSelectedStatefulItem(selectedItem, insertStatefulFeed.WeaponItemId)
+                ? $"Insert {GetStatefulItemName(insertStatefulFeed.FeedDeviceItemId, state, itemCatalog)}"
+                : $"Insert into {GetStatefulItemName(insertStatefulFeed.WeaponItemId, state, itemCatalog)}",
+            RemoveStatefulFeedDeviceActionRequest => "Remove feed",
+            LoadStatefulWeaponActionRequest loadStatefulWeapon => $"Load {GetItemName(loadStatefulWeapon.AmmunitionItemId, itemCatalog)}",
+            ReloadStatefulWeaponActionRequest reloadStatefulWeapon => IsSelectedStatefulItem(selectedItem, reloadStatefulWeapon.WeaponItemId)
+                ? $"Reload with {GetItemName(reloadStatefulWeapon.AmmunitionItemId, itemCatalog)}"
+                : $"Reload {GetStatefulItemName(reloadStatefulWeapon.WeaponItemId, state, itemCatalog)}",
+            TestFireStatefulWeaponActionRequest => "Test fire",
+
+            _ => action.Label
+        };
+    }
+
+    private static bool IsSelectedStackItem(SelectedItemRef selectedItem, ItemId itemId)
+    {
+        return selectedItem.Kind is SelectedItemKind.InventoryStack or SelectedItemKind.EquipmentItem
+            && selectedItem.ItemId == itemId;
+    }
+
+    private static bool IsSelectedStatefulItem(SelectedItemRef selectedItem, StatefulItemId itemId)
+    {
+        return selectedItem.Kind == SelectedItemKind.StatefulItem
+            && selectedItem.StatefulItemId == itemId;
+    }
+
+    private static string GetStatefulItemName(
+        StatefulItemId itemId,
+        PrototypeGameState state,
+        ItemCatalog itemCatalog)
+    {
+        return state.StatefulItems.TryGet(itemId, out var item)
+            ? GetItemName(item.ItemId, itemCatalog)
+            : itemId.ToString();
+    }
+
+    private static string GetSlotDisplayName(PrototypeGameState state, EquipmentSlotId slotId)
+    {
+        return state.Player.Equipment.SlotCatalog.TryGet(slotId, out var slot)
+            ? slot.DisplayName
+            : slotId.ToString();
     }
 
     private void ClearRows()

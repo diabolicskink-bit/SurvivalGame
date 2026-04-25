@@ -44,6 +44,10 @@ public sealed class FirearmSystemTests
         Assert.NotEqual(standard9mm.Variant, hollowPoint9mm.Variant);
         Assert.Equal(buckshot.Size, slug.Size);
         Assert.NotEqual(buckshot.Variant, slug.Variant);
+        Assert.Equal(25, standard9mm.Damage);
+        Assert.Equal(35, hollowPoint9mm.Damage);
+        Assert.Equal(55, buckshot.Damage);
+        Assert.Equal(80, slug.Damage);
     }
 
     [Fact]
@@ -133,7 +137,8 @@ public sealed class FirearmSystemTests
         );
 
         Assert.True(loadResult.Succeeded);
-        Assert.Equal(0, loadResult.ElapsedTicks);
+        Assert.Equal(15 * FirearmActionService.LoadRoundTickCost, loadResult.ElapsedTicks);
+        Assert.Equal(15 * FirearmActionService.LoadRoundTickCost, state.Time.ElapsedTicks);
         Assert.Equal(5, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
 
         var unloadResult = pipeline.Execute(
@@ -239,6 +244,8 @@ public sealed class FirearmSystemTests
         );
 
         Assert.True(result.Succeeded);
+        Assert.Equal(4 * FirearmActionService.LoadRoundTickCost, result.ElapsedTicks);
+        Assert.Equal(4 * FirearmActionService.LoadRoundTickCost, state.Time.ElapsedTicks);
         Assert.Equal(6, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo308Standard));
         var weapon = LoadFirearmCatalog().GetWeapon(PrototypeItems.HuntingRifle);
         var service = new FirearmActionService(LoadFirearmCatalog());
@@ -303,6 +310,120 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void ReloadStatefulWeaponIsAvailableWhenInsertedMagazineCanAcceptHeldAmmo()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+        state.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 20);
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.ReloadStatefulWeapon
+            && action.Request is ReloadStatefulWeaponActionRequest request
+            && request.WeaponItemId == pistol.Id
+            && request.AmmunitionItemId == PrototypeFirearms.Ammo9mmStandard
+        );
+    }
+
+    [Fact]
+    public void ReloadStatefulWeaponTopsOffInsertedMagazineAndAdvancesCompositeTime()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+        state.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 20);
+
+        var result = pipeline.Execute(
+            state,
+            new ReloadStatefulWeaponActionRequest(pistol.Id, PrototypeFirearms.Ammo9mmStandard)
+        );
+
+        var expectedTicks = FirearmActionService.RemoveFeedDeviceTickCost
+            + (10 * FirearmActionService.LoadRoundTickCost)
+            + FirearmActionService.InsertFeedDeviceTickCost;
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expectedTicks, result.ElapsedTicks);
+        Assert.Equal(expectedTicks, state.Time.ElapsedTicks);
+        Assert.Equal(10, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
+        Assert.Equal(15, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(StatefulItemLocationKind.Inserted, magazine.Location.Kind);
+        Assert.Equal(pistol.Id, magazine.Location.ParentItemId);
+        Assert.Equal(magazine.Id, pistol.Weapon.InsertedFeedDeviceItemId);
+        Assert.Contains(
+            "Reloaded 10 9mm standard rounds into 9mm standard pistol magazine (remove 25 ticks, load 100 ticks, insert 25 ticks).",
+            result.Messages
+        );
+        Assert.Contains("Time +150.", result.Messages);
+    }
+
+    [Fact]
+    public void ReloadStatefulWeaponFailsSafelyWhenInsertedMagazineIsFull()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 15);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+        state.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 20);
+
+        var result = pipeline.Execute(
+            state,
+            new ReloadStatefulWeaponActionRequest(pistol.Id, PrototypeFirearms.Ammo9mmStandard)
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(20, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
+        Assert.Equal(15, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(StatefulItemLocationKind.Inserted, magazine.Location.Kind);
+        Assert.Equal(pistol.Id, magazine.Location.ParentItemId);
+    }
+
+    [Fact]
     public void TestFireEmptyWeaponGivesClearFeedbackWithoutMutation()
     {
         var pipeline = CreatePipeline();
@@ -317,19 +438,134 @@ public sealed class FirearmSystemTests
         Assert.Empty(state.Player.Firearms.Weapons);
     }
 
+    [Fact]
+    public void ShootingNpcWithEquippedLoadedStatefulWeaponConsumesAmmoDamagesNpcAndAdvancesTime()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+
+        var result = pipeline.Execute(state, new ShootNpcActionRequest(PrototypeNpcs.TestDummy));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.ShootTickCost, result.ElapsedTicks);
+        Assert.Equal(GameActionPipeline.ShootTickCost, state.Time.ElapsedTicks);
+        Assert.Equal(4, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(175, target.Health.Current);
+        Assert.Contains("Shot Test Dummy with 9mm pistol using 9mm standard rounds for 25 damage.", result.Messages);
+        Assert.Contains("Test Dummy health: 175/200.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcRequiresEquippedFirearm()
+    {
+        var pipeline = CreatePipeline();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+
+        var result = pipeline.Execute(state, new ShootNpcActionRequest(PrototypeNpcs.TestDummy));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("No equipped firearm.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcRequiresLoadedFirearm()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+
+        var result = pipeline.Execute(state, new ShootNpcActionRequest(PrototypeNpcs.TestDummy));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("9mm pistol is empty.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcRejectsTargetsOutsideWeaponMaximumRangeWithoutConsumingAmmo()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(25, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(new GridBounds(30, 5), npcs, startPosition: new GridPosition(2, 2));
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+
+        var result = pipeline.Execute(state, new ShootNpcActionRequest(PrototypeNpcs.TestDummy));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(5, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("Test Dummy is out of range for 9mm pistol (23/20 tiles).", result.Messages);
+    }
+
     private static GameActionPipeline CreatePipeline()
     {
         return new GameActionPipeline(new ItemCatalog(), firearmCatalog: LoadFirearmCatalog());
     }
 
-    private static PrototypeGameState CreateState()
+    private static PrototypeGameState CreateState(
+        GridBounds? bounds = null,
+        NpcRoster? npcs = null,
+        GridPosition? startPosition = null
+    )
     {
+        var mapBounds = bounds ?? new GridBounds(5, 5);
         return new PrototypeGameState(
-            new GridBounds(5, 5),
+            mapBounds,
             new TileItemMap(),
-            new TileSurfaceMap(new GridBounds(5, 5), PrototypeSurfaces.Concrete),
+            new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete),
             new TileObjectMap(),
-            new GridPosition(2, 2)
+            npcs ?? new NpcRoster(),
+            startPosition ?? new GridPosition(2, 2)
         );
     }
 

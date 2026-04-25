@@ -93,13 +93,16 @@ public sealed class FirearmDefinitionLoader
 
         public string? Variant { get; set; }
 
+        public int Damage { get; set; }
+
         public AmmunitionDefinition ToDefinition(string sourcePath)
         {
             return new AmmunitionDefinition(
                 RequiredItemId(ItemId, sourcePath, "ammunition item id"),
                 RequiredString(Name, sourcePath, ItemId, "name"),
                 new AmmoSizeId(RequiredString(Size, sourcePath, ItemId, "size")),
-                RequiredString(Variant, sourcePath, ItemId, "variant")
+                RequiredString(Variant, sourcePath, ItemId, "variant"),
+                Damage
             );
         }
     }

@@ -54,4 +54,21 @@ public sealed class NpcStateTests
         Assert.Same(npc, movedNpc);
         Assert.Equal(new GridPosition(3, 3), npc.Position);
     }
+
+    [Fact]
+    public void NpcDamageReducesHealthAndClampsAtZero()
+    {
+        var npc = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(2, 3), 200, 200);
+
+        var firstDamage = npc.TakeDamage(45);
+
+        Assert.Equal(45, firstDamage);
+        Assert.Equal(155, npc.Health.Current);
+
+        var secondDamage = npc.TakeDamage(500);
+
+        Assert.Equal(155, secondDamage);
+        Assert.Equal(0, npc.Health.Current);
+        Assert.True(npc.IsDisabled);
+    }
 }

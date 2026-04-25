@@ -45,8 +45,10 @@ public partial class GameShell : Control
     private Label _timeLabel = null!;
     private Label _positionLabel = null!;
     private Label _surfaceLabel = null!;
+    private Label _targetLabel = null!;
     private Label _modeLabel = null!;
     private SelectedItemRef? _selectedItem;
+    private NpcId? _selectedTargetNpcId;
     private GridPosition? _visibleTooltipPosition;
     private int _cellSize = BaseCellSize;
 
@@ -93,19 +95,24 @@ public partial class GameShell : Control
         UpdateItemTooltip();
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
+        {
+            if (IsPointerOverGameplayUi(mouseEvent.Position))
+            {
+                return;
+            }
+
+            if (TryHandleBoardClick())
+            {
+                GetViewport().SetInputAsHandled();
+            }
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton mouseEvent
-            && mouseEvent.Pressed
-            && mouseEvent.ButtonIndex == MouseButton.Left
-            && _itemActionPopup is not null
-            && _itemActionPopup.Visible
-            && !_itemActionPopup.GetGlobalRect().HasPoint(mouseEvent.Position))
-        {
-            HideItemActionPopup();
-            return;
-        }
-
         if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
         {
             return;
@@ -166,11 +173,13 @@ public partial class GameShell : Control
         _timeLabel = CreateStatusLabel();
         _positionLabel = CreateStatusLabel();
         _surfaceLabel = CreateStatusLabel();
+        _targetLabel = CreateStatusLabel();
 
         stack.AddChild(_modeLabel);
         stack.AddChild(_timeLabel);
         stack.AddChild(_positionLabel);
         stack.AddChild(_surfaceLabel);
+        stack.AddChild(_targetLabel);
 
         var separator = new HSeparator();
         stack.AddChild(separator);
@@ -381,6 +390,7 @@ public partial class GameShell : Control
         _timeLabel.Text = $"Time: {_gameState.Time.ElapsedTicks} ticks";
         _positionLabel.Text = $"Position: {position.X}, {position.Y}";
         _surfaceLabel.Text = $"Surface: {GetSurfaceAt(position).Name}";
+        _targetLabel.Text = FormatSelectedTarget();
         _actionPanel.Display(GetGlobalActions(availableActions));
         _statusPanel.Display(_gameState.Player.Vitals);
         _equipmentPanel.Display(_gameState.Player.Equipment, _itemCatalog, _gameState.StatefulItems, _selectedItem);
@@ -401,11 +411,20 @@ public partial class GameShell : Control
         ShowItemActionPopup(cursorPosition);
     }
 
-    private static IReadOnlyList<AvailableAction> GetGlobalActions(IReadOnlyList<AvailableAction> availableActions)
+    private IReadOnlyList<AvailableAction> GetGlobalActions(IReadOnlyList<AvailableAction> availableActions)
     {
         var actions = availableActions
             .Where(action => action.Kind is GameActionKind.Wait or GameActionKind.Pickup)
             .ToList();
+
+        if (GetSelectedTargetNpc() is { } target)
+        {
+            actions.Insert(0, new AvailableAction(
+                GameActionKind.ShootNpc,
+                $"Shoot {target.Name}",
+                new ShootNpcActionRequest(target.Id)
+            ));
+        }
 
         if (actions.All(action => action.Kind != GameActionKind.Pickup)
             && availableActions.FirstOrDefault(action => action.Kind == GameActionKind.PickupStatefulItem) is { } pickupStatefulItem)
@@ -427,6 +446,8 @@ public partial class GameShell : Control
 
         return availableActions
             .Where(action => IsActionForSelectedItem(action, selectedItem))
+            .GroupBy(action => action.Request)
+            .Select(group => group.First())
             .ToArray();
     }
 
@@ -435,6 +456,11 @@ public partial class GameShell : Control
         return action.Request switch
         {
             EquipItemActionRequest equip => MatchesStackItem(selectedItem, equip.ItemId),
+            InspectItemActionRequest inspect => MatchesStackItem(selectedItem, inspect.ItemId),
+            DropItemStackActionRequest dropStack => selectedItem.Kind == SelectedItemKind.InventoryStack
+                && selectedItem.ItemId == dropStack.ItemId,
+            UnequipItemActionRequest unequip => selectedItem.Kind == SelectedItemKind.EquipmentItem
+                && selectedItem.EquipmentSlotId == unequip.SlotId,
             LoadFeedDeviceActionRequest loadFeed => MatchesStackItem(selectedItem, loadFeed.FeedDeviceItemId)
                 || MatchesStackItem(selectedItem, loadFeed.AmmunitionItemId),
             UnloadFeedDeviceActionRequest unloadFeed => MatchesStackItem(selectedItem, unloadFeed.FeedDeviceItemId),
@@ -443,6 +469,8 @@ public partial class GameShell : Control
             RemoveFeedDeviceActionRequest removeFeed => MatchesStackItem(selectedItem, removeFeed.WeaponItemId),
             LoadWeaponActionRequest loadWeapon => MatchesStackItem(selectedItem, loadWeapon.WeaponItemId)
                 || MatchesStackItem(selectedItem, loadWeapon.AmmunitionItemId),
+            ReloadWeaponActionRequest reloadWeapon => MatchesStackItem(selectedItem, reloadWeapon.WeaponItemId)
+                || MatchesStackItem(selectedItem, reloadWeapon.AmmunitionItemId),
             TestFireActionRequest testFire => MatchesStackItem(selectedItem, testFire.WeaponItemId),
             PickupStatefulItemActionRequest pickupStateful => MatchesStatefulItem(selectedItem, pickupStateful.ItemId),
             DropStatefulItemActionRequest dropStateful => MatchesStatefulItem(selectedItem, dropStateful.ItemId),
@@ -455,6 +483,8 @@ public partial class GameShell : Control
                 || MatchesStatefulItem(selectedItem, insertStatefulFeed.FeedDeviceItemId),
             RemoveStatefulFeedDeviceActionRequest removeStatefulFeed => MatchesStatefulItem(selectedItem, removeStatefulFeed.WeaponItemId),
             LoadStatefulWeaponActionRequest loadStatefulWeapon => MatchesStatefulItem(selectedItem, loadStatefulWeapon.WeaponItemId),
+            ReloadStatefulWeaponActionRequest reloadStatefulWeapon => MatchesStatefulItem(selectedItem, reloadStatefulWeapon.WeaponItemId)
+                || MatchesStackItem(selectedItem, reloadStatefulWeapon.AmmunitionItemId),
             TestFireStatefulWeaponActionRequest testStatefulFire => MatchesStatefulItem(selectedItem, testStatefulFire.WeaponItemId),
             _ => false
         };
@@ -534,6 +564,47 @@ public partial class GameShell : Control
         {
             _itemActionPopup.Visible = false;
         }
+    }
+
+    private bool TryHandleBoardClick()
+    {
+        var clickedPosition = GetHoveredGridPosition();
+        if (clickedPosition is null)
+        {
+            return false;
+        }
+
+        if (!_gameState.World.Npcs.TryGetAt(clickedPosition.Value, out var npc))
+        {
+            if (_selectedTargetNpcId is not null)
+            {
+                _selectedTargetNpcId = null;
+                UpdateOverlay();
+            }
+
+            HideItemActionPopup();
+            return true;
+        }
+
+        _selectedTargetNpcId = npc.Id;
+        HideItemActionPopup();
+        UpdateOverlay();
+        _messageLog.AddMessage($"Targeting {npc.Name}.");
+        return true;
+    }
+
+    private bool IsPointerOverGameplayUi(Vector2 viewportPosition)
+    {
+        return IsPointerOverControl(_sidePanel, viewportPosition)
+            || IsPointerOverControl(_logPanel, viewportPosition)
+            || IsPointerOverControl(_itemActionPopup, viewportPosition);
+    }
+
+    private static bool IsPointerOverControl(Control control, Vector2 viewportPosition)
+    {
+        return control is not null
+            && control.Visible
+            && control.GetGlobalRect().HasPoint(viewportPosition);
     }
 
     private void AddPrototypeStartingItems()
@@ -706,6 +777,13 @@ public partial class GameShell : Control
 
     private void UpdateItemTooltip()
     {
+        var cursorPosition = GetViewport().GetMousePosition();
+        if (IsPointerOverGameplayUi(cursorPosition))
+        {
+            HideItemTooltip();
+            return;
+        }
+
         var hoveredPosition = GetHoveredGridPosition();
         if (hoveredPosition is null)
         {
@@ -719,7 +797,6 @@ public partial class GameShell : Control
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
         var npc = GetNpcAt(hoveredPosition.Value);
 
-        var cursorPosition = GetViewport().GetMousePosition();
         if (_visibleTooltipPosition == hoveredPosition)
         {
             _itemTooltip.MoveTo(cursorPosition);
@@ -750,9 +827,24 @@ public partial class GameShell : Control
             : null;
     }
 
+    private NpcState? GetSelectedTargetNpc()
+    {
+        return _selectedTargetNpcId is not null && _gameState.World.Npcs.TryGet(_selectedTargetNpcId, out var npc)
+            ? npc
+            : null;
+    }
+
+    private string FormatSelectedTarget()
+    {
+        var target = GetSelectedTargetNpc();
+        return target is null
+            ? "Target: None"
+            : $"Target: {target.Name} ({target.Health.Current}/{target.Health.Maximum})";
+    }
+
     private GridPosition? GetHoveredGridPosition()
     {
-        var boardPosition = _board.ToLocal(GetGlobalMousePosition());
+        var boardPosition = _board.GetLocalMousePosition();
         var cell = new GridPosition(
             Mathf.FloorToInt(boardPosition.X / _cellSize),
             Mathf.FloorToInt(boardPosition.Y / _cellSize)
