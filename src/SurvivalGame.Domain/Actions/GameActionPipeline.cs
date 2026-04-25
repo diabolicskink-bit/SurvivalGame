@@ -88,21 +88,30 @@ public sealed record TestFireStatefulWeaponActionRequest(StatefulItemId WeaponIt
 
 public sealed record AvailableAction(GameActionKind Kind, string Label, GameActionRequest? Request = null);
 
-public sealed record GameActionResult(bool Succeeded, bool AdvancedTurn, IReadOnlyList<string> Messages)
+public sealed record GameActionResult(bool Succeeded, int ElapsedTicks, IReadOnlyList<string> Messages)
 {
-    public static GameActionResult Success(bool advancedTurn, params string[] messages)
+    public static GameActionResult Success(int elapsedTicks, params string[] messages)
     {
-        return new GameActionResult(true, advancedTurn, messages);
+        if (elapsedTicks < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(elapsedTicks), "Elapsed tick cost cannot be negative.");
+        }
+
+        return new GameActionResult(true, elapsedTicks, messages);
     }
 
     public static GameActionResult Failure(params string[] messages)
     {
-        return new GameActionResult(false, false, messages);
+        return new GameActionResult(false, 0, messages);
     }
 }
 
 public sealed class GameActionPipeline
 {
+    public const int MoveTickCost = 100;
+    public const int WaitTickCost = 100;
+    public const int PickupTickCost = 50;
+
     private readonly ItemCatalog _itemCatalog;
     private readonly WorldObjectCatalog? _worldObjectCatalog;
     private readonly FirearmActionService? _firearmActions;
@@ -298,8 +307,8 @@ public sealed class GameActionPipeline
 
     private static GameActionResult Wait(PrototypeGameState state)
     {
-        state.Turn.Advance();
-        return GameActionResult.Success(advancedTurn: true, "Waited.");
+        state.AdvanceTime(WaitTickCost);
+        return GameActionResult.Success(WaitTickCost, $"You wait. Time +{WaitTickCost}.");
     }
 
     private GameActionResult Move(PrototypeGameState state, GridOffset direction)
@@ -320,9 +329,14 @@ public sealed class GameActionPipeline
             return GameActionResult.Failure($"Blocked by {blockerName}.");
         }
 
+        if (IsBlockedByNpc(state, nextPosition, out var npcName))
+        {
+            return GameActionResult.Failure($"Blocked by {npcName}.");
+        }
+
         state.SetPlayerPosition(nextPosition);
-        state.Turn.Advance();
-        return GameActionResult.Success(advancedTurn: true, $"Moved to {nextPosition.X}, {nextPosition.Y}.");
+        state.AdvanceTime(MoveTickCost);
+        return GameActionResult.Success(MoveTickCost, $"Moved to {nextPosition.X}, {nextPosition.Y}. Time +{MoveTickCost}.");
     }
 
     private bool IsBlockedByWorldObject(PrototypeGameState state, GridPosition position, out string blockerName)
@@ -344,12 +358,24 @@ public sealed class GameActionPipeline
         return worldObject.BlocksMovement;
     }
 
+    private static bool IsBlockedByNpc(PrototypeGameState state, GridPosition position, out string npcName)
+    {
+        if (state.World.Npcs.TryGetAt(position, out var npc))
+        {
+            npcName = npc.Name;
+            return true;
+        }
+
+        npcName = string.Empty;
+        return false;
+    }
+
     private GameActionResult Pickup(PrototypeGameState state)
     {
         var itemStacks = state.World.GroundItems.TakeAllAt(state.Player.Position);
         if (itemStacks.Count == 0)
         {
-            return GameActionResult.Failure("There is nothing to pick up.");
+            return GameActionResult.Failure("There is nothing here to pick up.");
         }
 
         foreach (var stack in itemStacks)
@@ -357,12 +383,12 @@ public sealed class GameActionPipeline
             state.Player.Inventory.Add(stack.ItemId, stack.Quantity);
         }
 
-        state.Turn.Advance();
+        state.AdvanceTime(PickupTickCost);
         var messages = itemStacks
-            .Select(stack => $"Picked up {FormatStack(stack)}.")
+            .Select(stack => $"Picked up {FormatStack(stack)}. Time +{PickupTickCost}.")
             .ToArray();
 
-        return GameActionResult.Success(advancedTurn: true, messages);
+        return GameActionResult.Success(PickupTickCost, messages);
     }
 
     private GameActionResult PickupStatefulItem(PrototypeGameState state, StatefulItemId itemId)
@@ -374,11 +400,11 @@ public sealed class GameActionPipeline
         }
 
         state.StatefulItems.MoveToInventory(item.Id);
-        state.Turn.Advance();
+        state.AdvanceTime(PickupTickCost);
 
         return GameActionResult.Success(
-            advancedTurn: true,
-            $"Picked up {FormatStatefulItem(item)}."
+            PickupTickCost,
+            $"Picked up {FormatStatefulItem(item)}. Time +{PickupTickCost}."
         );
     }
 
@@ -392,7 +418,7 @@ public sealed class GameActionPipeline
 
         state.StatefulItems.MoveToGround(item.Id, state.Player.Position);
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Dropped {FormatStatefulItem(item)}."
         );
     }
@@ -432,7 +458,7 @@ public sealed class GameActionPipeline
 
         state.StatefulItems.MoveToEquipment(item.Id, slot.Id);
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Equipped {FormatStatefulItem(item)} to {slot.DisplayName}."
         );
     }
@@ -447,7 +473,7 @@ public sealed class GameActionPipeline
 
         state.StatefulItems.MoveToInventory(item.Id);
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Unequipped {FormatStatefulItem(item)}."
         );
     }
@@ -471,7 +497,7 @@ public sealed class GameActionPipeline
             messages.Add($"Contents: {string.Join(", ", contents)}.");
         }
 
-        return GameActionResult.Success(advancedTurn: false, messages.ToArray());
+        return GameActionResult.Success(0, messages.ToArray());
     }
 
     private GameActionResult EquipItem(PrototypeGameState state, ItemId itemId, EquipmentSlotId slotId)
@@ -516,7 +542,7 @@ public sealed class GameActionPipeline
         state.Player.Equipment.OccupySlot(slotId, equippedItem);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Equipped {item.Name} to {slot.DisplayName}."
         );
     }
@@ -527,7 +553,7 @@ public sealed class GameActionPipeline
             ? item.Name
             : stack.ItemId.ToString();
 
-        return stack.Quantity == 1 ? itemName : $"{itemName} x{stack.Quantity}";
+        return stack.Quantity == 1 ? itemName : $"{stack.Quantity} x {itemName}";
     }
 
     private bool IsSlotFree(PrototypeGameState state, EquipmentSlotId slotId)

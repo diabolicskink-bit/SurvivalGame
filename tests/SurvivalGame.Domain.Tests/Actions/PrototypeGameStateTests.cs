@@ -6,20 +6,23 @@ namespace SurvivalGame.Domain.Tests;
 public sealed class PrototypeGameStateTests
 {
     [Fact]
-    public void RootStateOwnsTurnPlayerAndWorldState()
+    public void RootStateOwnsTimePlayerAndWorldState()
     {
         var bounds = new GridBounds(5, 5);
         var groundItems = new TileItemMap();
         var worldObjects = new TileObjectMap();
         var surfaces = new TileSurfaceMap(bounds, PrototypeSurfaces.Concrete);
-        var state = new PrototypeGameState(bounds, groundItems, surfaces, worldObjects, new GridPosition(2, 3));
+        var npcs = new NpcRoster();
+        npcs.Add(new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(4, 3), 200, 200));
+        var state = new PrototypeGameState(bounds, groundItems, surfaces, worldObjects, npcs, new GridPosition(2, 3));
 
         Assert.Same(groundItems, state.World.GroundItems);
         Assert.Same(worldObjects, state.World.WorldObjects);
         Assert.Same(surfaces, state.World.Map.Surfaces);
+        Assert.Same(npcs, state.World.Npcs);
         Assert.Equal(bounds, state.World.Map.Bounds);
         Assert.Equal(new GridPosition(2, 3), state.Player.Position);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, state.Time.ElapsedTicks);
     }
 
     [Fact]
@@ -35,12 +38,38 @@ public sealed class PrototypeGameStateTests
     }
 
     [Fact]
-    public void TurnStateAdvancesCurrentTurn()
+    public void WorldStateRejectsNpcPositionsOutsideMap()
     {
-        var turn = new TurnState();
+        var bounds = new GridBounds(5, 5);
+        var npcs = new NpcRoster();
+        npcs.Add(new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(5, 0), 200, 200));
 
-        turn.Advance();
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PrototypeGameState(
+                bounds,
+                new TileItemMap(),
+                new TileSurfaceMap(bounds, PrototypeSurfaces.Concrete),
+                new TileObjectMap(),
+                npcs,
+                new GridPosition(2, 2)
+            ));
+    }
 
-        Assert.Equal(1, turn.CurrentTurn);
+    [Fact]
+    public void WorldTimeAdvancesElapsedTicks()
+    {
+        var time = new WorldTime();
+
+        time.Advance(100);
+
+        Assert.Equal(100, time.ElapsedTicks);
+    }
+
+    [Fact]
+    public void WorldTimeRejectsNonPositiveAdvancement()
+    {
+        var time = new WorldTime();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => time.Advance(0));
     }
 }

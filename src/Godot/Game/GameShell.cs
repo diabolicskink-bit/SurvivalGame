@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SurvivalGame.Domain;
 
@@ -11,6 +14,7 @@ public partial class GameShell : Control
     private const int LayoutMargin = 24;
     private const int MinimumBoardMargin = 16;
     private const float SidePanelWidth = 346.0f;
+    private const float MinimumWidePanelWidth = 620.0f;
     private const int StatusFontSize = 18;
     private const int SectionTitleFontSize = 17;
     private static readonly GridBounds MapBounds = new(19, 13);
@@ -25,21 +29,24 @@ public partial class GameShell : Control
     private GridView _gridView = null!;
     private WorldObjectLayer _worldObjectLayer = null!;
     private GroundItemLayer _groundItemLayer = null!;
+    private NpcLayer _npcLayer = null!;
     private Node2D _playerMarker = null!;
     private PlayerController _playerController = null!;
-    private PanelContainer _sidePanel = null!;
+    private Control _sidePanel = null!;
+    private PanelContainer _itemActionPopup = null!;
     private PanelContainer _logPanel = null!;
     private ActionPanel _actionPanel = null!;
     private PlayerStatusPanel _statusPanel = null!;
     private EquipmentPanel _equipmentPanel = null!;
-    private FirearmPanel _firearmPanel = null!;
     private InventoryPanel _inventoryPanel = null!;
+    private SelectedItemPanel _selectedItemPanel = null!;
     private ItemTooltip _itemTooltip = null!;
     private MessageLog _messageLog = null!;
-    private Label _turnLabel = null!;
+    private Label _timeLabel = null!;
     private Label _positionLabel = null!;
     private Label _surfaceLabel = null!;
     private Label _modeLabel = null!;
+    private SelectedItemRef? _selectedItem;
     private GridPosition? _visibleTooltipPosition;
     private int _cellSize = BaseCellSize;
 
@@ -49,6 +56,7 @@ public partial class GameShell : Control
         _gridView = GetNode<GridView>("Board/GridView");
         _worldObjectLayer = GetNode<WorldObjectLayer>("Board/WorldObjectLayer");
         _groundItemLayer = GetNode<GroundItemLayer>("Board/GroundItemLayer");
+        _npcLayer = GetNode<NpcLayer>("Board/NpcLayer");
         _playerMarker = GetNode<Node2D>("Board/PlayerMarker");
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
@@ -62,6 +70,7 @@ public partial class GameShell : Control
             CreatePrototypeGroundItems(),
             CreatePrototypeSurfaceMap(),
             CreatePrototypeWorldObjects(),
+            CreatePrototypeNpcs(),
             MapBounds.Center
         );
         AddPrototypeStartingItems();
@@ -69,6 +78,7 @@ public partial class GameShell : Control
         _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
         _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
         _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
+        _npcLayer.Configure(_gameState.World.Npcs, _cellSize);
         _playerController.MoveRequested += OnMoveRequested;
         UpdatePlayerMarker();
 
@@ -85,6 +95,17 @@ public partial class GameShell : Control
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (@event is InputEventMouseButton mouseEvent
+            && mouseEvent.Pressed
+            && mouseEvent.ButtonIndex == MouseButton.Left
+            && _itemActionPopup is not null
+            && _itemActionPopup.Visible
+            && !_itemActionPopup.GetGlobalRect().HasPoint(mouseEvent.Position))
+        {
+            HideItemActionPopup();
+            return;
+        }
+
         if (@event is not InputEventKey keyEvent || !keyEvent.Pressed || keyEvent.Echo)
         {
             return;
@@ -114,48 +135,47 @@ public partial class GameShell : Control
     {
         var uiLayer = GetNode<CanvasLayer>("UI");
 
-        _sidePanel = new PanelContainer
+        _sidePanel = new VBoxContainer
         {
-            AnchorLeft = 1.0f,
+            AnchorLeft = 0.0f,
             AnchorTop = 0.0f,
-            AnchorRight = 1.0f,
+            AnchorRight = 0.0f,
             AnchorBottom = 0.0f,
-            OffsetLeft = -(SidePanelWidth + LayoutMargin),
+            OffsetLeft = LayoutMargin,
             OffsetTop = LayoutMargin,
-            OffsetRight = -LayoutMargin,
+            OffsetRight = LayoutMargin + SidePanelWidth,
             OffsetBottom = 460.0f
         };
-        _sidePanel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        ((VBoxContainer)_sidePanel).AddThemeConstantOverride("separation", 12);
         uiLayer.AddChild(_sidePanel);
 
-        var scroll = new ScrollContainer();
-        _sidePanel.AddChild(scroll);
+        var topPanelRow = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        topPanelRow.AddThemeConstantOverride("separation", 12);
+        _sidePanel.AddChild(topPanelRow);
 
-        var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left", 18);
-        margin.AddThemeConstantOverride("margin_top", 16);
-        margin.AddThemeConstantOverride("margin_right", 18);
-        margin.AddThemeConstantOverride("margin_bottom", 16);
-        scroll.AddChild(margin);
-
-        var stack = new VBoxContainer();
-        stack.AddThemeConstantOverride("separation", 8);
-        margin.AddChild(stack);
+        var infoPanel = CreateSidebarPanel("InfoPanel");
+        infoPanel.CustomMinimumSize = new Vector2(0, 330);
+        infoPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        topPanelRow.AddChild(infoPanel);
+        var stack = CreatePanelStack(infoPanel);
 
         _modeLabel = CreateStatusLabel();
-        _turnLabel = CreateStatusLabel();
+        _timeLabel = CreateStatusLabel();
         _positionLabel = CreateStatusLabel();
         _surfaceLabel = CreateStatusLabel();
 
         stack.AddChild(_modeLabel);
-        stack.AddChild(_turnLabel);
+        stack.AddChild(_timeLabel);
         stack.AddChild(_positionLabel);
         stack.AddChild(_surfaceLabel);
 
         var separator = new HSeparator();
         stack.AddChild(separator);
 
-        stack.AddChild(CreateSectionTitle("Actions"));
+        stack.AddChild(CreateSectionTitle("Global Actions"));
 
         _actionPanel = new ActionPanel
         {
@@ -166,7 +186,7 @@ public partial class GameShell : Control
 
         stack.AddChild(new HSeparator());
 
-        stack.AddChild(CreateSectionTitle("Status"));
+        stack.AddChild(CreateSectionTitle("Vitals"));
 
         _statusPanel = new PlayerStatusPanel
         {
@@ -174,35 +194,78 @@ public partial class GameShell : Control
         };
         stack.AddChild(_statusPanel);
 
-        stack.AddChild(new HSeparator());
-
-        stack.AddChild(CreateSectionTitle("Equipment"));
+        var equipmentContainer = CreateSidebarPanel("EquipmentPanelContainer");
+        equipmentContainer.CustomMinimumSize = new Vector2(0, 330);
+        equipmentContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        topPanelRow.AddChild(equipmentContainer);
+        var equipmentStack = CreatePanelStack(equipmentContainer);
+        equipmentStack.AddChild(CreateSectionTitle("Equipment"));
 
         _equipmentPanel = new EquipmentPanel
         {
             Name = "EquipmentPanel"
         };
-        stack.AddChild(_equipmentPanel);
+        _equipmentPanel.ItemSelected += OnItemSelected;
+        equipmentStack.AddChild(_equipmentPanel);
 
-        stack.AddChild(new HSeparator());
+        var inventoryContainer = CreateSidebarPanel("InventoryPanelContainer");
+        inventoryContainer.CustomMinimumSize = new Vector2(0, 260);
+        inventoryContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        inventoryContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        _sidePanel.AddChild(inventoryContainer);
+        var inventoryMargin = CreatePanelMargin();
+        inventoryContainer.AddChild(inventoryMargin);
 
-        stack.AddChild(CreateSectionTitle("Firearms"));
+        var inventoryStack = new VBoxContainer();
+        inventoryStack.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        inventoryStack.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        inventoryStack.AddThemeConstantOverride("separation", 8);
+        inventoryMargin.AddChild(inventoryStack);
+        inventoryStack.AddChild(CreateSectionTitle("Inventory"));
 
-        _firearmPanel = new FirearmPanel
+        var inventoryScroll = new ScrollContainer
         {
-            Name = "FirearmPanel"
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
         };
-        stack.AddChild(_firearmPanel);
-
-        stack.AddChild(new HSeparator());
-
-        stack.AddChild(CreateSectionTitle("Inventory"));
+        inventoryStack.AddChild(inventoryScroll);
 
         _inventoryPanel = new InventoryPanel
         {
-            Name = "InventoryPanel"
+            Name = "InventoryPanel",
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
-        stack.AddChild(_inventoryPanel);
+        _inventoryPanel.ItemSelected += OnItemSelected;
+        inventoryScroll.AddChild(_inventoryPanel);
+
+        _itemActionPopup = new PanelContainer
+        {
+            Name = "ItemActionPopup",
+            Visible = false,
+            CustomMinimumSize = new Vector2(360, 0)
+        };
+        _itemActionPopup.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        uiLayer.AddChild(_itemActionPopup);
+
+        var popupMargin = CreatePanelMargin();
+        _itemActionPopup.AddChild(popupMargin);
+
+        var popupScroll = new ScrollContainer
+        {
+            CustomMinimumSize = new Vector2(330, 0)
+        };
+        popupMargin.AddChild(popupScroll);
+
+        var popupStack = new VBoxContainer();
+        popupStack.AddThemeConstantOverride("separation", 8);
+        popupScroll.AddChild(popupStack);
+
+        _selectedItemPanel = new SelectedItemPanel
+        {
+            Name = "SelectedItemPanel"
+        };
+        _selectedItemPanel.ActionSelected += OnActionSelected;
+        popupStack.AddChild(_selectedItemPanel);
 
         _logPanel = new PanelContainer
         {
@@ -260,6 +323,37 @@ public partial class GameShell : Control
         return label;
     }
 
+    private static PanelContainer CreateSidebarPanel(string name)
+    {
+        var panel = new PanelContainer
+        {
+            Name = name
+        };
+        panel.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        return panel;
+    }
+
+    private static MarginContainer CreatePanelMargin()
+    {
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 18);
+        margin.AddThemeConstantOverride("margin_top", 16);
+        margin.AddThemeConstantOverride("margin_right", 18);
+        margin.AddThemeConstantOverride("margin_bottom", 16);
+        return margin;
+    }
+
+    private static VBoxContainer CreatePanelStack(PanelContainer panel)
+    {
+        var margin = CreatePanelMargin();
+        panel.AddChild(margin);
+
+        var stack = new VBoxContainer();
+        stack.AddThemeConstantOverride("separation", 8);
+        margin.AddChild(stack);
+        return stack;
+    }
+
     private static StyleBoxFlat CreatePanelStyle()
     {
         return new StyleBoxFlat
@@ -280,15 +374,166 @@ public partial class GameShell : Control
     private void UpdateOverlay()
     {
         var position = _gameState.Player.Position;
+        var availableActions = _actionPipeline.GetAvailableActions(_gameState);
+        EnsureSelectedItemStillValid();
+
         _modeLabel.Text = "Mode: Prototype Shell";
-        _turnLabel.Text = $"Turn: {_gameState.Turn.CurrentTurn}";
+        _timeLabel.Text = $"Time: {_gameState.Time.ElapsedTicks} ticks";
         _positionLabel.Text = $"Position: {position.X}, {position.Y}";
         _surfaceLabel.Text = $"Surface: {GetSurfaceAt(position).Name}";
-        _actionPanel.Display(_actionPipeline.GetAvailableActions(_gameState));
+        _actionPanel.Display(GetGlobalActions(availableActions));
         _statusPanel.Display(_gameState.Player.Vitals);
-        _equipmentPanel.Display(_gameState.Player.Equipment, _itemCatalog, _gameState.StatefulItems);
-        _firearmPanel.Display(_gameState.Player, _firearmCatalog, _gameState.StatefulItems);
-        _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog, _gameState.StatefulItems);
+        _equipmentPanel.Display(_gameState.Player.Equipment, _itemCatalog, _gameState.StatefulItems, _selectedItem);
+        _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog, _gameState.StatefulItems, _selectedItem);
+        _selectedItemPanel.Display(
+            _selectedItem,
+            _gameState,
+            _itemCatalog,
+            _firearmCatalog,
+            GetContextualActions(availableActions, _selectedItem)
+        );
+    }
+
+    private void OnItemSelected(SelectedItemRef itemRef, Vector2 cursorPosition)
+    {
+        _selectedItem = itemRef;
+        UpdateOverlay();
+        ShowItemActionPopup(cursorPosition);
+    }
+
+    private static IReadOnlyList<AvailableAction> GetGlobalActions(IReadOnlyList<AvailableAction> availableActions)
+    {
+        var actions = availableActions
+            .Where(action => action.Kind is GameActionKind.Wait or GameActionKind.Pickup)
+            .ToList();
+
+        if (actions.All(action => action.Kind != GameActionKind.Pickup)
+            && availableActions.FirstOrDefault(action => action.Kind == GameActionKind.PickupStatefulItem) is { } pickupStatefulItem)
+        {
+            actions.Add(new AvailableAction(GameActionKind.PickupStatefulItem, "Pick Up", pickupStatefulItem.Request));
+        }
+
+        return actions;
+    }
+
+    private static IReadOnlyList<AvailableAction> GetContextualActions(
+        IReadOnlyList<AvailableAction> availableActions,
+        SelectedItemRef? selectedItem)
+    {
+        if (selectedItem is null)
+        {
+            return Array.Empty<AvailableAction>();
+        }
+
+        return availableActions
+            .Where(action => IsActionForSelectedItem(action, selectedItem))
+            .ToArray();
+    }
+
+    private static bool IsActionForSelectedItem(AvailableAction action, SelectedItemRef selectedItem)
+    {
+        return action.Request switch
+        {
+            EquipItemActionRequest equip => MatchesStackItem(selectedItem, equip.ItemId),
+            LoadFeedDeviceActionRequest loadFeed => MatchesStackItem(selectedItem, loadFeed.FeedDeviceItemId)
+                || MatchesStackItem(selectedItem, loadFeed.AmmunitionItemId),
+            UnloadFeedDeviceActionRequest unloadFeed => MatchesStackItem(selectedItem, unloadFeed.FeedDeviceItemId),
+            InsertFeedDeviceActionRequest insertFeed => MatchesStackItem(selectedItem, insertFeed.WeaponItemId)
+                || MatchesStackItem(selectedItem, insertFeed.FeedDeviceItemId),
+            RemoveFeedDeviceActionRequest removeFeed => MatchesStackItem(selectedItem, removeFeed.WeaponItemId),
+            LoadWeaponActionRequest loadWeapon => MatchesStackItem(selectedItem, loadWeapon.WeaponItemId)
+                || MatchesStackItem(selectedItem, loadWeapon.AmmunitionItemId),
+            TestFireActionRequest testFire => MatchesStackItem(selectedItem, testFire.WeaponItemId),
+            PickupStatefulItemActionRequest pickupStateful => MatchesStatefulItem(selectedItem, pickupStateful.ItemId),
+            DropStatefulItemActionRequest dropStateful => MatchesStatefulItem(selectedItem, dropStateful.ItemId),
+            InspectStatefulItemActionRequest inspectStateful => MatchesStatefulItem(selectedItem, inspectStateful.ItemId),
+            EquipStatefulItemActionRequest equipStateful => MatchesStatefulItem(selectedItem, equipStateful.ItemId),
+            UnequipStatefulItemActionRequest unequipStateful => MatchesStatefulItem(selectedItem, unequipStateful.ItemId),
+            LoadStatefulFeedDeviceActionRequest loadStatefulFeed => MatchesStatefulItem(selectedItem, loadStatefulFeed.FeedDeviceItemId),
+            UnloadStatefulFeedDeviceActionRequest unloadStatefulFeed => MatchesStatefulItem(selectedItem, unloadStatefulFeed.FeedDeviceItemId),
+            InsertStatefulFeedDeviceActionRequest insertStatefulFeed => MatchesStatefulItem(selectedItem, insertStatefulFeed.WeaponItemId)
+                || MatchesStatefulItem(selectedItem, insertStatefulFeed.FeedDeviceItemId),
+            RemoveStatefulFeedDeviceActionRequest removeStatefulFeed => MatchesStatefulItem(selectedItem, removeStatefulFeed.WeaponItemId),
+            LoadStatefulWeaponActionRequest loadStatefulWeapon => MatchesStatefulItem(selectedItem, loadStatefulWeapon.WeaponItemId),
+            TestFireStatefulWeaponActionRequest testStatefulFire => MatchesStatefulItem(selectedItem, testStatefulFire.WeaponItemId),
+            _ => false
+        };
+    }
+
+    private static bool MatchesStackItem(SelectedItemRef selectedItem, ItemId itemId)
+    {
+        return selectedItem.Kind is SelectedItemKind.InventoryStack or SelectedItemKind.EquipmentItem
+            && selectedItem.ItemId == itemId;
+    }
+
+    private static bool MatchesStatefulItem(SelectedItemRef selectedItem, StatefulItemId itemId)
+    {
+        return selectedItem.Kind == SelectedItemKind.StatefulItem
+            && selectedItem.StatefulItemId == itemId;
+    }
+
+    private void EnsureSelectedItemStillValid()
+    {
+        if (_selectedItem is null)
+        {
+            HideItemActionPopup();
+            return;
+        }
+
+        _selectedItem = _selectedItem.Kind switch
+        {
+            SelectedItemKind.InventoryStack when _selectedItem.ItemId is not null
+                && _gameState.Player.Inventory.CountOf(_selectedItem.ItemId) > 0 => _selectedItem,
+            SelectedItemKind.EquipmentItem when IsSelectedEquipmentItemStillEquipped(_selectedItem) => _selectedItem,
+            SelectedItemKind.StatefulItem when _selectedItem.StatefulItemId is not null
+                && _gameState.StatefulItems.TryGet(_selectedItem.StatefulItemId.Value, out _) => _selectedItem,
+            _ => null
+        };
+
+        if (_selectedItem is null)
+        {
+            HideItemActionPopup();
+        }
+    }
+
+    private bool IsSelectedEquipmentItemStillEquipped(SelectedItemRef selectedItem)
+    {
+        if (selectedItem.EquipmentSlotId is null || selectedItem.ItemId is null)
+        {
+            return false;
+        }
+
+        return _gameState.Player.Equipment.TryGetEquippedItem(selectedItem.EquipmentSlotId, out var equippedItem)
+            && equippedItem.ItemId == selectedItem.ItemId;
+    }
+
+    private void ShowItemActionPopup(Vector2 cursorPosition)
+    {
+        var viewportSize = GetViewportRect().Size;
+        var popupSize = new Vector2(380, Mathf.Min(520.0f, viewportSize.Y - (LayoutMargin * 2.0f)));
+        var position = cursorPosition + new Vector2(16, 12);
+
+        if (position.X + popupSize.X > viewportSize.X - LayoutMargin)
+        {
+            position.X = Mathf.Max(LayoutMargin, cursorPosition.X - popupSize.X - 16);
+        }
+
+        if (position.Y + popupSize.Y > viewportSize.Y - LayoutMargin)
+        {
+            position.Y = Mathf.Max(LayoutMargin, viewportSize.Y - popupSize.Y - LayoutMargin);
+        }
+
+        _itemActionPopup.Position = position;
+        _itemActionPopup.Size = popupSize;
+        _itemActionPopup.Visible = true;
+    }
+
+    private void HideItemActionPopup()
+    {
+        if (_itemActionPopup is not null)
+        {
+            _itemActionPopup.Visible = false;
+        }
     }
 
     private void AddPrototypeStartingItems()
@@ -397,6 +642,21 @@ public partial class GameShell : Control
         return objectMap;
     }
 
+    private static NpcRoster CreatePrototypeNpcs()
+    {
+        var npcs = new NpcRoster();
+
+        npcs.Add(new NpcState(
+            PrototypeNpcs.TestDummy,
+            "Test Dummy",
+            new GridPosition(14, 8),
+            currentHealth: 200,
+            maximumHealth: 200
+        ));
+
+        return npcs;
+    }
+
     private static void PlaceWallLine(TileObjectMap objectMap, int y, int xStart, int xEnd)
     {
         for (var x = xStart; x <= xEnd; x++)
@@ -457,6 +717,7 @@ public partial class GameShell : Control
         var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
+        var npc = GetNpcAt(hoveredPosition.Value);
 
         var cursorPosition = GetViewport().GetMousePosition();
         if (_visibleTooltipPosition == hoveredPosition)
@@ -466,7 +727,7 @@ public partial class GameShell : Control
         }
 
         _visibleTooltipPosition = hoveredPosition;
-        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, itemStacks, statefulItems, _itemCatalog, cursorPosition);
+        _itemTooltip.Display(hoveredPosition.Value, surface, worldObject, npc, itemStacks, statefulItems, _itemCatalog, cursorPosition);
     }
 
     private TileSurfaceDefinition GetSurfaceAt(GridPosition position)
@@ -479,6 +740,13 @@ public partial class GameShell : Control
     {
         return _gameState.World.WorldObjects.TryGetObjectAt(position, out var objectId)
             ? _worldObjectCatalog.Get(objectId)
+            : null;
+    }
+
+    private NpcState? GetNpcAt(GridPosition position)
+    {
+        return _gameState.World.Npcs.TryGetAt(position, out var npc)
+            ? npc
             : null;
     }
 
@@ -502,7 +770,6 @@ public partial class GameShell : Control
     private void UpdateResponsiveLayout()
     {
         var viewportSize = GetViewportRect().Size;
-        var panelWidth = Mathf.Min(SidePanelWidth, Mathf.Max(280.0f, viewportSize.X * 0.32f));
         var boardAreaWidth = Mathf.Max(
             MinimumCellSize * MapBounds.Width,
             (viewportSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
@@ -523,22 +790,40 @@ public partial class GameShell : Control
             _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
             _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
             _groundItemLayer.Configure(_gameState.World.GroundItems, _itemCatalog, _cellSize, _gameState.StatefulItems);
+            _npcLayer.Configure(_gameState.World.Npcs, _cellSize);
             UpdatePlayerMarker();
         }
 
         _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
         _playerMarker.Scale = Vector2.One * (_cellSize / (float)BaseCellSize);
 
-        _sidePanel.OffsetLeft = -(panelWidth + LayoutMargin);
-        _sidePanel.OffsetTop = LayoutMargin;
-        _sidePanel.OffsetRight = -LayoutMargin;
-        _sidePanel.OffsetBottom = Mathf.Max(460.0f, viewportSize.Y - LayoutMargin);
-
         var boardPixelSize = new Vector2(MapBounds.Width * _cellSize, MapBounds.Height * _cellSize);
-        var logTop = _board.Position.Y + boardPixelSize.Y + 14.0f;
+        var boardRight = _board.Position.X + boardPixelSize.X;
+        var boardBottom = _board.Position.Y + boardPixelSize.Y;
+        var logTop = boardBottom + 14.0f;
+        var widePanelLeft = boardRight + LayoutMargin;
+        var widePanelRight = viewportSize.X - LayoutMargin;
+        var widePanelWidth = widePanelRight - widePanelLeft;
+
+        if (widePanelWidth >= MinimumWidePanelWidth)
+        {
+            _sidePanel.OffsetLeft = widePanelLeft;
+            _sidePanel.OffsetTop = LayoutMargin;
+            _sidePanel.OffsetRight = widePanelRight;
+            _sidePanel.OffsetBottom = Mathf.Max(620.0f, viewportSize.Y - LayoutMargin);
+        }
+        else
+        {
+            var panelWidth = Mathf.Min(SidePanelWidth, Mathf.Max(280.0f, viewportSize.X * 0.32f));
+            _sidePanel.OffsetLeft = viewportSize.X - panelWidth - LayoutMargin;
+            _sidePanel.OffsetTop = LayoutMargin;
+            _sidePanel.OffsetRight = viewportSize.X - LayoutMargin;
+            _sidePanel.OffsetBottom = Mathf.Max(620.0f, viewportSize.Y - LayoutMargin);
+        }
+
         _logPanel.OffsetLeft = _board.Position.X;
         _logPanel.OffsetTop = logTop;
-        _logPanel.OffsetRight = _board.Position.X + boardPixelSize.X;
+        _logPanel.OffsetRight = boardRight;
         _logPanel.OffsetBottom = Mathf.Max(logTop + 128.0f, viewportSize.Y - LayoutMargin);
     }
 
@@ -558,6 +843,7 @@ public partial class GameShell : Control
 
         if (request is not null)
         {
+            HideItemActionPopup();
             ExecuteAction(request);
         }
     }
@@ -569,6 +855,7 @@ public partial class GameShell : Control
         UpdatePlayerMarker();
         _worldObjectLayer.QueueRedraw();
         _groundItemLayer.QueueRedraw();
+        _npcLayer.QueueRedraw();
         UpdateOverlay();
         HideItemTooltip();
 

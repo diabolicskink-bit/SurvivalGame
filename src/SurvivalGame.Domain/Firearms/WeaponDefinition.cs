@@ -9,6 +9,8 @@ public sealed record WeaponDefinition
         IEnumerable<AmmoSizeId> acceptedAmmoSizes,
         FeedDeviceKind feedKind,
         int builtInCapacity = 0,
+        int effectiveRangeTiles = 1,
+        int maximumRangeTiles = 1,
         IEnumerable<ItemId>? compatibleFeedDeviceIds = null
     )
     {
@@ -43,12 +45,24 @@ public sealed record WeaponDefinition
             throw new ArgumentOutOfRangeException(nameof(builtInCapacity), "Built-in feed weapons must have capacity.");
         }
 
+        if (effectiveRangeTiles < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(effectiveRangeTiles), "Effective range must be at least 1 tile.");
+        }
+
+        if (maximumRangeTiles < effectiveRangeTiles)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumRangeTiles), "Maximum range must be at least the effective range.");
+        }
+
         ItemId = itemId;
         Name = name.Trim();
         WeaponFamily = weaponFamily.Trim();
         AcceptedAmmoSizes = ammoSizes;
         FeedKind = feedKind;
         BuiltInCapacity = builtInCapacity;
+        EffectiveRangeTiles = effectiveRangeTiles;
+        MaximumRangeTiles = maximumRangeTiles;
         CompatibleFeedDeviceIds = (compatibleFeedDeviceIds ?? Array.Empty<ItemId>()).Distinct().ToArray();
     }
 
@@ -63,6 +77,10 @@ public sealed record WeaponDefinition
     public FeedDeviceKind FeedKind { get; }
 
     public int BuiltInCapacity { get; }
+
+    public int EffectiveRangeTiles { get; }
+
+    public int MaximumRangeTiles { get; }
 
     public IReadOnlyList<ItemId> CompatibleFeedDeviceIds { get; }
 

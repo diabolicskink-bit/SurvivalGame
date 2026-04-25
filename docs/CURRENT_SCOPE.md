@@ -4,24 +4,35 @@
 
 - Main menu with title, subtitle, New Run, and Quit actions.
 - Gameplay shell scene with a simple placeholder top-down grid.
-- Resizable gameplay layout that places the world board in the top-left half-width, top two-thirds-height area and keeps the side panel fitted to the right.
+- Resizable gameplay layout that places the world board in the top-left half-width, top two-thirds-height area and uses the available right-side space for gameplay panels.
 - Player marker placed near the centre of the grid.
 - Discrete tile movement with WASD and arrow keys.
 - Boundary checks that prevent movement outside the map.
-- UI overlay showing mode, turn count, and player position.
+- UI overlay showing mode, elapsed world ticks, and player position.
 - Central domain action pipeline for movement, wait, and pickup.
+- Tick-based world time tracked as elapsed ticks in domain state.
+- Successful movement advances world time by 100 ticks.
+- Wait advances world time by 100 ticks.
+- Successful pickup advances world time by 50 ticks.
+- Failed boundary movement and failed pickup on an empty tile advance world time by 0 ticks.
 - Clickable Wait action button.
 - Clickable Pick Up action button when the player is standing on item stacks.
+- Global action panel now shows general actions only, such as Wait and Pick Up.
 - Message log with startup and movement messages.
 - Escape key return from gameplay shell to main menu.
 - Domain-level player inventory tracking by item id and quantity.
-- Read-only gameplay UI section showing the player's held inventory items.
+- Selectable gameplay UI section showing the player's held inventory items.
+- Inventory and equipment are visually separated.
+- Gameplay UI is split into three visible panels: player info/general actions, equipment, and inventory. On wide windows, player info and equipment sit side by side with inventory below them.
+- Clicking an inventory or equipment item opens a small popup with item details and contextual actions.
+- Item popup details include name, quantity, location, category/type, description, tags, and relevant prototype firearm/feed state when available.
+- Item-specific actions appear in the clicked item popup rather than in the global action list.
 - JSON-backed prototype item definitions under `data/items/`.
 - Item definitions include id, name, description, category, tags, stack size, weight, icon id, sprite id, and future action ids.
 - Nested type paths are derived from category and tags, such as `Weapon -> gun -> rifle -> ak47`.
 - Prototype starting inventory items for display testing.
 - Prototype item stacks placed on a few map tiles and rendered as simple markers.
-- Hover tooltip for tiles, showing surface details and any item names, quantities, and descriptions.
+- Hover tooltip for tiles, showing surface details and any NPC, item names, quantities, and descriptions.
 - JSON-backed prototype terrain/surface definitions under `data/surfaces/`.
 - Surface definitions include id, name, description, category, tags, movement cost, map color, and optional sprite id.
 - Surface tags are the current lightweight property mechanism, for example ice has a `slippery` tag.
@@ -34,16 +45,18 @@
 - Equipment slot definitions validate accepted `ItemTypePath` values.
 - Prototype equippable item definitions for each current equipment slot.
 - Clickable Equip action for held items that match an empty equipment slot.
-- Equipping transfers one item from inventory into the chosen empty slot and does not advance the turn.
+- Equipping transfers one item from inventory into the chosen empty slot and costs 0 ticks.
 - Read-only gameplay UI section showing every equipment slot, including empty slots.
 - Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
 - Domain-level firearm, ammunition, and feed-device definitions loaded from JSON under `data/firearms/`.
 - Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
+- Firearm weapon definitions include prototype effective and maximum ranges measured in tiles.
 - Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
 - Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, AK 30-round magazine, and AK damaged 20-round magazine.
 - Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
 - Clickable prototype actions for loading/unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round.
-- Read-only firearm UI section showing weapon/feed loaded state.
+- Selected item details show weapon/feed loaded state for selected firearm-related items.
+- Selected weapon details show prototype effective and maximum range.
 - Starting inventory includes firearm, ammunition, and feed-device examples for manual testing.
 - First-pass stateful item model for specific items that need identity.
 - Stateful items have stable runtime ids, item definition ids, quantity, condition, location, optional contained items, and optional firearm/feed state.
@@ -59,18 +72,26 @@
 - Generated sprite assets for fridge, bed, and storage crate.
 - Movement collision against world objects marked as blocking movement.
 - Hover tooltip shows world object details when a tile contains one.
+- Minimal domain NPC state with id, name, grid position, and health.
+- One inert test dummy NPC on the prototype map with 200/200 health.
+- NPCs render on the world board and block movement into their tile.
+- Hover tooltip shows NPC name and current/max health when a tile contains one.
 
 ## Not Included Yet
 
 - Opening, closing, moving, destroying, building, using, searching, or looting world objects.
 - Container contents for fridges, crates, or other objects.
-- Damage, healing, death, or health effects.
+- Player or NPC damage, healing, death, or health effects.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
+- Terrain-based time modifiers or surface-driven action costs.
+- Actor scheduling, initiative, action queues, or long action interruption.
+- Calendar, clock, day/night cycle, or conversion from ticks to minutes/hours.
+- Survival decay driven by elapsed time.
 - Surface-driven movement effects such as sliding on ice.
 - Generic item use actions.
 - Equipment replacement actions.
 - Equipment item effects or stat modifiers.
-- Full combat, damage, accuracy, recoil, sound propagation, jamming, durability, weapon condition, or ballistics.
+- Range-driven combat, damage, accuracy, recoil, sound propagation, jamming, durability, weapon condition, or ballistics.
 - Mixed ammunition inside a single feed device; unload before switching ammunition variants.
 - Full migration of all inventory content to stateful items; simple identical content still uses stack counts.
 - Full container UI or transfer actions for placing items into/taking items out of containers.
@@ -81,7 +102,7 @@
 - Item effects or equipment stat modifiers.
 - Inventory weight, capacity, containers, or equipment containers.
 - Hunger, thirst, fatigue, or other survival meters.
-- Enemies, NPCs, or combat.
+- Enemies, NPC AI, factions, dialogue, schedules, or combat.
 - Procedural generation.
 - Crafting.
 - Saving or loading.

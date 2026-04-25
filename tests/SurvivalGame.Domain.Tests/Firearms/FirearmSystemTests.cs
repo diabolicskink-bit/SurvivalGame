@@ -20,6 +20,18 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void WeaponsLoadPrototypeTileRanges()
+    {
+        var catalog = LoadFirearmCatalog();
+
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Pistol9mm), effective: 8, maximum: 20);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.Ak47), effective: 24, maximum: 60);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.HuntingRifle), effective: 32, maximum: 80);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Shotgun12Gauge), effective: 6, maximum: 18);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Rifle22), effective: 18, maximum: 45);
+    }
+
+    [Fact]
     public void AmmunitionTracksSizeAndVariant()
     {
         var catalog = LoadFirearmCatalog();
@@ -121,7 +133,7 @@ public sealed class FirearmSystemTests
         );
 
         Assert.True(loadResult.Succeeded);
-        Assert.False(loadResult.AdvancedTurn);
+        Assert.Equal(0, loadResult.ElapsedTicks);
         Assert.Equal(5, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
 
         var unloadResult = pipeline.Execute(
@@ -147,7 +159,7 @@ public sealed class FirearmSystemTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(10, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo12GaugeBuckshot));
         Assert.False(state.Player.Firearms.TryGetFeedDevice(PrototypeFirearms.Magazine9mmStandard, out _));
         Assert.Contains("Cannot load 12 gauge buckshot shells into 9mm standard pistol magazine.", result.Messages);
@@ -208,7 +220,7 @@ public sealed class FirearmSystemTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeFirearms.MagazineAk30Round));
         Assert.Contains("This magazine does not fit that weapon.", result.Messages);
     }
@@ -248,7 +260,7 @@ public sealed class FirearmSystemTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(10, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
         Assert.Contains("9mm pistol must use a compatible feed device.", result.Messages);
     }
@@ -266,7 +278,7 @@ public sealed class FirearmSystemTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Empty(state.Player.Firearms.Weapons);
     }
 
@@ -285,7 +297,7 @@ public sealed class FirearmSystemTests
         var result = pipeline.Execute(state, new TestFireActionRequest(PrototypeFirearms.Pistol9mm));
 
         Assert.True(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.True(state.Player.Firearms.TryGetFeedDevice(PrototypeFirearms.Magazine9mmStandard, out var magazine));
         Assert.Equal(14, magazine.LoadedCount);
     }
@@ -300,7 +312,7 @@ public sealed class FirearmSystemTests
         var result = pipeline.Execute(state, new TestFireActionRequest(PrototypeFirearms.Pistol9mm));
 
         Assert.False(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Contains("Weapon is empty.", result.Messages);
         Assert.Empty(state.Player.Firearms.Weapons);
     }
@@ -341,5 +353,11 @@ public sealed class FirearmSystemTests
         }
 
         throw new DirectoryNotFoundException("Could not locate data/firearms from the test output directory.");
+    }
+
+    private static void AssertWeaponRange(WeaponDefinition weapon, int effective, int maximum)
+    {
+        Assert.Equal(effective, weapon.EffectiveRangeTiles);
+        Assert.Equal(maximum, weapon.MaximumRangeTiles);
     }
 }

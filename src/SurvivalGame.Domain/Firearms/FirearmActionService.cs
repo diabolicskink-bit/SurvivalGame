@@ -178,7 +178,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
         );
     }
@@ -203,7 +203,7 @@ public sealed class FirearmActionService
         var ammunitionName = GetAmmunitionName(unloaded.ItemId);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Unloaded {unloaded.Quantity} {ammunitionName}."
         );
     }
@@ -246,7 +246,7 @@ public sealed class FirearmActionService
         weaponState.InsertFeedDevice(feedDeviceItemId);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Inserted {feedDeviceDefinition.Name} into {weapon.Name}."
         );
     }
@@ -278,7 +278,7 @@ public sealed class FirearmActionService
             : removedFeedDeviceItemId.ToString();
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Removed {feedDeviceName} from {weapon.Name}."
         );
     }
@@ -333,7 +333,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
         );
     }
@@ -361,7 +361,7 @@ public sealed class FirearmActionService
         }
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Test fired {weapon.Name} using {GetAmmunitionName(consumed.ItemId)}."
         );
     }
@@ -403,7 +403,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDeviceItem.FeedDevice.DisplayName}."
         );
     }
@@ -432,7 +432,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.Add(unloaded.ItemId, unloaded.Quantity);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Unloaded {unloaded.Quantity} {GetAmmunitionName(unloaded.ItemId)}."
         );
     }
@@ -476,7 +476,7 @@ public sealed class FirearmActionService
         state.StatefulItems.MoveToInserted(feedDeviceItem.Id, weaponItem.Id);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Inserted {feedDeviceDefinition.Name} into {weaponDefinition.Name}."
         );
     }
@@ -501,7 +501,7 @@ public sealed class FirearmActionService
         var feedDevice = state.StatefulItems.Get(removedFeedDeviceItemId.Value);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Removed {GetItemName(feedDevice.ItemId)} from {GetItemName(weaponItem.ItemId)}."
         );
     }
@@ -556,7 +556,7 @@ public sealed class FirearmActionService
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Loaded {loadedQuantity} {ammunition.Name} into {feedDevice.DisplayName}."
         );
     }
@@ -579,7 +579,7 @@ public sealed class FirearmActionService
         }
 
         return GameActionResult.Success(
-            advancedTurn: false,
+            0,
             $"Test fired {GetItemName(weaponItem.ItemId)} using {GetAmmunitionName(consumed.ItemId)}."
         );
     }

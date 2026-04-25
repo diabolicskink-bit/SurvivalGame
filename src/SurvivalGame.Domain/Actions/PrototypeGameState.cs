@@ -31,6 +31,18 @@ public sealed class PrototypeGameState
     {
     }
 
+    public PrototypeGameState(
+        GridBounds mapBounds,
+        TileItemMap groundItems,
+        TileSurfaceMap surfaces,
+        TileObjectMap worldObjects,
+        NpcRoster npcs,
+        GridPosition startPosition
+    )
+        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects, npcs), startPosition)
+    {
+    }
+
     public PrototypeGameState(WorldState world, GridPosition startPosition)
     {
         ArgumentNullException.ThrowIfNull(world);
@@ -39,7 +51,7 @@ public sealed class PrototypeGameState
         Player = new PlayerState(world.Map.Clamp(startPosition));
     }
 
-    public TurnState Turn { get; } = new();
+    public WorldTime Time { get; } = new();
 
     public PlayerState Player { get; }
 
@@ -55,9 +67,11 @@ public sealed class PrototypeGameState
 
     public TileObjectMap WorldObjects => World.WorldObjects;
 
+    public NpcRoster Npcs => World.Npcs;
+
     public GridPosition PlayerPosition => Player.Position;
 
-    public int TurnCount => Turn.CurrentTurn;
+    public int ElapsedTicks => Time.ElapsedTicks;
 
     public void SetPlayerPosition(GridPosition position)
     {
@@ -69,22 +83,24 @@ public sealed class PrototypeGameState
         Player.SetPosition(position);
     }
 
-    public void AdvanceTurn()
+    public void AdvanceTime(int ticks)
     {
-        Turn.Advance();
+        Time.Advance(ticks);
     }
 
     private static WorldState CreateWorldState(
         GridBounds mapBounds,
         TileItemMap groundItems,
         TileSurfaceMap surfaces,
-        TileObjectMap worldObjects
+        TileObjectMap worldObjects,
+        NpcRoster? npcs = null
     )
     {
         return new WorldState(
             new MapState(mapBounds, surfaces),
             groundItems,
-            worldObjects
+            worldObjects,
+            npcs
         );
     }
 }

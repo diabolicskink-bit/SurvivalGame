@@ -22,6 +22,19 @@ public partial class ActionPanel : VBoxContainer
             child.QueueFree();
         }
 
+        if (actions.Count == 0)
+        {
+            var label = new Label
+            {
+                Text = "No actions",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart
+            };
+            label.AddThemeFontSizeOverride("font_size", ButtonFontSize);
+            label.AddThemeColorOverride("font_color", new Color(0.52f, 0.58f, 0.55f));
+            AddChild(label);
+            return;
+        }
+
         foreach (var action in actions)
         {
             var button = new Button

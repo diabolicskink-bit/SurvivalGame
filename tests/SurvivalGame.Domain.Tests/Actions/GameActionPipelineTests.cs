@@ -69,7 +69,7 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
-    public void WaitAdvancesTurn()
+    public void WaitAdvancesTimeByOneHundredTicks()
     {
         var pipeline = CreatePipeline();
         var state = CreateState();
@@ -77,13 +77,13 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new WaitActionRequest());
 
         Assert.True(result.Succeeded);
-        Assert.True(result.AdvancedTurn);
-        Assert.Equal(1, state.Turn.CurrentTurn);
-        Assert.Contains("Waited.", result.Messages);
+        Assert.Equal(GameActionPipeline.WaitTickCost, result.ElapsedTicks);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.Contains("You wait. Time +100.", result.Messages);
     }
 
     [Fact]
-    public void MoveAdvancesTurnAndUpdatesPlayerPosition()
+    public void MoveAdvancesTimeByOneHundredTicksAndUpdatesPlayerPosition()
     {
         var pipeline = CreatePipeline();
         var state = CreateState(startPosition: new GridPosition(2, 2));
@@ -91,12 +91,14 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
 
         Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.MoveTickCost, result.ElapsedTicks);
         Assert.Equal(new GridPosition(3, 2), state.Player.Position);
-        Assert.Equal(1, state.Turn.CurrentTurn);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.Contains("Moved to 3, 2. Time +100.", result.Messages);
     }
 
     [Fact]
-    public void InvalidMoveDoesNotAdvanceTurn()
+    public void InvalidMoveDoesNotAdvanceTime()
     {
         var pipeline = CreatePipeline();
         var state = CreateState(startPosition: new GridPosition(0, 0));
@@ -104,12 +106,13 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Left));
 
         Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(new GridPosition(0, 0), state.Player.Position);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, state.Time.ElapsedTicks);
     }
 
     [Fact]
-    public void MoveFailsWithoutAdvancingTurnWhenBlockedByWorldObject()
+    public void MoveFailsWithoutAdvancingTimeWhenBlockedByWorldObject()
     {
         var pipeline = CreatePipeline(CreateWorldObjectCatalog());
         var worldObjects = new TileObjectMap();
@@ -119,9 +122,27 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
 
         Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(new GridPosition(2, 2), state.Player.Position);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Contains("Blocked by Wall.", result.Messages);
+    }
+
+    [Fact]
+    public void MoveFailsWithoutAdvancingTimeWhenBlockedByNpc()
+    {
+        var pipeline = CreatePipeline();
+        var npcs = new NpcRoster();
+        npcs.Add(new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200));
+        var state = CreateState(npcs: npcs, startPosition: new GridPosition(2, 2));
+
+        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(new GridPosition(2, 2), state.Player.Position);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Contains("Blocked by Test Dummy.", result.Messages);
     }
 
     [Fact]
@@ -136,11 +157,11 @@ public sealed class GameActionPipelineTests
 
         Assert.True(result.Succeeded);
         Assert.Equal(new GridPosition(3, 2), state.Player.Position);
-        Assert.Equal(1, state.Turn.CurrentTurn);
+        Assert.Equal(100, state.Time.ElapsedTicks);
     }
 
     [Fact]
-    public void PickupMovesGroundItemsIntoPlayerInventoryAndAdvancesTurn()
+    public void PickupMovesGroundItemsIntoPlayerInventoryAndAdvancesTimeByFiftyTicks()
     {
         var pipeline = CreatePipeline();
         var groundItems = new TileItemMap();
@@ -152,15 +173,16 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new PickupActionRequest());
 
         Assert.True(result.Succeeded);
-        Assert.Equal(1, state.Turn.CurrentTurn);
+        Assert.Equal(GameActionPipeline.PickupTickCost, result.ElapsedTicks);
+        Assert.Equal(50, state.Time.ElapsedTicks);
         Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.Branch));
         Assert.Empty(state.World.GroundItems.ItemsAt(position));
-        Assert.Contains(result.Messages, message => message.Contains("Picked up Stone x2."));
+        Assert.Contains(result.Messages, message => message.Contains("Picked up 2 x Stone. Time +50."));
     }
 
     [Fact]
-    public void PickupFailsWithoutAdvancingTurnWhenNoItemsArePresent()
+    public void PickupFailsWithoutAdvancingTimeWhenNoItemsArePresent()
     {
         var pipeline = CreatePipeline();
         var state = CreateState();
@@ -168,11 +190,13 @@ public sealed class GameActionPipelineTests
         var result = pipeline.Execute(state, new PickupActionRequest());
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Contains("There is nothing here to pick up.", result.Messages);
     }
 
     [Fact]
-    public void EquipMovesItemFromInventoryToSlotWithoutAdvancingTurn()
+    public void EquipMovesItemFromInventoryToSlotWithoutAdvancingTime()
     {
         var pipeline = CreatePipeline();
         var state = CreateState();
@@ -184,8 +208,8 @@ public sealed class GameActionPipelineTests
         );
 
         Assert.True(result.Succeeded);
-        Assert.False(result.AdvancedTurn);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
         Assert.True(state.Player.Equipment.TryGetEquippedItem(EquipmentSlotId.Head, out var equippedItem));
         Assert.Equal(PrototypeItems.BaseballCap, equippedItem.ItemId);
@@ -193,7 +217,7 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
-    public void EquipFailsWithoutAdvancingTurnWhenItemIsNotHeld()
+    public void EquipFailsWithoutAdvancingTimeWhenItemIsNotHeld()
     {
         var pipeline = CreatePipeline();
         var state = CreateState();
@@ -204,7 +228,8 @@ public sealed class GameActionPipelineTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
     }
 
@@ -221,13 +246,14 @@ public sealed class GameActionPipelineTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.RunningShoes));
         Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
     }
 
     [Fact]
-    public void EquipFailsWithoutAdvancingTurnWhenSlotDoesNotExist()
+    public void EquipFailsWithoutAdvancingTimeWhenSlotDoesNotExist()
     {
         var pipeline = CreatePipeline();
         var state = CreateState();
@@ -239,7 +265,8 @@ public sealed class GameActionPipelineTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
         Assert.True(state.Player.Equipment.IsEmpty(EquipmentSlotId.Head));
     }
@@ -262,7 +289,8 @@ public sealed class GameActionPipelineTests
         );
 
         Assert.False(result.Succeeded);
-        Assert.Equal(0, state.Turn.CurrentTurn);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.BaseballCap));
         Assert.True(state.Player.Equipment.TryGetEquippedItem(EquipmentSlotId.Head, out var equippedItem));
         Assert.Equal(new ItemId("motorcycle_helmet"), equippedItem.ItemId);
@@ -312,14 +340,17 @@ public sealed class GameActionPipelineTests
     private static PrototypeGameState CreateState(
         TileItemMap? groundItems = null,
         TileObjectMap? worldObjects = null,
+        NpcRoster? npcs = null,
         GridPosition? startPosition = null
     )
     {
+        var bounds = new GridBounds(5, 5);
         return new PrototypeGameState(
-            new GridBounds(5, 5),
+            bounds,
             groundItems ?? new TileItemMap(),
-            new TileSurfaceMap(new GridBounds(5, 5), PrototypeSurfaces.Concrete),
+            new TileSurfaceMap(bounds, PrototypeSurfaces.Concrete),
             worldObjects ?? new TileObjectMap(),
+            npcs ?? new NpcRoster(),
             startPosition ?? new GridPosition(2, 2)
         );
     }

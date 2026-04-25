@@ -5,6 +5,8 @@
     "weaponFamily": "9mm_pistol",
     "acceptedAmmoSizes": ["9mm"],
     "feedKind": "DetachableMagazine",
+    "effectiveRangeTiles": 8,
+    "maximumRangeTiles": 20,
     "compatibleFeedDeviceIds": ["magazine_9mm_standard", "magazine_9mm_extended"]
   },
   {
@@ -13,6 +15,8 @@
     "weaponFamily": "ak_rifle",
     "acceptedAmmoSizes": ["7.62x39mm"],
     "feedKind": "DetachableMagazine",
+    "effectiveRangeTiles": 24,
+    "maximumRangeTiles": 60,
     "compatibleFeedDeviceIds": ["magazine_ak_30_round", "magazine_ak_damaged_20_round"]
   },
   {
@@ -21,6 +25,8 @@
     "weaponFamily": "hunting_rifle_308",
     "acceptedAmmoSizes": [".308"],
     "feedKind": "InternalMagazine",
+    "effectiveRangeTiles": 32,
+    "maximumRangeTiles": 80,
     "builtInCapacity": 4
   },
   {
@@ -29,6 +35,8 @@
     "weaponFamily": "pump_shotgun_12_gauge",
     "acceptedAmmoSizes": ["12 gauge"],
     "feedKind": "TubeMagazine",
+    "effectiveRangeTiles": 6,
+    "maximumRangeTiles": 18,
     "builtInCapacity": 5
   },
   {
@@ -37,6 +45,8 @@
     "weaponFamily": "rifle_22lr",
     "acceptedAmmoSizes": [".22 LR"],
     "feedKind": "InternalMagazine",
+    "effectiveRangeTiles": 18,
+    "maximumRangeTiles": 45,
     "builtInCapacity": 10
   }
 ]

@@ -13,12 +13,12 @@
 - `src/Godot/` contains Godot-facing scenes and scripts, grouped by feature.
 - `src/Godot/MainMenu/` contains the main menu scene and menu script.
 - `src/Godot/Game/` contains the current playable prototype shell.
-- `src/Godot/Game/WorldView/` contains visible world, grid, item marker, and input-view scripts.
+- `src/Godot/Game/WorldView/` contains visible world, grid, actor marker, item marker, and input-view scripts.
 - `src/Godot/Game/UI/` contains gameplay overlay controls.
 - `src/Godot/Game/Prototype/` is reserved for temporary Godot-side prototype helpers.
 - `src/SurvivalGame.Domain/` contains plain C# domain code grouped by simulation/content concept.
-- `src/SurvivalGame.Domain/Actions/` contains action requests, action resolution, turn state, and the current prototype root state.
-- `src/SurvivalGame.Domain/Actors/` contains player and future actor state.
+- `src/SurvivalGame.Domain/Actions/` contains action requests, action resolution, world time state, and the current prototype root state.
+- `src/SurvivalGame.Domain/Actors/` contains player state, NPC state, and actor collections.
 - `src/SurvivalGame.Domain/World/` contains grid/map/world primitives.
 - `src/SurvivalGame.Domain/WorldObjects/` contains static world object ids, definitions, catalogs, and tile placement maps.
 - `src/SurvivalGame.Domain/Items/` contains item ids, definitions, catalogs, type paths, and placed item stacks.
@@ -32,7 +32,7 @@
 ## Scene Structure
 
 - `src/Godot/MainMenu/MainMenu.tscn` is the entry scene. It uses `src/Godot/MainMenu/MainMenu.cs` to build the simple menu UI and handle button actions.
-- `src/Godot/Game/GameShell.tscn` is the prototype gameplay scene. It contains the board, surface-colored grid, player marker, player controller, and UI layer.
+- `src/Godot/Game/GameShell.tscn` is the prototype gameplay scene. It contains the board, surface grid, world object layer, item layer, NPC layer, player marker, player controller, and UI layer.
 
 ## Script Responsibilities
 
@@ -41,30 +41,34 @@
 - `WorldView/GridView.cs` draws the visible grid from domain surface state. It uses surface sprite assets when available and falls back to surface definition display colors. It does not own terrain rules.
 - `WorldView/WorldObjectLayer.cs` renders static world objects from domain placement data. It does not own object rules or placement state.
 - `WorldView/GroundItemLayer.cs` renders item stacks and stateful items placed on visible grid tiles. It uses item sprite assets when available and falls back to simple colored markers. It reads item placement data; it does not own item rules.
+- `WorldView/NpcLayer.cs` renders NPCs from domain actor state. It does not own NPC health, placement, AI, or behavior.
 - `WorldView/PlayerController.cs` translates movement keys into move action requests. It does not own movement rules, position state, or player rendering.
-- `UI/ActionPanel.cs` displays currently available clickable actions such as Wait and Pick Up.
+- `UI/ActionPanel.cs` displays global clickable actions such as Wait and Pick Up inside the player info/general panel. It should not display every item-specific action at once.
 - `UI/PlayerStatusPanel.cs` displays tracked player vitals from domain state. It does not calculate survival effects.
-- `UI/EquipmentPanel.cs` displays every player equipment slot and the item currently equipped there, if any. It does not own equipment state or equip rules.
-- `UI/FirearmPanel.cs` displays owned/tracked weapons, inserted feed devices, and loaded counts for both legacy stack-backed firearm state and stateful firearm items. It does not own firearm state or loading rules.
-- `UI/InventoryPanel.cs` displays the current player inventory, including simple item stacks and freely carried stateful items. It does not own inventory state or item rules.
-- `UI/ItemTooltip.cs` displays read-only hover details for the currently hovered tile, including its surface definition and any item stacks or stateful items there.
+- `UI/EquipmentPanel.cs` displays every player equipment slot separately from inventory and emits selection events for occupied slots. It does not own equipment state or equip rules.
+- `UI/InventoryPanel.cs` displays selectable held inventory items, including simple item stacks and freely carried stateful items. It does not own inventory state or item rules.
+- `UI/SelectedItemPanel.cs` is used inside the item click popup to display details and contextual actions for the selected inventory or equipment item. It filters actions from existing domain action requests; it does not invent item rules.
+- `UI/FirearmPanel.cs` is retained as a prototype firearm status control, but the current gameplay overlay primarily surfaces firearm/feed state through selected item details.
+- `UI/ItemTooltip.cs` displays read-only hover details for the currently hovered tile, including its surface definition and any NPC, item stacks, or stateful items there.
 - `UI/MessageLog.cs` owns the recent visible message display.
 
 ## Domain Code
 
 Future simulation logic should be kept separate from Godot presentation where practical. Godot scenes and nodes should present state and collect input, while survival and roguelike rules can grow into plain C# services or model classes later.
 
-The current shell still keeps a small amount of prototype state in Godot-facing scripts so the project can run. As real simulation systems are introduced, movement, turns, messages, and world state should move toward plain C# domain code with Godot nodes acting as views/controllers.
+The current shell still keeps a small amount of prototype state in Godot-facing scripts so the project can run. As real simulation systems are introduced, movement, time, messages, and world state should move toward plain C# domain code with Godot nodes acting as views/controllers.
 
-`Actions/GameActionPipeline.cs` is the central action pipeline. It validates and resolves current actions, advances turns for successful turn-costing actions, and returns messages for the UI to display. Movement, Wait, Pick Up, Equip Item, stateful item pickup/drop/equip/unequip/inspect, and firearm handling actions go through this pipeline. Movement checks map bounds and static world objects that block movement. Equip Item validates inventory, item definitions, and equipment slot compatibility, then fills an empty slot without advancing the turn. Firearm handling delegates to the firearm domain action service.
+`Actions/GameActionPipeline.cs` is the central action pipeline. It validates and resolves current actions, advances elapsed world ticks for successful time-costing actions, and returns messages plus the tick cost for the UI to display. Movement, Wait, Pick Up, Equip Item, stateful item pickup/drop/equip/unequip/inspect, and firearm handling actions go through this pipeline. Movement checks map bounds, static world objects, and NPCs that block movement. Equip Item validates inventory, item definitions, and equipment slot compatibility, then fills an empty slot without advancing time. Firearm handling delegates to the firearm domain action service.
 
-`Actions/PrototypeGameState.cs` is the current root shell/session state. It coordinates `TurnState`, `PlayerState`, and `WorldState` rather than directly owning every game detail.
+The current tick costs are intentionally simple: Move costs 100 ticks, Wait costs 100 ticks, and successful Pick Up costs 50 ticks. Failed actions currently cost 0 ticks. Terrain-based movement modifiers, survival decay, actor scheduling, calendars, and day/night behavior are not implemented yet.
 
-`Actions/TurnState.cs` owns the current turn count and exposes the small `Advance()` operation used by successful player actions.
+`Actions/PrototypeGameState.cs` is the current root shell/session state. It coordinates `WorldTime`, `PlayerState`, and `WorldState` rather than directly owning every game detail.
+
+`Actions/WorldTime.cs` owns elapsed world ticks and exposes the small `Advance(int ticks)` operation used by successful time-costing player actions.
 
 `Actors/PlayerState.cs` owns player-specific state: grid position, vitals, and inventory.
 
-`World/WorldState.cs` owns state outside the player, currently the map, ground item placement, and static world object placement.
+`World/WorldState.cs` owns state outside the player, currently the map, ground item placement, static world object placement, and NPC roster.
 
 `World/MapState.cs` owns the current map bounds and tile surface map.
 
@@ -76,11 +80,13 @@ The current shell still keeps a small amount of prototype state in Godot-facing 
 
 `Actors/PlayerVitals.cs` and `Actors/BoundedMeter.cs` provide the current minimal player vitals model. `PlayerVitals` tracks health, hunger, thirst, fatigue, sleep debt, pain, and body temperature as domain state. These values are only tracked and displayed for now; no metabolism, damage, healing, sleep, pain, exertion, or temperature simulation has been added yet.
 
+`Actors/NpcState.cs`, `Actors/NpcRoster.cs`, and `Actors/NpcId.cs` provide the current minimal NPC model. NPCs have identity, display name, grid position, and health. NPC AI, faction logic, combat actions, damage resolution, and pathfinding are not implemented yet.
+
 `Inventory/PlayerInventory.cs`, `Inventory/InventoryItemStack.cs`, and `Items/ItemId.cs` provide the current stack inventory model. This remains the right place for simple identical quantities such as ammunition rounds and basic consumable stacks.
 
-`Equipment/EquipmentLoadout.cs`, `Equipment/EquipmentSlotCatalog.cs`, `Equipment/EquipmentSlotDefinition.cs`, and `Equipment/EquipmentValidator.cs` provide the current equipment slot model. `PlayerState` owns an `EquipmentLoadout` with default slots for main hand, off hand, head, body, legs, feet, and back. Equipment stores `ItemId` references plus `ItemTypePath` classifications for validation. The current Equip Item action transfers one item from inventory into an empty compatible slot and does not advance the turn. Unequip, replacement, item effects, and slot-specific simulation rules are not implemented yet.
+`Equipment/EquipmentLoadout.cs`, `Equipment/EquipmentSlotCatalog.cs`, `Equipment/EquipmentSlotDefinition.cs`, and `Equipment/EquipmentValidator.cs` provide the current equipment slot model. `PlayerState` owns an `EquipmentLoadout` with default slots for main hand, off hand, head, body, legs, feet, and back. Equipment stores `ItemId` references plus `ItemTypePath` classifications for validation. The current Equip Item action transfers one item from inventory into an empty compatible slot and costs 0 ticks. Unequip, replacement, item effects, and slot-specific simulation rules are not implemented yet.
 
-`Firearms/WeaponDefinition.cs`, `Firearms/AmmunitionDefinition.cs`, `Firearms/FeedDeviceDefinition.cs`, and `Firearms/FirearmCatalog.cs` describe firearm content loaded from `data/firearms/*.json`. Weapons declare accepted ammunition sizes, feed type, built-in capacity when relevant, weapon family, and compatible detachable feed devices. Ammunition tracks size and variant. Feed devices track capacity, ammunition size, kind, and compatible weapon families.
+`Firearms/WeaponDefinition.cs`, `Firearms/AmmunitionDefinition.cs`, `Firearms/FeedDeviceDefinition.cs`, and `Firearms/FirearmCatalog.cs` describe firearm content loaded from `data/firearms/*.json`. Weapons declare accepted ammunition sizes, feed type, built-in capacity when relevant, weapon family, compatible detachable feed devices, and prototype effective/maximum range in tiles. Ammunition tracks size and variant. Feed devices track capacity, ammunition size, kind, and compatible weapon families.
 
 `Items/StatefulItemStore.cs`, `Items/StatefulItem.cs`, `Items/StatefulItemLocation.cs`, and related ids/state classes provide the current stateful item model. A stateful item is a specific thing with a stable runtime id, item definition id, quantity, location, condition, optional firearm/feed state, and optional contained item ids. Supported locations are player inventory, equipment, ground, inserted in another item, and contained inside another item. This model is used when identity matters, for example a loaded magazine, inserted feed device, equipped weapon, or backpack with contents.
 
@@ -88,7 +94,7 @@ The project intentionally has both stack inventory and stateful items right now.
 
 `Firearms/PlayerFirearmState.cs`, `Firearms/WeaponRuntimeState.cs`, and `Firearms/FeedDeviceState.cs` own legacy stack-backed loaded firearm state. `FeedDeviceState` is also reused by stateful feed-device items and built-in stateful weapon feeds. Feed devices currently allow only one ammunition item/variant at a time; unload before switching variants. Runtime firearm state should be created by successful state-changing actions, not by read-only UI refresh or action availability queries.
 
-`Firearms/FirearmActionService.cs` validates and resolves loading ammunition into feed devices, unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round. It supports both legacy stack-backed item ids and newer stateful firearm/feed items. Failed firearm actions should leave inventory, loaded counts, inserted feeds, stateful item locations, and tracked runtime firearm state unchanged. These prototype handling and test-fire actions do not advance turns yet. They do not implement combat, damage, accuracy, sound, recoil, durability, jamming, or ballistics.
+`Firearms/FirearmActionService.cs` validates and resolves loading ammunition into feed devices, unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round. It supports both legacy stack-backed item ids and newer stateful firearm/feed items. Failed firearm actions should leave inventory, loaded counts, inserted feeds, stateful item locations, and tracked runtime firearm state unchanged. These prototype handling and test-fire actions currently cost 0 ticks. Weapon ranges are currently definition/display data only. They do not implement combat, damage, accuracy, sound, recoil, durability, jamming, or ballistics.
 
 `Items/ItemDefinition.cs`, `Items/ItemCatalog.cs`, `Content/ItemDefinitionLoader.cs`, and `Items/ItemTypePath.cs` provide prototype item definitions. Item definitions are loaded from `data/items/*.json` into immutable C# objects. `ItemTypePath` is derived from category plus tags and supports nested subtype checks by prefix, for example `Weapon -> gun -> rifle -> ak47` is considered a `Weapon`, a `Gun`, and a `Rifle`.
 

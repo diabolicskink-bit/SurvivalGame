@@ -38,6 +38,7 @@ public partial class ItemTooltip : PanelContainer
         GridPosition position,
         TileSurfaceDefinition surface,
         WorldObjectDefinition? worldObject,
+        NpcState? npc,
         IReadOnlyList<GroundItemStack> itemStacks,
         IReadOnlyList<StatefulItem> statefulItems,
         ItemCatalog itemCatalog,
@@ -73,6 +74,17 @@ public partial class ItemTooltip : PanelContainer
                 worldObject.BlocksMovement ? "Blocks movement" : "Does not block movement",
                 14,
                 new Color(0.58f, 0.68f, 0.66f)
+            ));
+        }
+
+        if (npc is not null)
+        {
+            _content.AddChild(CreateLabel("NPC", 15, new Color(0.63f, 0.72f, 0.68f)));
+            _content.AddChild(CreateLabel(npc.Name, 17, new Color(0.9f, 0.93f, 0.86f)));
+            _content.AddChild(CreateLabel(
+                $"Health: {npc.Health.Current}/{npc.Health.Maximum}",
+                14,
+                new Color(0.68f, 0.75f, 0.71f)
             ));
         }
 

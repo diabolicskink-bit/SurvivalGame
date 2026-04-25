@@ -160,6 +160,21 @@
 - Updated the grid renderer to draw surface sprites when available and fall back to map colors otherwise.
 - Kept surface behavior unchanged; sprite assets only affect presentation.
 
+## 2026-04-25 - Test Dummy NPC
+
+- Added minimal domain NPC state with id, name, grid position, and health.
+- Added an NPC roster to world state so actors live with simulation state rather than Godot nodes.
+- Seeded one inert Test Dummy NPC on the prototype map with 200/200 health.
+- Added a Godot NPC layer, movement blocking against NPC-occupied tiles, and hover tooltip health display.
+- Kept NPC AI, combat, damage resolution, dialogue, factions, and scheduling out of scope.
+
+## 2026-04-25 - Firearm Range Definitions
+
+- Added effective and maximum tile range fields to weapon definitions.
+- Added prototype ranges for the 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
+- Updated selected item details to show weapon range.
+- Kept range as definition/display data only; combat, accuracy, damage, and ballistics are still out of scope.
+
 ## 2026-04-25 - Game State Ownership Refactor
 
 - Reviewed current game state ownership against the intended Godot/domain boundary.
@@ -243,3 +258,24 @@
 - Updated prototype UI panels and hover tooltips to display enough stateful item detail for manual testing.
 - Added tests for separate same-type item state, state preservation across insert/remove/drop/pickup/equip, container contents, invalid action safety, and inspection details.
 - Kept simple stack inventory for identical bulk items and avoided combat, item effects, durability mechanics, saving/loading, crafting, and advanced UI.
+
+## 2026-04-25 - Tick-Based World Time Foundation
+
+- Replaced the prototype turn counter with domain `WorldTime` elapsed ticks.
+- Updated action results to expose the elapsed tick cost of each resolved action.
+- Updated the action pipeline so Move costs 100 ticks, Wait costs 100 ticks, successful Pick Up costs 50 ticks, and failed actions currently cost 0 ticks.
+- Updated gameplay UI to show elapsed ticks as `Time: n ticks`.
+- Updated movement, pickup, action result, and root state tests for tick behavior.
+- Kept terrain-based costs, survival decay, actor scheduling, calendars, day/night, and other simulation systems out of scope.
+
+## 2026-04-25 - Gameplay UI Panel And Item Popup Refactor
+
+- Split the gameplay sidebar into three visible panels: player info/general actions, equipment, and inventory.
+- Adjusted the panel layout to use the wider available space beside the map instead of compressing everything into one narrow right column.
+- Fixed inventory row sizing so the inventory list has usable width inside its scroll panel.
+- Changed the global action area to show only general actions such as Wait and Pick Up.
+- Made inventory rows and occupied equipment slots selectable with a visible highlight.
+- Added an item click popup that shows item definition details, quantity/location, stateful item runtime details, and firearm/feed state where available.
+- Moved item-specific actions into the clicked item popup by filtering existing domain action requests for the selected item.
+- Preserved movement, wait, pickup, elapsed tick display, inventory display, equipment display, ground item markers, hover tooltip, and message log behavior.
+- Kept this as a UI/interaction refactor only; no new gameplay systems or item rules were added.

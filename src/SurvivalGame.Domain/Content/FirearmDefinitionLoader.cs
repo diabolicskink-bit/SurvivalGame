@@ -145,6 +145,10 @@ public sealed class FirearmDefinitionLoader
 
         public int BuiltInCapacity { get; set; }
 
+        public int EffectiveRangeTiles { get; set; }
+
+        public int MaximumRangeTiles { get; set; }
+
         public string[]? CompatibleFeedDeviceIds { get; set; }
 
         public WeaponDefinition ToDefinition(string sourcePath)
@@ -161,6 +165,8 @@ public sealed class FirearmDefinitionLoader
                 AcceptedAmmoSizes.Select(size => new AmmoSizeId(size)),
                 FeedKind,
                 BuiltInCapacity,
+                EffectiveRangeTiles,
+                MaximumRangeTiles,
                 CompatibleFeedDeviceIds?.Select(id => new ItemId(id))
             );
         }

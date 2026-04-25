@@ -63,7 +63,10 @@ public sealed class StatefulItemTests
         var pickupResult = pipeline.Execute(state, new PickupStatefulItemActionRequest(magazine.Id));
 
         Assert.True(dropResult.Succeeded);
+        Assert.Equal(0, dropResult.ElapsedTicks);
         Assert.True(pickupResult.Succeeded);
+        Assert.Equal(GameActionPipeline.PickupTickCost, pickupResult.ElapsedTicks);
+        Assert.Equal(50, state.Time.ElapsedTicks);
         Assert.Equal(StatefulItemLocationKind.PlayerInventory, magazine.Location.Kind);
         Assert.Equal(8, magazine.FeedDevice.LoadedCount);
         Assert.Equal("hollow point", magazine.FeedDevice.LoadedAmmunitionVariant);
