@@ -6,7 +6,7 @@ namespace SurvivalGame.Domain.Tests;
 public sealed class PrototypeGameStateTests
 {
     [Fact]
-    public void RootStateOwnsTimePlayerAndWorldState()
+    public void LocalGameplayStateCoordinatesTimePlayerAndLocalMapState()
     {
         var bounds = new GridBounds(5, 5);
         var groundItems = new TileItemMap();
@@ -16,17 +16,17 @@ public sealed class PrototypeGameStateTests
         npcs.Add(new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(4, 3), 200, 200));
         var state = new PrototypeGameState(bounds, groundItems, surfaces, worldObjects, npcs, new GridPosition(2, 3));
 
-        Assert.Same(groundItems, state.World.GroundItems);
-        Assert.Same(worldObjects, state.World.WorldObjects);
-        Assert.Same(surfaces, state.World.Map.Surfaces);
-        Assert.Same(npcs, state.World.Npcs);
-        Assert.Equal(bounds, state.World.Map.Bounds);
+        Assert.Same(groundItems, state.LocalMap.GroundItems);
+        Assert.Same(worldObjects, state.LocalMap.WorldObjects);
+        Assert.Same(surfaces, state.LocalMap.Map.Surfaces);
+        Assert.Same(npcs, state.LocalMap.Npcs);
+        Assert.Equal(bounds, state.LocalMap.Map.Bounds);
         Assert.Equal(new GridPosition(2, 3), state.Player.Position);
         Assert.Equal(0, state.Time.ElapsedTicks);
     }
 
     [Fact]
-    public void SetPlayerPositionValidatesAgainstWorldMap()
+    public void SetPlayerPositionValidatesAgainstLocalMap()
     {
         var state = new PrototypeGameState(
             new GridBounds(5, 5),
@@ -38,7 +38,7 @@ public sealed class PrototypeGameStateTests
     }
 
     [Fact]
-    public void WorldStateRejectsNpcPositionsOutsideMap()
+    public void LocalMapStateRejectsNpcPositionsOutsideMap()
     {
         var bounds = new GridBounds(5, 5);
         var npcs = new NpcRoster();

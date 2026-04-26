@@ -41,6 +41,22 @@ public sealed class PlayerVitalsTests
         Assert.Equal(38.2f, vitals.BodyTemperatureCelsius);
     }
 
+    [Fact]
+    public void DamageReducesHealthAndClampsAtZero()
+    {
+        var vitals = new PlayerVitals();
+
+        var firstDamage = vitals.TakeDamage(35);
+
+        Assert.Equal(35, firstDamage);
+        Assert.Equal(65, vitals.Health.Current);
+
+        var secondDamage = vitals.TakeDamage(500);
+
+        Assert.Equal(65, secondDamage);
+        Assert.Equal(0, vitals.Health.Current);
+    }
+
     [Theory]
     [InlineData(-1)]
     [InlineData(101)]

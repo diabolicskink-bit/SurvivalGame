@@ -1,0 +1,507 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+using SurvivalGame.Domain;
+
+public partial class MapEntityLayer : Node2D
+{
+    private static readonly SpriteRenderProfile DefaultObjectSpriteRender = new(0.84f, 0.84f);
+    private static readonly SpriteRenderProfile DefaultNpcSpriteRender = new(0.9f, 0.9f);
+
+    private readonly Dictionary<string, Texture2D?> _objectSpriteCache = new();
+    private readonly Dictionary<string, Texture2D?> _npcSpriteCache = new();
+    private int _cellSize = 32;
+    private GridViewport? _viewport;
+    private TileObjectMap? _objectMap;
+    private WorldObjectCatalog? _objectCatalog;
+    private NpcRoster? _npcs;
+    private NpcCatalog? _npcCatalog;
+    private PlayerState? _player;
+
+    public void Configure(
+        TileObjectMap objectMap,
+        WorldObjectCatalog objectCatalog,
+        NpcRoster npcs,
+        NpcCatalog npcCatalog,
+        PlayerState player,
+        int cellSize,
+        GridViewport viewport)
+    {
+        _objectMap = objectMap;
+        _objectCatalog = objectCatalog;
+        _npcs = npcs;
+        _npcCatalog = npcCatalog;
+        _player = player;
+        _cellSize = cellSize;
+        _viewport = viewport;
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        var commands = new List<EntityDrawCommand>();
+        AddWorldObjectCommands(commands);
+        AddNpcCommands(commands);
+        AddPlayerCommand(commands);
+
+        commands.Sort((left, right) =>
+        {
+            var sortComparison = left.SortKey.CompareTo(right.SortKey);
+            return sortComparison != 0
+                ? sortComparison
+                : left.Priority.CompareTo(right.Priority);
+        });
+
+        foreach (var command in commands)
+        {
+            command.Draw();
+        }
+    }
+
+    private void AddWorldObjectCommands(List<EntityDrawCommand> commands)
+    {
+        if (_objectMap is null)
+        {
+            return;
+        }
+
+        foreach (var placedObject in _objectMap.AllObjects)
+        {
+            var definition = TryGetWorldObjectDefinition(placedObject.ObjectId);
+            var render = definition?.SpriteRender ?? DefaultObjectSpriteRender;
+            if (!TryGetObjectSprite(definition, out var sprite))
+            {
+                render = new SpriteRenderProfile(1f, 1f);
+            }
+
+            var rect = GetRenderRect(placedObject.Position, render, sprite);
+            if (!IntersectsViewport(rect))
+            {
+                continue;
+            }
+
+            var objectId = placedObject.ObjectId;
+            commands.Add(new EntityDrawCommand(
+                placedObject.Position.Y + render.SortOffsetYTiles,
+                Priority: 0,
+                () => DrawWorldObject(objectId, definition, placedObject.Position, render, sprite)
+            ));
+        }
+    }
+
+    private void AddNpcCommands(List<EntityDrawCommand> commands)
+    {
+        if (_npcs is null)
+        {
+            return;
+        }
+
+        foreach (var npc in _npcs.AllNpcs)
+        {
+            var definition = TryGetNpcDefinition(npc.DefinitionId);
+            var render = definition?.SpriteRender ?? DefaultNpcSpriteRender;
+            if (!TryGetNpcSprite(definition, out var sprite))
+            {
+                render = new SpriteRenderProfile(1f, 1f);
+            }
+
+            var rect = GetRenderRect(npc.Position, render, sprite);
+            if (!IntersectsViewport(rect))
+            {
+                continue;
+            }
+
+            commands.Add(new EntityDrawCommand(
+                npc.Position.Y + render.SortOffsetYTiles,
+                Priority: 1,
+                () => DrawNpc(npc, definition, render, sprite)
+            ));
+        }
+    }
+
+    private void AddPlayerCommand(List<EntityDrawCommand> commands)
+    {
+        if (_player is null || !TryMapToViewport(_player.Position, out _))
+        {
+            return;
+        }
+
+        commands.Add(new EntityDrawCommand(
+            _player.Position.Y + 0.5f,
+            Priority: 2,
+            () => DrawPlayerMarker(_player.Position)
+        ));
+    }
+
+    private WorldObjectDefinition? TryGetWorldObjectDefinition(WorldObjectId objectId)
+    {
+        return _objectCatalog is not null && _objectCatalog.TryGet(objectId, out var definition)
+            ? definition
+            : null;
+    }
+
+    private NpcDefinition? TryGetNpcDefinition(NpcDefinitionId definitionId)
+    {
+        return _npcCatalog is not null && _npcCatalog.TryGet(definitionId, out var definition)
+            ? definition
+            : null;
+    }
+
+    private bool TryGetObjectSprite(WorldObjectDefinition? definition, out Texture2D sprite)
+    {
+        sprite = null!;
+        if (definition?.SpriteId is null)
+        {
+            return false;
+        }
+
+        if (!_objectSpriteCache.TryGetValue(definition.SpriteId, out var cachedSprite))
+        {
+            var spritePath = $"res://data/sprites/world_objects/{definition.SpriteId}.png";
+            cachedSprite = LoadSpriteTexture(spritePath);
+            _objectSpriteCache[definition.SpriteId] = cachedSprite;
+        }
+
+        if (cachedSprite is null)
+        {
+            return false;
+        }
+
+        sprite = cachedSprite;
+        return true;
+    }
+
+    private bool TryGetNpcSprite(NpcDefinition? definition, out Texture2D sprite)
+    {
+        sprite = null!;
+        if (definition?.SpriteId is null)
+        {
+            return false;
+        }
+
+        if (!_npcSpriteCache.TryGetValue(definition.SpriteId, out var cachedSprite))
+        {
+            var spritePath = $"res://data/sprites/npcs/{definition.SpriteId}.png";
+            cachedSprite = LoadSpriteTexture(spritePath);
+            _npcSpriteCache[definition.SpriteId] = cachedSprite;
+        }
+
+        if (cachedSprite is null)
+        {
+            return false;
+        }
+
+        sprite = cachedSprite;
+        return true;
+    }
+
+    private static Texture2D? LoadSpriteTexture(string spritePath)
+    {
+        if (ResourceLoader.Exists(spritePath))
+        {
+            return GD.Load<Texture2D>(spritePath);
+        }
+
+        var image = Image.LoadFromFile(ProjectSettings.GlobalizePath(spritePath));
+        return image is null || image.IsEmpty()
+            ? null
+            : ImageTexture.CreateFromImage(image);
+    }
+
+    private void DrawWorldObject(
+        WorldObjectId objectId,
+        WorldObjectDefinition? definition,
+        GridPosition mapPosition,
+        SpriteRenderProfile render,
+        Texture2D? sprite)
+    {
+        if (sprite is not null)
+        {
+            DrawSprite(mapPosition, render, sprite);
+            return;
+        }
+
+        var viewportPosition = MapToViewportUnchecked(mapPosition);
+        var rect = new Rect2(
+            viewportPosition.X * _cellSize,
+            viewportPosition.Y * _cellSize,
+            _cellSize,
+            _cellSize
+        );
+        var inset = Mathf.Max(3.0f, _cellSize * 0.12f);
+        var objectRect = rect.Grow(-inset);
+        var color = definition is null
+            ? new Color(0.55f, 0.58f, 0.52f)
+            : ParseHtmlColor(definition.MapColor, new Color(0.55f, 0.58f, 0.52f));
+
+        DrawRect(
+            new Rect2(objectRect.Position + new Vector2(2, 3), objectRect.Size),
+            new Color(0.01f, 0.012f, 0.01f, 0.35f),
+            true
+        );
+        DrawRect(objectRect, color, true);
+        DrawRect(objectRect, color.Lightened(0.25f), false, 1.5f);
+    }
+
+    private void DrawNpc(NpcState npc, NpcDefinition? definition, SpriteRenderProfile render, Texture2D? sprite)
+    {
+        var center = GetRenderCenter(npc.Position, render);
+        if (sprite is not null)
+        {
+            var shadowRadius = Mathf.Max(6.0f, _cellSize * 0.28f);
+            DrawCircle(center + new Vector2(2, 4), shadowRadius, new Color(0.01f, 0.012f, 0.01f, 0.35f));
+
+            var rect = DrawSprite(npc.Position, render, sprite);
+            if (npc.IsDisabled)
+            {
+                DrawRect(rect, new Color(0.08f, 0.08f, 0.08f, 0.38f), true);
+            }
+
+            DrawHealthBar(CellToBoardPosition(MapToViewportUnchecked(npc.Position)), npc.Health);
+            return;
+        }
+
+        DrawNpcFallbackMarker(npc, definition);
+    }
+
+    private void DrawNpcFallbackMarker(NpcState npc, NpcDefinition? definition)
+    {
+        var center = CellToBoardPosition(MapToViewportUnchecked(npc.Position));
+        var radius = Mathf.Max(5.0f, _cellSize * 0.26f);
+        var baseColor = definition is null
+            ? new Color(0.78f, 0.34f, 0.22f)
+            : ParseHtmlColor(definition.MapColor, new Color(0.78f, 0.34f, 0.22f));
+        var outerColor = npc.IsDisabled
+            ? new Color(0.28f, 0.28f, 0.25f)
+            : baseColor;
+        var innerColor = npc.IsDisabled
+            ? new Color(0.46f, 0.45f, 0.39f)
+            : baseColor.Lightened(0.32f);
+
+        DrawCircle(center + new Vector2(2, 3), radius, new Color(0.01f, 0.012f, 0.01f, 0.45f));
+        DrawCircle(center, radius, outerColor);
+        DrawCircle(center, radius * 0.58f, innerColor);
+        DrawLine(center + new Vector2(-radius * 0.55f, 0), center + new Vector2(radius * 0.55f, 0), new Color(0.22f, 0.09f, 0.06f), 1.5f);
+        DrawLine(center + new Vector2(0, -radius * 0.55f), center + new Vector2(0, radius * 0.55f), new Color(0.22f, 0.09f, 0.06f), 1.5f);
+
+        DrawHealthBar(center, npc.Health);
+    }
+
+    private Rect2 DrawSprite(GridPosition mapPosition, SpriteRenderProfile render, Texture2D sprite)
+    {
+        var rect = GetRenderRect(mapPosition, render, sprite);
+        DrawTextureRect(sprite, rect, false);
+        return rect;
+    }
+
+    private Rect2 GetRenderRect(GridPosition mapPosition, SpriteRenderProfile render, Texture2D? sprite)
+    {
+        var center = GetRenderCenter(mapPosition, render);
+        var maxSize = new Vector2(render.WidthTiles * _cellSize, render.HeightTiles * _cellSize);
+        var size = sprite is null
+            ? maxSize
+            : GetAspectFitSize(sprite.GetSize(), maxSize);
+
+        return new Rect2(center - (size / 2.0f), size);
+    }
+
+    private Vector2 GetRenderCenter(GridPosition mapPosition, SpriteRenderProfile render)
+    {
+        var viewportPosition = MapToViewportUnchecked(mapPosition);
+        return new Vector2(
+            (viewportPosition.X + 0.5f + render.OffsetXTiles) * _cellSize,
+            (viewportPosition.Y + 0.5f + render.OffsetYTiles) * _cellSize
+        );
+    }
+
+    private static Vector2 GetAspectFitSize(Vector2 textureSize, Vector2 maxSize)
+    {
+        var scale = Mathf.Min(maxSize.X / textureSize.X, maxSize.Y / textureSize.Y);
+        return textureSize * scale;
+    }
+
+    private bool IntersectsViewport(Rect2 rect)
+    {
+        if (_viewport is null)
+        {
+            return true;
+        }
+
+        var viewportRect = new Rect2(
+            Vector2.Zero,
+            new Vector2(_viewport.Value.Width * _cellSize, _viewport.Value.Height * _cellSize)
+        );
+        return rect.Intersects(viewportRect, includeBorders: true);
+    }
+
+    private bool TryMapToViewport(GridPosition mapPosition, out GridPosition viewportPosition)
+    {
+        if (_viewport is not null)
+        {
+            return _viewport.Value.TryMapToViewport(mapPosition, out viewportPosition);
+        }
+
+        viewportPosition = mapPosition;
+        return true;
+    }
+
+    private GridPosition MapToViewportUnchecked(GridPosition mapPosition)
+    {
+        return _viewport is null
+            ? mapPosition
+            : new GridPosition(mapPosition.X - _viewport.Value.Origin.X, mapPosition.Y - _viewport.Value.Origin.Y);
+    }
+
+    private Vector2 CellToBoardPosition(GridPosition cell)
+    {
+        return new Vector2(
+            (cell.X + 0.5f) * _cellSize,
+            (cell.Y + 0.5f) * _cellSize
+        );
+    }
+
+    private void DrawHealthBar(Vector2 center, BoundedMeter health)
+    {
+        var width = Mathf.Max(12.0f, _cellSize * 0.62f);
+        var height = Mathf.Max(2.0f, _cellSize * 0.09f);
+        var topLeft = center + new Vector2(-width / 2.0f, _cellSize * 0.30f);
+        var backgroundRect = new Rect2(topLeft, new Vector2(width, height));
+        var fillRect = new Rect2(topLeft, new Vector2(width * health.Normalized, height));
+
+        DrawRect(backgroundRect, new Color(0.08f, 0.035f, 0.03f), true);
+        DrawRect(fillRect, new Color(0.76f, 0.12f, 0.1f), true);
+    }
+
+    private void DrawPlayerMarker(GridPosition mapPosition)
+    {
+        var center = CellToBoardPosition(MapToViewportUnchecked(mapPosition));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-10, 10),
+            new Vector2(-7, 8),
+            new Vector2(7, 8),
+            new Vector2(10, 10),
+            new Vector2(10, 14),
+            new Vector2(7, 16),
+            new Vector2(-7, 16),
+            new Vector2(-10, 14)
+        }, new Color(0.015f, 0.019f, 0.018f, 0.42f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-7, 2),
+            new Vector2(-2, 2),
+            new Vector2(-2, 12),
+            new Vector2(-7, 12)
+        }, new Color(0.115f, 0.17f, 0.31f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(2, 2),
+            new Vector2(7, 2),
+            new Vector2(7, 12),
+            new Vector2(2, 12)
+        }, new Color(0.115f, 0.17f, 0.31f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-9, 10),
+            new Vector2(-2, 10),
+            new Vector2(-2, 14),
+            new Vector2(-10, 14)
+        }, new Color(0.075f, 0.065f, 0.055f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(2, 10),
+            new Vector2(9, 10),
+            new Vector2(10, 14),
+            new Vector2(2, 14)
+        }, new Color(0.075f, 0.065f, 0.055f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-8, -7),
+            new Vector2(8, -7),
+            new Vector2(10, 4),
+            new Vector2(6, 9),
+            new Vector2(-6, 9),
+            new Vector2(-10, 4)
+        }, new Color(0.36f, 0.52f, 0.34f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-10, -5),
+            new Vector2(-7, -5),
+            new Vector2(-8, 5),
+            new Vector2(-12, 8),
+            new Vector2(-14, 5),
+            new Vector2(-11, 2)
+        }, new Color(0.66f, 0.47f, 0.34f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(7, -5),
+            new Vector2(10, -5),
+            new Vector2(11, 2),
+            new Vector2(14, 5),
+            new Vector2(12, 8),
+            new Vector2(8, 5)
+        }, new Color(0.66f, 0.47f, 0.34f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(0, -19),
+            new Vector2(5, -17),
+            new Vector2(7, -12),
+            new Vector2(5, -7),
+            new Vector2(0, -5),
+            new Vector2(-5, -7),
+            new Vector2(-7, -12),
+            new Vector2(-5, -17)
+        }, new Color(0.73f, 0.54f, 0.4f));
+        DrawPlayerPolygon(center, new[]
+        {
+            new Vector2(-6, -14),
+            new Vector2(-5, -18),
+            new Vector2(0, -20),
+            new Vector2(5, -18),
+            new Vector2(7, -13),
+            new Vector2(4, -15),
+            new Vector2(1, -14),
+            new Vector2(-2, -15)
+        }, new Color(0.11f, 0.075f, 0.045f));
+    }
+
+    private void DrawPlayerPolygon(Vector2 center, Vector2[] points, Color color)
+    {
+        var scale = _cellSize / 32.0f;
+        var scaledPoints = new Vector2[points.Length];
+        for (var index = 0; index < points.Length; index++)
+        {
+            scaledPoints[index] = center + (points[index] * scale);
+        }
+
+        DrawColoredPolygon(scaledPoints, color);
+    }
+
+    private static Color ParseHtmlColor(string? value, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var hex = value.Trim().TrimStart('#');
+        if (hex.Length != 6)
+        {
+            return fallback;
+        }
+
+        try
+        {
+            var red = Convert.ToInt32(hex.Substring(0, 2), 16) / 255.0f;
+            var green = Convert.ToInt32(hex.Substring(2, 2), 16) / 255.0f;
+            var blue = Convert.ToInt32(hex.Substring(4, 2), 16) / 255.0f;
+            return new Color(red, green, blue);
+        }
+        catch (FormatException)
+        {
+            return fallback;
+        }
+    }
+
+    private sealed record EntityDrawCommand(float SortKey, int Priority, Action Draw);
+}

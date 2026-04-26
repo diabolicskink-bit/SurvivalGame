@@ -213,6 +213,114 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void AutomatedTurretDoesNotFireOutsideRange()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState(
+            npcs: CreateAutomatedTurretRoster(new GridPosition(9, 9)),
+            startPosition: new GridPosition(0, 0),
+            bounds: new GridBounds(10, 10)
+        );
+
+        var result = pipeline.Execute(state, new WaitActionRequest());
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.Equal(100, state.Player.Vitals.Health.Current);
+        Assert.DoesNotContain(result.Messages, message => message.Contains("Automated turret"));
+    }
+
+    [Fact]
+    public void AutomatedTurretFiresOnceWhenActionCrossesOneCadenceInRange()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState(
+            npcs: CreateAutomatedTurretRoster(new GridPosition(3, 2)),
+            startPosition: new GridPosition(2, 2)
+        );
+
+        var result = pipeline.Execute(state, new WaitActionRequest());
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.Equal(90, state.Player.Vitals.Health.Current);
+        Assert.Contains(
+            "Automated turret at 3, 2 hits you for 10 damage. Health: 90/100.",
+            result.Messages
+        );
+    }
+
+    [Fact]
+    public void AutomatedTurretFiresForEveryCadenceBoundaryCrossedByAction()
+    {
+        var pipeline = CreatePipeline();
+        var groundItems = new TileItemMap();
+        groundItems.Place(new GridPosition(2, 2), PrototypeItems.Stone);
+        var state = CreateState(
+            groundItems,
+            npcs: CreateAutomatedTurretRoster(new GridPosition(3, 2)),
+            startPosition: new GridPosition(2, 2)
+        );
+
+        var pickupResult = pipeline.Execute(state, new PickupActionRequest());
+
+        Assert.True(pickupResult.Succeeded);
+        Assert.Equal(50, state.Time.ElapsedTicks);
+        Assert.Equal(100, state.Player.Vitals.Health.Current);
+
+        var waitResult = pipeline.Execute(state, new WaitActionRequest());
+
+        Assert.True(waitResult.Succeeded);
+        Assert.Equal(150, state.Time.ElapsedTicks);
+        Assert.Equal(80, state.Player.Vitals.Health.Current);
+        Assert.Equal(
+            2,
+            waitResult.Messages.Count(message => message.Contains("Automated turret at 3, 2 hits you"))
+        );
+    }
+
+    [Fact]
+    public void AutomatedTurretDoesNotFireAfterFailedOrZeroTickActions()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(new GridPosition(1, 2), PrototypeWorldObjects.Wall);
+        var state = CreateState(
+            worldObjects: worldObjects,
+            npcs: CreateAutomatedTurretRoster(new GridPosition(3, 3)),
+            startPosition: new GridPosition(2, 2)
+        );
+        state.Player.Inventory.Add(PrototypeItems.Stone);
+
+        var failedMove = pipeline.Execute(state, new MoveActionRequest(GridOffset.Left));
+        var inspect = pipeline.Execute(state, new InspectItemActionRequest(PrototypeItems.Stone));
+
+        Assert.False(failedMove.Succeeded);
+        Assert.True(inspect.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(100, state.Player.Vitals.Health.Current);
+        Assert.DoesNotContain(failedMove.Messages, message => message.Contains("Automated turret"));
+        Assert.DoesNotContain(inspect.Messages, message => message.Contains("Automated turret"));
+    }
+
+    [Fact]
+    public void AutomatedTurretDoesNotFireWhenDisabled()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState(
+            npcs: CreateAutomatedTurretRoster(new GridPosition(3, 2), disabled: true),
+            startPosition: new GridPosition(2, 2)
+        );
+
+        var result = pipeline.Execute(state, new WaitActionRequest());
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.Equal(100, state.Player.Vitals.Health.Current);
+        Assert.DoesNotContain(result.Messages, message => message.Contains("Automated turret"));
+    }
+
+    [Fact]
     public void PickupMovesGroundItemsIntoPlayerInventoryAndAdvancesTimeByFiftyTicks()
     {
         var pipeline = CreatePipeline();
@@ -229,7 +337,7 @@ public sealed class GameActionPipelineTests
         Assert.Equal(50, state.Time.ElapsedTicks);
         Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
         Assert.Equal(1, state.Player.Inventory.CountOf(PrototypeItems.Branch));
-        Assert.Empty(state.World.GroundItems.ItemsAt(position));
+        Assert.Empty(state.LocalMap.GroundItems.ItemsAt(position));
         Assert.Contains(result.Messages, message => message.Contains("Picked up 2 x Stone. Time +50."));
     }
 
@@ -245,6 +353,51 @@ public sealed class GameActionPipelineTests
         Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Contains("There is nothing here to pick up.", result.Messages);
+    }
+
+    [Fact]
+    public void PickupFailsWithoutTakingItemsWhenInventoryGridIsFull()
+    {
+        var pipeline = CreatePipeline();
+        var position = new GridPosition(1, 1);
+        var groundItems = new TileItemMap();
+        groundItems.Place(position, PrototypeItems.Stone);
+        var state = CreateState(groundItems, startPosition: position);
+        for (var index = 0; index < 200; index++)
+        {
+            state.Player.Inventory.Add(new ItemId($"filler_{index}"));
+        }
+
+        var result = pipeline.Execute(state, new PickupActionRequest());
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Contains(groundItems.ItemsAt(position), stack => stack.ItemId == PrototypeItems.Stone);
+        Assert.Contains("Not enough inventory grid space.", result.Messages);
+    }
+
+    [Fact]
+    public void PickupAllowsLooseAmmoWhenInventoryGridIsFull()
+    {
+        var pipeline = CreatePipeline();
+        var position = new GridPosition(1, 1);
+        var groundItems = new TileItemMap();
+        groundItems.Place(position, PrototypeFirearms.Ammo9mmStandard, 30);
+        var state = CreateState(groundItems, startPosition: position);
+        for (var index = 0; index < 200; index++)
+        {
+            state.Player.Inventory.Add(new ItemId($"filler_{index}"));
+        }
+
+        var result = pipeline.Execute(state, new PickupActionRequest());
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.PickupTickCost, result.ElapsedTicks);
+        Assert.Equal(30, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
+        Assert.False(state.Player.Inventory.Container.Contains(ContainerItemRef.Stack(PrototypeFirearms.Ammo9mmStandard)));
+        Assert.Empty(groundItems.ItemsAt(position));
     }
 
     [Fact]
@@ -378,7 +531,7 @@ public sealed class GameActionPipelineTests
         Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
         Assert.Contains(
-            state.World.GroundItems.ItemsAt(new GridPosition(2, 2)),
+            state.LocalMap.GroundItems.ItemsAt(new GridPosition(2, 2)),
             stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 1
         );
         Assert.Contains("Dropped Stone.", result.Messages);
@@ -396,7 +549,7 @@ public sealed class GameActionPipelineTests
         Assert.True(result.Succeeded);
         Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.Stone));
         Assert.Contains(
-            state.World.GroundItems.ItemsAt(new GridPosition(2, 2)),
+            state.LocalMap.GroundItems.ItemsAt(new GridPosition(2, 2)),
             stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 3
         );
         Assert.Contains("Dropped 3 x Stone.", result.Messages);
@@ -415,7 +568,7 @@ public sealed class GameActionPipelineTests
         Assert.Equal(0, result.ElapsedTicks);
         Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
-        Assert.Empty(state.World.GroundItems.ItemsAt(state.Player.Position));
+        Assert.Empty(state.LocalMap.GroundItems.ItemsAt(state.Player.Position));
     }
 
     [Fact]
@@ -467,6 +620,12 @@ public sealed class GameActionPipelineTests
             new[] { "Head", "Helmet", "MotorcycleHelmet" },
             actions: new[] { "equip" }
         ));
+        catalog.Add(new ItemDefinition(
+            PrototypeFirearms.Ammo9mmStandard,
+            "9mm standard rounds",
+            "",
+            "Ammunition"
+        ));
 
         return new GameActionPipeline(catalog, worldObjectCatalog);
     }
@@ -479,18 +638,34 @@ public sealed class GameActionPipelineTests
         return catalog;
     }
 
+    private static NpcRoster CreateAutomatedTurretRoster(GridPosition position, bool disabled = false)
+    {
+        var roster = new NpcRoster();
+        roster.Add(new NpcState(
+            PrototypeNpcs.GasStationTurret,
+            PrototypeNpcs.AutomatedTurretDefinition,
+            "Automated turret",
+            position,
+            currentHealth: disabled ? 0 : 120,
+            maximumHealth: 120
+        ));
+
+        return roster;
+    }
+
     private static PrototypeGameState CreateState(
         TileItemMap? groundItems = null,
         TileObjectMap? worldObjects = null,
         NpcRoster? npcs = null,
-        GridPosition? startPosition = null
+        GridPosition? startPosition = null,
+        GridBounds? bounds = null
     )
     {
-        var bounds = new GridBounds(5, 5);
+        var mapBounds = bounds ?? new GridBounds(5, 5);
         return new PrototypeGameState(
-            bounds,
+            mapBounds,
             groundItems ?? new TileItemMap(),
-            new TileSurfaceMap(bounds, PrototypeSurfaces.Concrete),
+            new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete),
             worldObjects ?? new TileObjectMap(),
             npcs ?? new NpcRoster(),
             startPosition ?? new GridPosition(2, 2)

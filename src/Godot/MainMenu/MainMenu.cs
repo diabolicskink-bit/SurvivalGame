@@ -54,7 +54,7 @@ public partial class MainMenu : Control
 
         var subtitle = new Label
         {
-            Text = "Overworld travel shell",
+            Text = "World Map travel shell",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         subtitle.AddThemeFontSizeOverride("font_size", 18);

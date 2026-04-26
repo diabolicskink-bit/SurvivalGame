@@ -25,6 +25,9 @@ public sealed class PlayerInventoryTests
         Assert.False(inventory.IsEmpty);
         Assert.Equal(3, inventory.CountOf(itemId));
         Assert.Equal(new InventoryItemStack(itemId, 3), Assert.Single(inventory.Items));
+        Assert.Equal(PrototypeItemContainers.PlayerInventory, inventory.Container.Id);
+        Assert.True(inventory.Container.TryGetPlacement(ContainerItemRef.Stack(itemId), out var placement));
+        Assert.Equal(InventoryItemSize.Default, placement.Size);
     }
 
     [Fact]
@@ -64,6 +67,74 @@ public sealed class PlayerInventoryTests
         Assert.True(removed);
         Assert.True(inventory.IsEmpty);
         Assert.Equal(0, inventory.CountOf(itemId));
+        Assert.False(inventory.Container.Contains(ContainerItemRef.Stack(itemId)));
+    }
+
+    [Fact]
+    public void AddCanUseNonDefaultInventorySize()
+    {
+        var inventory = new PlayerInventory();
+        var rifle = new ItemId("rifle");
+
+        inventory.Add(rifle, size: new InventoryItemSize(5, 2));
+
+        Assert.True(inventory.Container.TryGetPlacement(ContainerItemRef.Stack(rifle), out var placement));
+        Assert.Equal(new InventoryItemSize(5, 2), placement.Size);
+    }
+
+    [Fact]
+    public void TryAddFailsWhenInventoryGridHasNoRoom()
+    {
+        var inventory = new PlayerInventory();
+
+        for (var index = 0; index < 200; index++)
+        {
+            Assert.True(inventory.TryAdd(new ItemId($"stone_{index}")));
+        }
+
+        Assert.False(inventory.TryAdd(new ItemId("overflow")));
+        Assert.Equal(200, inventory.Items.Count);
+    }
+
+    [Fact]
+    public void GridExemptStacksDoNotCreateInventoryGridPlacement()
+    {
+        var inventory = new PlayerInventory();
+        var ammo = new ItemId("ammo_9mm_standard");
+
+        inventory.Add(ammo, 50, usesGrid: false);
+
+        Assert.Equal(50, inventory.CountOf(ammo));
+        Assert.False(inventory.Container.Contains(ContainerItemRef.Stack(ammo)));
+    }
+
+    [Fact]
+    public void GridExemptStacksCanBeAddedWhenInventoryGridIsFull()
+    {
+        var inventory = new PlayerInventory();
+        var ammo = new ItemId("ammo_9mm_standard");
+
+        for (var index = 0; index < 200; index++)
+        {
+            Assert.True(inventory.TryAdd(new ItemId($"stone_{index}")));
+        }
+
+        Assert.True(inventory.TryAdd(ammo, 50, usesGrid: false));
+        Assert.Equal(50, inventory.CountOf(ammo));
+        Assert.False(inventory.Container.Contains(ContainerItemRef.Stack(ammo)));
+    }
+
+    [Theory]
+    [InlineData("Ammunition", false)]
+    [InlineData("Weapon", true)]
+    [InlineData("FeedDevice", true)]
+    [InlineData("Food", true)]
+    [InlineData("Material", true)]
+    public void InventoryGridRulesOnlyExemptsAmmunition(string category, bool expectedUsesGrid)
+    {
+        var item = new ItemDefinition(new ItemId($"test_{category}"), category, "", category);
+
+        Assert.Equal(expectedUsesGrid, InventoryGridRules.UsesGrid(item));
     }
 
     [Fact]

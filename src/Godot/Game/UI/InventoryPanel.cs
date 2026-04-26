@@ -8,7 +8,7 @@ public partial class InventoryPanel : VBoxContainer
 {
     private const int ItemFontSize = 16;
     private const int TabFontSize = 15;
-    private InventoryTab _activeTab = InventoryTab.Weapons;
+    private InventoryPanelMode _activeMode = InventoryPanelMode.Inventory;
 
     public event Action<SelectedItemRef, Vector2>? ItemSelected;
 
@@ -30,55 +30,66 @@ public partial class InventoryPanel : VBoxContainer
             child.QueueFree();
         }
 
-        AddChild(CreateTabStrip(inventory, itemCatalog, statefulItems, selectedItem));
+        AddChild(CreateModeSwitch(inventory, itemCatalog, statefulItems, selectedItem));
 
-        var statefulInventoryItems = statefulItems.InPlayerInventory();
-        if (inventory.IsEmpty && statefulInventoryItems.Count == 0)
+        if (_activeMode == InventoryPanelMode.Inventory)
         {
-            AddChild(CreateItemLabel("Empty", muted: true));
+            DisplayInventoryGrid(inventory, itemCatalog, statefulItems, selectedItem);
             return;
         }
 
-        var displayedItemCount = 0;
-        foreach (var stack in inventory.Items)
-        {
-            if (GetTabForItem(stack.ItemId, itemCatalog) != _activeTab)
-            {
-                continue;
-            }
+        DisplayAmmoList(inventory, itemCatalog, selectedItem);
+    }
 
-            var itemRef = SelectedItemRef.InventoryStack(stack.ItemId);
-            AddChild(CreateItemButton(
-                FormatItemStack(stack, itemCatalog),
-                itemRef,
-                IsSelected(selectedItem, itemRef)
-            ));
-            displayedItemCount++;
-        }
+    private void DisplayInventoryGrid(
+        PlayerInventory inventory,
+        ItemCatalog itemCatalog,
+        StatefulItemStore statefulItems,
+        SelectedItemRef? selectedItem)
+    {
+        var grid = new InventoryGridView();
+        grid.ItemSelected += (itemRef, position) => ItemSelected?.Invoke(itemRef, position);
+        AddChild(grid);
+        grid.Display(
+            inventory,
+            itemCatalog,
+            statefulItems,
+            selectedItem,
+            itemId => !IsLooseAmmo(itemId, itemCatalog)
+        );
 
-        foreach (var item in statefulInventoryItems)
-        {
-            if (GetTabForItem(item.ItemId, itemCatalog) != _activeTab)
-            {
-                continue;
-            }
-
-            var itemRef = SelectedItemRef.StatefulItem(item.Id);
-            AddChild(CreateItemButton(
-                FormatStatefulItem(item, itemCatalog),
-                itemRef,
-                IsSelected(selectedItem, itemRef)
-            ));
-            displayedItemCount++;
-        }
+        var displayedItemCount = inventory.Items.Count(stack => !IsLooseAmmo(stack.ItemId, itemCatalog))
+            + statefulItems.InPlayerInventory().Count(item => !IsLooseAmmo(item.ItemId, itemCatalog));
 
         if (displayedItemCount == 0)
         {
-            AddChild(CreateItemLabel("No items in this tab.", muted: true));
+            AddChild(CreateItemLabel("Inventory is empty.", muted: true));
         }
     }
 
-    private HBoxContainer CreateTabStrip(
+    private void DisplayAmmoList(
+        PlayerInventory inventory,
+        ItemCatalog itemCatalog,
+        SelectedItemRef? selectedItem)
+    {
+        var ammoStacks = inventory.Items
+            .Where(stack => IsLooseAmmo(stack.ItemId, itemCatalog))
+            .OrderBy(stack => GetItemName(stack.ItemId, itemCatalog), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (ammoStacks.Length == 0)
+        {
+            AddChild(CreateItemLabel("No ammo.", muted: true));
+            return;
+        }
+
+        foreach (var stack in ammoStacks)
+        {
+            AddChild(CreateAmmoButton(stack, itemCatalog, selectedItem));
+        }
+    }
+
+    private HBoxContainer CreateModeSwitch(
         PlayerInventory inventory,
         ItemCatalog itemCatalog,
         StatefulItemStore statefulItems,
@@ -90,25 +101,25 @@ public partial class InventoryPanel : VBoxContainer
         };
         tabs.AddThemeConstantOverride("separation", 6);
 
-        foreach (var tab in InventoryTabs)
+        foreach (var mode in InventoryModes)
         {
-            tabs.AddChild(CreateTabButton(tab, inventory, itemCatalog, statefulItems, selectedItem));
+            tabs.AddChild(CreateModeButton(mode, inventory, itemCatalog, statefulItems, selectedItem));
         }
 
         return tabs;
     }
 
-    private Button CreateTabButton(
-        InventoryTab tab,
+    private Button CreateModeButton(
+        InventoryPanelMode mode,
         PlayerInventory inventory,
         ItemCatalog itemCatalog,
         StatefulItemStore statefulItems,
         SelectedItemRef? selectedItem)
     {
-        var selected = tab == _activeTab;
+        var selected = mode == _activeMode;
         var button = new Button
         {
-            Text = GetTabLabel(tab),
+            Text = GetModeLabel(mode),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             CustomMinimumSize = new Vector2(0, 32),
             FocusMode = Control.FocusModeEnum.None
@@ -121,41 +132,37 @@ public partial class InventoryPanel : VBoxContainer
         button.AddThemeStyleboxOverride("pressed", CreateSelectedStyle());
         button.Pressed += () =>
         {
-            _activeTab = tab;
+            _activeMode = mode;
             Display(inventory, itemCatalog, statefulItems, selectedItem);
         };
 
         return button;
     }
 
-    private static string FormatItemStack(InventoryItemStack stack, ItemCatalog itemCatalog)
+    private Button CreateAmmoButton(
+        InventoryItemStack stack,
+        ItemCatalog itemCatalog,
+        SelectedItemRef? selectedItem)
     {
-        var itemName = stack.ItemId.ToString();
-        if (itemCatalog.TryGet(stack.ItemId, out var item))
+        var itemRef = SelectedItemRef.InventoryStack(stack.ItemId);
+        var selected = selectedItem == itemRef;
+        var button = new Button
         {
-            itemName = item.DisplayName;
-        }
+            Text = $"{GetItemName(stack.ItemId, itemCatalog)} x{stack.Quantity}",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 34),
+            FocusMode = Control.FocusModeEnum.None,
+            Alignment = HorizontalAlignment.Left
+        };
 
-        return $"{itemName} x{stack.Quantity}";
-    }
+        button.AddThemeFontSizeOverride("font_size", ItemFontSize);
+        button.AddThemeColorOverride("font_color", selected ? new Color(0.92f, 0.95f, 0.82f) : new Color(0.74f, 0.83f, 0.77f));
+        button.AddThemeStyleboxOverride("normal", selected ? CreateSelectedStyle() : CreateTabStyle());
+        button.AddThemeStyleboxOverride("hover", CreateHoverStyle());
+        button.AddThemeStyleboxOverride("pressed", CreateSelectedStyle());
+        button.Pressed += () => ItemSelected?.Invoke(itemRef, GetViewport().GetMousePosition());
 
-    private static string FormatStatefulItem(StatefulItem item, ItemCatalog itemCatalog)
-    {
-        var itemName = item.ItemId.ToString();
-        if (itemCatalog.TryGet(item.ItemId, out var definition))
-        {
-            itemName = definition.DisplayName;
-        }
-
-        if (item.FeedDevice is not null)
-        {
-            var loadedText = item.FeedDevice.LoadedAmmunitionVariant is null
-                ? $"0/{item.FeedDevice.Capacity}"
-                : $"{item.FeedDevice.LoadedCount}/{item.FeedDevice.Capacity} {item.FeedDevice.LoadedAmmunitionVariant}";
-            return $"{itemName} [{item.Id}] - {loadedText}";
-        }
-
-        return $"{itemName} [{item.Id}]";
+        return button;
     }
 
     private static Label CreateItemLabel(string text, bool muted = false)
@@ -176,98 +183,21 @@ public partial class InventoryPanel : VBoxContainer
         return label;
     }
 
-    private static InventoryTab GetTabForItem(ItemId itemId, ItemCatalog itemCatalog)
+    private static bool IsLooseAmmo(ItemId itemId, ItemCatalog itemCatalog)
     {
-        if (!itemCatalog.TryGet(itemId, out var item))
-        {
-            return InventoryTab.Other;
-        }
-
-        if (IsCategory(item, "Weapon"))
-        {
-            return InventoryTab.Weapons;
-        }
-
-        if (IsCategory(item, "Ammunition")
-            || IsCategory(item, "FeedDevice")
-            || HasAnyTag(item, "ammo", "ammunition", "magazine", "feed", "weapon_part"))
-        {
-            return InventoryTab.WeaponPartsAmmo;
-        }
-
-        if (IsCategory(item, "Food")
-            || IsCategory(item, "Medical")
-            || HasAnyTag(item, "food", "drink", "medical", "consumable")
-            || item.Actions.Any(action => action.Contains("eat", StringComparison.OrdinalIgnoreCase)
-                || action.Contains("drink", StringComparison.OrdinalIgnoreCase)
-                || action.Contains("apply", StringComparison.OrdinalIgnoreCase)))
-        {
-            return InventoryTab.Consumables;
-        }
-
-        return InventoryTab.Other;
+        return itemCatalog.TryGet(itemId, out var item) && !InventoryGridRules.UsesGrid(item);
     }
 
-    private static bool IsCategory(ItemDefinition item, string category)
+    private static string GetItemName(ItemId itemId, ItemCatalog itemCatalog)
     {
-        return string.Equals(item.Category, category, StringComparison.OrdinalIgnoreCase);
+        return itemCatalog.TryGet(itemId, out var item)
+            ? item.DisplayName
+            : itemId.ToString();
     }
 
-    private static bool HasAnyTag(ItemDefinition item, params string[] tags)
+    private static string GetModeLabel(InventoryPanelMode mode)
     {
-        return tags.Any(item.HasTag);
-    }
-
-    private static string GetTabLabel(InventoryTab tab)
-    {
-        return tab switch
-        {
-            InventoryTab.Weapons => "Weapons",
-            InventoryTab.WeaponPartsAmmo => "Weapon Parts/Ammo",
-            InventoryTab.Consumables => "Consumables",
-            InventoryTab.Other => "Other",
-            _ => tab.ToString()
-        };
-    }
-
-    private Button CreateItemButton(string text, SelectedItemRef itemRef, bool selected)
-    {
-        var button = new Button
-        {
-            Text = text,
-            SizeFlagsHorizontal = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, 32),
-            FocusMode = Control.FocusModeEnum.None,
-            Alignment = HorizontalAlignment.Left,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
-        };
-
-        button.AddThemeFontSizeOverride("font_size", ItemFontSize);
-        button.AddThemeColorOverride("font_color", selected ? new Color(0.92f, 0.95f, 0.82f) : new Color(0.74f, 0.83f, 0.77f));
-        button.AddThemeStyleboxOverride("normal", selected ? CreateSelectedStyle() : CreateRowStyle());
-        button.AddThemeStyleboxOverride("hover", CreateHoverStyle());
-        button.AddThemeStyleboxOverride("pressed", CreateSelectedStyle());
-        button.Pressed += () => ItemSelected?.Invoke(itemRef, GetViewport().GetMousePosition());
-        return button;
-    }
-
-    private static bool IsSelected(SelectedItemRef? selectedItem, SelectedItemRef itemRef)
-    {
-        return selectedItem == itemRef;
-    }
-
-    private static StyleBoxFlat CreateRowStyle()
-    {
-        return new StyleBoxFlat
-        {
-            BgColor = new Color(0.05f, 0.062f, 0.066f, 0.0f),
-            CornerRadiusTopLeft = 4,
-            CornerRadiusTopRight = 4,
-            CornerRadiusBottomRight = 4,
-            CornerRadiusBottomLeft = 4,
-            ContentMarginLeft = 8,
-            ContentMarginRight = 8
-        };
+        return mode == InventoryPanelMode.Inventory ? "Inventory" : "Ammo";
     }
 
     private static StyleBoxFlat CreateTabStyle()
@@ -322,19 +252,15 @@ public partial class InventoryPanel : VBoxContainer
         };
     }
 
-    private static readonly IReadOnlyList<InventoryTab> InventoryTabs =
+    private static readonly IReadOnlyList<InventoryPanelMode> InventoryModes =
     [
-        InventoryTab.Weapons,
-        InventoryTab.WeaponPartsAmmo,
-        InventoryTab.Consumables,
-        InventoryTab.Other
+        InventoryPanelMode.Inventory,
+        InventoryPanelMode.Ammo
     ];
 
-    private enum InventoryTab
+    private enum InventoryPanelMode
     {
-        Weapons,
-        WeaponPartsAmmo,
-        Consumables,
-        Other
+        Inventory,
+        Ammo
     }
 }

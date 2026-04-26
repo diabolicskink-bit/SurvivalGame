@@ -6,7 +6,7 @@ public sealed class PrototypeGameState
 
     public PrototypeGameState(GridBounds mapBounds, TileItemMap groundItems, GridPosition startPosition)
         : this(
-            CreateWorldState(mapBounds, groundItems, new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete), new TileObjectMap()),
+            CreateLocalMapState(mapBounds, groundItems, new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete), new TileObjectMap()),
             startPosition,
             DefaultSiteId
         )
@@ -19,7 +19,7 @@ public sealed class PrototypeGameState
         TileSurfaceMap surfaces,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, new TileObjectMap()), startPosition, DefaultSiteId)
+        : this(CreateLocalMapState(mapBounds, groundItems, surfaces, new TileObjectMap()), startPosition, DefaultSiteId)
     {
     }
 
@@ -30,7 +30,7 @@ public sealed class PrototypeGameState
         TileObjectMap worldObjects,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects), startPosition, DefaultSiteId)
+        : this(CreateLocalMapState(mapBounds, groundItems, surfaces, worldObjects), startPosition, DefaultSiteId)
     {
     }
 
@@ -42,18 +42,18 @@ public sealed class PrototypeGameState
         NpcRoster npcs,
         GridPosition startPosition
     )
-        : this(CreateWorldState(mapBounds, groundItems, surfaces, worldObjects, npcs), startPosition, DefaultSiteId)
+        : this(CreateLocalMapState(mapBounds, groundItems, surfaces, worldObjects, npcs), startPosition, DefaultSiteId)
     {
     }
 
-    public PrototypeGameState(WorldState world, GridPosition startPosition)
-        : this(world, startPosition, DefaultSiteId)
+    public PrototypeGameState(LocalMapState localMap, GridPosition startPosition)
+        : this(localMap, startPosition, DefaultSiteId)
     {
     }
 
-    public PrototypeGameState(WorldState world, GridPosition startPosition, string siteId)
+    public PrototypeGameState(LocalMapState localMap, GridPosition startPosition, string siteId)
         : this(
-            world,
+            localMap,
             startPosition,
             new PlayerState(),
             new WorldTime(),
@@ -64,7 +64,7 @@ public sealed class PrototypeGameState
     }
 
     public PrototypeGameState(
-        WorldState world,
+        LocalMapState localMap,
         GridPosition startPosition,
         PlayerState player,
         WorldTime time,
@@ -72,7 +72,7 @@ public sealed class PrototypeGameState
         string siteId
     )
     {
-        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(localMap);
         ArgumentNullException.ThrowIfNull(player);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(statefulItems);
@@ -82,12 +82,12 @@ public sealed class PrototypeGameState
             throw new ArgumentException("Site id cannot be empty.", nameof(siteId));
         }
 
-        World = world;
+        LocalMap = localMap;
         Player = player;
         Time = time;
         StatefulItems = statefulItems;
         SiteId = siteId.Trim();
-        Player.SetPosition(world.Map.Clamp(startPosition));
+        Player.SetPosition(localMap.Map.Clamp(startPosition));
     }
 
     public string SiteId { get; }
@@ -96,19 +96,19 @@ public sealed class PrototypeGameState
 
     public PlayerState Player { get; }
 
-    public WorldState World { get; }
+    public LocalMapState LocalMap { get; }
 
     public StatefulItemStore StatefulItems { get; }
 
-    public GridBounds MapBounds => World.Map.Bounds;
+    public GridBounds MapBounds => LocalMap.Map.Bounds;
 
-    public TileItemMap GroundItems => World.GroundItems;
+    public TileItemMap GroundItems => LocalMap.GroundItems;
 
-    public TileSurfaceMap Surfaces => World.Map.Surfaces;
+    public TileSurfaceMap Surfaces => LocalMap.Map.Surfaces;
 
-    public TileObjectMap WorldObjects => World.WorldObjects;
+    public TileObjectMap WorldObjects => LocalMap.WorldObjects;
 
-    public NpcRoster Npcs => World.Npcs;
+    public NpcRoster Npcs => LocalMap.Npcs;
 
     public GridPosition PlayerPosition => Player.Position;
 
@@ -116,7 +116,7 @@ public sealed class PrototypeGameState
 
     public void SetPlayerPosition(GridPosition position)
     {
-        if (!World.Map.Contains(position))
+        if (!LocalMap.Map.Contains(position))
         {
             throw new ArgumentOutOfRangeException(nameof(position), "Player position must be inside the map bounds.");
         }
@@ -129,7 +129,7 @@ public sealed class PrototypeGameState
         Time.Advance(ticks);
     }
 
-    private static WorldState CreateWorldState(
+    private static LocalMapState CreateLocalMapState(
         GridBounds mapBounds,
         TileItemMap groundItems,
         TileSurfaceMap surfaces,
@@ -137,8 +137,8 @@ public sealed class PrototypeGameState
         NpcRoster? npcs = null
     )
     {
-        return new WorldState(
-            new MapState(mapBounds, surfaces),
+        return new LocalMapState(
+            new LocalMap(mapBounds, surfaces),
             groundItems,
             worldObjects,
             npcs

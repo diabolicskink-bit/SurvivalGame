@@ -69,6 +69,8 @@ public sealed class WorldObjectDefinitionLoader
 
         public string? SpriteId { get; set; }
 
+        public SpriteRenderProfileDto? SpriteRender { get; set; }
+
         public WorldObjectDefinition ToDefinition(string sourcePath)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -95,7 +97,32 @@ public sealed class WorldObjectDefinitionLoader
                 BlocksMovement,
                 BlocksSight,
                 MapColor,
-                SpriteId
+                SpriteId,
+                SpriteRender?.ToProfile()
+            );
+        }
+    }
+
+    private sealed class SpriteRenderProfileDto
+    {
+        public float WidthTiles { get; set; } = 1f;
+
+        public float HeightTiles { get; set; } = 1f;
+
+        public float OffsetXTiles { get; set; }
+
+        public float OffsetYTiles { get; set; }
+
+        public float SortOffsetYTiles { get; set; }
+
+        public SpriteRenderProfile ToProfile()
+        {
+            return new SpriteRenderProfile(
+                WidthTiles,
+                HeightTiles,
+                OffsetXTiles,
+                OffsetYTiles,
+                SortOffsetYTiles
             );
         }
     }

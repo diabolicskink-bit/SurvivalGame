@@ -1,0 +1,100 @@
+{
+  "id": "gas_station",
+  "displayName": "Route 18 Gas Station",
+  "sourceKind": "authored",
+  "size": { "width": 40, "height": 28 },
+  "startPosition": { "x": 21, "y": 14 },
+  "defaultSurface": "asphalt",
+  "surfaceLayer": {
+    "legend": {
+      "g": "grass",
+      "a": "asphalt",
+      "t": "tile",
+      "c": "concrete"
+    },
+    "rows": [
+      "gggggggggggggggggggggggggggggggggggggggg",
+      "gggggggggggggggggggggggggggggggggggggggg",
+      "ggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaagg",
+      "ggaaatttttttttttttttaaaaaaaaaaaaaaaaaagg",
+      "ggaaatttttttttttttttaaaaaaaaaaaaaaaaaagg",
+      "ggaaatttttttttttttttaaaaaaaaaaaaaaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaatttttttttttttttaacccccccccccaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaacccccccccccaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaacccccccccccaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaacccccccccccaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaagg",
+      "ggaaaaaaaaaaaaaaaaaacccccccccccccccccagg",
+      "ggaaaaaaaaaaaaaaaaaacccccccccccccccccagg",
+      "ggaaaaaaaaaaaaaaaaaacccccccccccccccccagg",
+      "ggaaaaaaaaaaaaaaaaaacccccccccccccccccagg",
+      "ggaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaagg",
+      "gggggggggggggggggggggggggggggggggggggggg",
+      "gggggggggggggggggggggggggggggggggggggggg",
+      "gggggggggggggggggggggggggggggggggggggggg",
+      "gggggggggggggggggggggggggggggggggggggggg"
+    ]
+  },
+  "objectLayer": {
+    "legend": {
+      "#": "wall",
+      "N": "window",
+      "G": "glass_door",
+      "L": "store_shelf",
+      "K": "checkout_counter",
+      "R": "restroom_fixture",
+      "X": "trash_bin",
+      "P": "fuel_pump",
+      "C": "gas_station_canopy_post",
+      "S": "gas_station_sign",
+      "B": "parking_bollard",
+      "V": "abandoned_vehicle"
+    },
+    "rows": [
+      "........................................",
+      "........................................",
+      "........................................",
+      "........................................",
+      ".....###############...............S....",
+      ".....#.............#....................",
+      ".....#.LL..L.......#....................",
+      ".....#.............#...C.......C........",
+      ".....#........######....................",
+      ".....#.LL..L.......#.....P..P...........",
+      ".....#.............#....................",
+      ".....#.........KKRX#....................",
+      ".....#.............#....................",
+      ".....###N###G###N###....................",
+      ".........................P..P...........",
+      "........................................",
+      ".......................C.......C........",
+      "........................................",
+      ".....................X..................",
+      "........................................",
+      "......................BB......BB........",
+      ".................................V......",
+      "........................................",
+      "........................................",
+      "........................................",
+      "........................................",
+      "........................................",
+      "........................................"
+    ]
+  },
+  "npcs": [
+    {
+      "instanceId": "gas_station_turret_01",
+      "definitionId": "automated_turret",
+      "x": 30,
+      "y": 12
+    }
+  ]
+}

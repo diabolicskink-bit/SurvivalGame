@@ -17,7 +17,14 @@
     "tags": ["natural", "wood", "plant"],
     "blocksMovement": true,
     "blocksSight": true,
-    "mapColor": "#2f7a42"
+    "mapColor": "#2f7a42",
+    "spriteId": "world_object_tree",
+    "spriteRender": {
+      "widthTiles": 1.75,
+      "heightTiles": 1.75,
+      "offsetYTiles": -0.35,
+      "sortOffsetYTiles": 0.55
+    }
   },
   {
     "id": "fridge",
@@ -100,7 +107,8 @@
     "tags": ["natural", "stone", "barrier"],
     "blocksMovement": true,
     "blocksSight": true,
-    "mapColor": "#777d80"
+    "mapColor": "#777d80",
+    "spriteId": "world_object_boulder"
   },
   {
     "id": "fuel_pump",
@@ -110,7 +118,8 @@
     "tags": ["fuel", "pump", "refuel_source"],
     "blocksMovement": true,
     "blocksSight": false,
-    "mapColor": "#c45a3f"
+    "mapColor": "#c45a3f",
+    "spriteId": "world_object_fuel_pump"
   },
   {
     "id": "gas_station_canopy_post",
@@ -160,7 +169,8 @@
     "tags": ["furniture", "shelf", "store", "container_candidate"],
     "blocksMovement": true,
     "blocksSight": false,
-    "mapColor": "#8a6544"
+    "mapColor": "#8a6544",
+    "spriteId": "world_object_store_shelf"
   },
   {
     "id": "restroom_fixture",
@@ -200,6 +210,7 @@
     "tags": ["vehicle", "wreck", "barrier"],
     "blocksMovement": true,
     "blocksSight": true,
-    "mapColor": "#59636f"
+    "mapColor": "#59636f",
+    "spriteId": "world_object_abandoned_vehicle"
   }
 ]

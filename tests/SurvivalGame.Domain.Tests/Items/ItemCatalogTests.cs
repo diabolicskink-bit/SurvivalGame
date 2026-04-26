@@ -35,6 +35,7 @@ public sealed class ItemCatalogTests
         Assert.Equal("AK-47", ak47.Name);
         Assert.Equal(4.3f, ak47.Weight);
         Assert.Equal(1, ak47.MaxStackSize);
+        Assert.Equal(new InventoryItemSize(5, 2), ak47.InventorySize);
         Assert.True(ak47.TypePath.IsA(PrototypeItems.Weapon));
         Assert.True(ak47.TypePath.IsA(PrototypeItems.Gun));
         Assert.True(ak47.TypePath.IsA(PrototypeItems.Rifle));
@@ -52,6 +53,7 @@ public sealed class ItemCatalogTests
         Assert.Equal("Medical", bandage.Category);
         Assert.True(bandage.HasTag("wound_treatment"));
         Assert.Equal(10, bandage.MaxStackSize);
+        Assert.Equal(new InventoryItemSize(1, 1), bandage.InventorySize);
         Assert.Equal("bandage_clean", bandage.IconId);
         Assert.Equal("item_bandage_clean", bandage.SpriteId);
         Assert.True(bandage.AllowsAction("apply_to_wound"));
@@ -100,6 +102,14 @@ public sealed class ItemCatalogTests
         catalog.Add(item);
 
         Assert.Throws<InvalidOperationException>(() => catalog.Add(item));
+    }
+
+    [Fact]
+    public void ItemDefinitionDefaultsToOneByOneInventorySize()
+    {
+        var item = new ItemDefinition(new ItemId("test_item"), "Test item", "", "Test");
+
+        Assert.Equal(InventoryItemSize.Default, item.InventorySize);
     }
 
     [Theory]

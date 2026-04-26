@@ -63,8 +63,8 @@
 ## 2026-04-24 - Near-Future Folder Structure
 
 - Reorganized Godot presentation files by feature under `src/Godot/MainMenu/` and `src/Godot/Game/`.
-- Split gameplay presentation into `WorldView/`, `UI/`, and `Prototype/` folders.
-- Reorganized domain code by concept under `Actors/`, `World/`, `Items/`, `Inventory/`, and `Content/`.
+- Split gameplay presentation into `LocalMapView/`, `UI/`, and `Prototype/` folders.
+- Reorganized domain code by concept under `Actors/`, `LocalMaps/`, `Items/`, `Inventory/`, and `Content/`.
 - Split broad domain bucket files into smaller item and inventory files.
 - Moved domain tests into folders that mirror the domain concepts.
 - Added README guidance files for the new folders so future AI/developer sessions know what belongs where.
@@ -192,7 +192,7 @@
 - Reviewed current game state ownership against the intended Godot/domain boundary.
 - Kept `PrototypeGameState` as the root prototype state rather than renaming it.
 - Added `TurnState` for turn count ownership.
-- Added `WorldState` and `MapState` so world/map data is grouped outside the root state.
+- Added `LocalMapState` and `LocalMap` so local map data is grouped outside the root state.
 - Moved player grid position into `PlayerState`.
 - Updated `GameActionPipeline` and `GameShell` to use `state.Turn`, `state.Player`, and `state.World`.
 - Added focused domain tests for the state hierarchy and turn advancement.
@@ -205,8 +205,8 @@
 
 ## 2026-04-25 - Top-Left World Layout
 
-- Updated the gameplay layout so the world board sits in the top-left region.
-- Sized the world board from roughly half the viewport width and two-thirds of the viewport height.
+- Updated the gameplay layout so the local map board sits in the top-left region.
+- Sized the local map board from roughly half the viewport width and two-thirds of the viewport height.
 - Kept the existing right-side UI panel and gameplay behavior unchanged.
 
 ## 2026-04-25 - Larger Info Text
@@ -310,14 +310,14 @@
 - Kept stack-backed action costs explicit and currently free for inspect, drop, equip, and unequip.
 - Added domain tests for stack action availability, inspection, drop quantity handling, safe drop failure, and legacy equipment unequip.
 
-## 2026-04-25 - First Overworld Travel Shell
+## 2026-04-25 - First World Map Travel Shell
 
-- Added a prototype overworld travel state in domain code with continuous map positions, click destinations, travel methods, fixed points of interest, vehicle fuel, and shared world-time advancement.
+- Added a prototype world map travel state in domain code with continuous map positions, click destinations, travel methods, fixed points of interest, vehicle fuel, and shared world-time advancement.
 - Added walking, pushbike, and vehicle prototype travel methods, with only vehicle travel consuming fuel.
 - Added domain tests for smooth travel, destination redirection, method-dependent speed, fuel consumption, fuel depletion stopping travel, non-fuel continuation, and nearby point-of-interest detection.
-- Added an overworld Godot screen with a simple map/background, travel party marker, destination line, fixed point-of-interest markers, travel method controls, time display, fuel display when relevant, messages, and Enter Site action.
-- Added a run session shell that starts New Run at the overworld, enters the existing local gameplay scene from nearby points of interest, and returns to the overworld while preserving overworld state and the existing local player/inventory/equipment/firearm state.
-- Refactored prototype local-state creation into `PrototypeSessionFactory` so the local scene can run standalone or inside the overworld/local session.
+- Added an world map Godot screen with a simple map/background, travel party marker, destination line, fixed point-of-interest markers, travel method controls, time display, fuel display when relevant, messages, and Enter Site action.
+- Added a run session shell that starts New Run at the world map, enters the existing local gameplay scene from nearby points of interest, and returns to the world map while preserving world map state and the existing local player/inventory/equipment/firearm state.
+- Refactored prototype local-state creation into `PrototypeSessionFactory` so the local scene can run standalone or inside the world map/local session.
 - Kept roads, pathfinding, settlements, trading, camping, saving/loading, enemy parties, ambushes, weather, vehicle upgrades, repairs, storage, and new combat systems out of scope.
 
 ## 2026-04-25 - JSON-Backed NPC Definition Foundation
@@ -332,10 +332,125 @@
 
 ## 2026-04-25 - Route 18 Gas Station Site
 
-- Added Route 18 Gas Station as a fixed overworld point of interest that routes to a dedicated local site.
+- Added Route 18 Gas Station as a fixed world map point of interest that routes to a dedicated local site.
 - Added a hand-authored 40x28 gas station local map with asphalt forecourt, concrete pump island and parking area, tiled store interior, back room/staff area, restroom corner, perimeter grass, and blocked scenery objects.
 - Added asphalt surface data plus gas station world object definitions for fuel pumps, canopy posts, signage, glass doors, counters, shelves, restroom fixtures, trash bins, bollards, and abandoned vehicles.
 - Updated local site/session creation so the default prototype site and gas station keep separate map/object/NPC/ground-stack state while sharing world time, player inventory, equipment, stateful items, firearm/feed state, and vehicle fuel.
 - Added a prototype Refuel Vehicle action that appears next to a fuel pump when vehicle fuel is below capacity, restores fuel to 15.0, and advances world time by 100 ticks.
 - Added tests for gas station map content, surface/object loading, object collision, site-scoped stateful ground items, and refuel action availability/resolution.
 - Kept finite station fuel reserves, payment, fuel cans, pump power, trading, loot, repairs, NPC spawning, saving/loading, and procedural generation out of scope.
+
+## 2026-04-25 - Additional World Object Sprites
+
+- Generated and added transparent sprite assets for tree, boulder, fuel pump, store shelf, and abandoned vehicle world objects.
+- Updated the matching world object definitions to reference the new `spriteId` values.
+- Kept object behavior unchanged; the new assets only affect presentation.
+
+## 2026-04-25 - Grid Container Inventory Foundation
+
+- Added reusable domain grid container primitives for container ids, item references, item sizes, grid positions, placements, overlap checks, bounds checks, auto-placement, and container stores.
+- Backed the player stack inventory with a fixed prototype 20w x 10h item container while preserving stack quantities for simple identical items.
+- Added `inventorySize` to JSON item definitions, with a default of 1x1 for definitions that omit it.
+- Updated pickup, unequip, and stateful pickup/unequip flows to check inventory grid space before moving items into player inventory.
+- Replaced the inventory list display with a selectable 20x10 inventory grid view while keeping category tabs and existing item popup actions.
+- Added domain tests for container placement rules, player inventory grid backing, item size loading/defaults, and pickup failure when the inventory grid is full.
+- Kept manual rearranging, item rotation, nested grid containers, equipment-provided containers, world-object container contents, weight limits, and save/load persistence out of scope.
+
+## 2026-04-25 - Roadhouse Turret Hazard
+
+- Added an `automated_turret` world object definition and placed one at tile 30,12 on the Route 18 Gas Station map.
+- Added post-action turret hazard resolution to the domain action pipeline: successful time-costing local actions trigger one turret check per crossed 75-tick interval, within 5 tiles, for 10 direct health damage per shot.
+- Added clamped player health damage through `PlayerVitals.TakeDamage`.
+- Added domain tests for turret range, cadence, failed/zero-tick action safety, gas station placement, object loading, and player damage clamping.
+- Kept ammo, line of sight, accuracy, projectiles, destructibility, death/game-over handling, and AI scheduling out of scope.
+
+## 2026-04-26 - Campaign State Ownership Refactor
+
+- Added domain `CampaignState` as the persistent run state root for shared world time, player state, stateful items, world map travel, vehicle fuel, active mode/site id, and registered local sites.
+- Added `LocalSiteState` so each local site keeps its own `PrototypeGameState`, display metadata, entry position, and last local player position across world map/local transitions.
+- Updated `GameSessionShell` to act as a Godot mode coordinator that asks `CampaignState` to enter local sites or return to world map instead of owning default/gas-station sessions and shared state fields.
+- Updated `PrototypeSessionFactory` to create the prototype campaign session, catalogs, starting inventory/stateful items, local site states, and action pipeline without becoming the runtime campaign owner.
+- Added focused domain tests for shared campaign ownership, world map/local transitions, local site re-entry preservation, and shared inventory/equipment/stateful item persistence.
+- Kept stack/stateful item policy, firearm migration, save/load, procedural generation, new gameplay systems, and action-pipeline redesign out of scope.
+
+## 2026-04-26 - Local Map Viewport
+
+- Added domain `GridViewport` for pure map-to-viewport and viewport-to-map coordinate conversion.
+- Updated local gameplay rendering to show a fixed 27w x 18h tile viewport instead of the entire local map.
+- Kept full local maps in simulation state while `GameShell` and the local render layers crop surfaces, world objects, ground items, stateful ground items, NPCs, player marker placement, hover, and click targeting through the current viewport.
+- Larger maps clamp the viewport at map edges; smaller maps remain centered inside the fixed viewport with dark padding.
+- Added focused domain tests for centered, clamped, padded, and rejected-padding viewport coordinate behavior.
+- Kept map data, movement, collision, pickup, combat, campaign state, and action resolution rules unchanged.
+
+## 2026-04-26 - Maintenance Sweep Instructions
+
+- Added `Do a sweep` guidance to `AGENTS.md` for autonomous, focused codebase maintenance passes.
+- Defined sweeps as one coherent non-player-facing improvement at a time, covering cleanup, tests, docs, bug fixes, and architecture refinement.
+- Reinforced that sweeps should preserve gameplay behavior, avoid new systems or scope expansion, inspect current code and git state first, and update task logs after implementation.
+
+## 2026-04-26 - Space-Free Ammo Inventory Tab
+
+- Replaced the inventory category tabs with Inventory and Ammo modes.
+- Kept non-ammunition carried items and freely carried stateful items in the physical 20w x 10h inventory grid.
+- Added loose ammunition handling so item definitions with category `Ammunition` do not consume inventory grid cells.
+- Updated pickup, starting inventory, unequip, and firearm unload flows to use the inventory grid rule where catalog data is available.
+- Added tests for grid-exempt ammo stacks, ammo pickup with a full inventory grid, and unloading loose ammo from a magazine when the grid is full.
+- Kept magazines/feed devices as physical inventory items and left ammo capacity limits, drag/drop rearranging, ammo pouch UI, and nested container behavior out of scope.
+
+## 2026-04-26 - Maintenance Sweep: World Map Travel Validation
+
+- Tightened prototype travel method lookup with an explicit `TryGet` path and clear missing-method errors.
+- Validated `WorldMapTravelState` constructor travel method ids so construction and travel-method changes reject unknown enum values consistently.
+- Restored `GameActionPipeline` firearm service wiring so item catalog-backed inventory grid rules are available to firearm actions.
+- Added focused world map travel tests and verified the full domain test suite passes.
+
+## 2026-04-26 - World Map / Local Map Vocabulary Rename
+
+- Renamed the broad travel layer from world map legacy wording to `WorldMap` code, scene, test, and folder names.
+- Renamed the local grid/site map domain from generic world/map wording to `LocalMaps`, `LocalMapState`, and `LocalMap`.
+- Updated Godot local map view paths, campaign/session API names, player-facing labels, and documentation to use World Map and Local Map consistently.
+- Kept gameplay behavior unchanged: travel, entering sites, returning to the World Map, local viewport rendering, inventory, fuel, and local site persistence all retain their existing rules.
+
+## 2026-04-26 - Id And World Map Site Test Coverage
+
+- Added focused tests for `SurfaceId` and `WorldObjectId` trimming, formatting, and empty-value rejection.
+- Added prototype world map site tests for unique ids, in-bounds positions, positive enter radii, and the Route 18 Gas Station site contract.
+- Verified the targeted test classes and full domain test suite pass.
+
+## 2026-04-26 - Game Brief Direction Refresh
+
+- Reviewed the current prototype direction against the architecture, scope, task log, and live code structure.
+- Replaced the outdated initial shell brief with an updated game brief covering the World Map and Local Map loop, survival/logistics focus, current prototype shape, design pillars, near-term direction, scope guardrails, and technical direction.
+- Kept the brief aligned with the current structural prototype rather than promising unimplemented systems.
+
+## 2026-04-26 - Larger World Map Viewport
+
+- Expanded the prototype World Map to 2100w x 1300h while preserving the previous 1200w x 760h visible scale through a following viewport.
+- Added `WorldMapViewport` for full-map to visible-window coordinate conversion, edge clamping, and visibility checks.
+- Updated World Map drawing and click destination selection to use viewport coordinates so the map pans with the travel party.
+- Increased fixed World Map points of interest to twelve, kept Route 18 Gas Station near the starting region, and left all other POIs routing to the default local map.
+- Added domain tests for viewport centering, edge clamping, coordinate conversion, visibility checks, destination clamping, and the expanded POI contract.
+
+## 2026-04-26 - Automated Turret NPC Sprite
+
+- Moved the Route 18 Gas Station automated turret from static world-object placement into the NPC roster at tile 30,12.
+- Added an Automated Turret NPC definition with sprite metadata and a 32x32 turret sprite under `data/sprites/npcs/`.
+- Updated NPC rendering to load optional NPC sprites before falling back to colored markers.
+- Updated turret hazard resolution to scan enabled automated turret NPCs instead of world objects, so a disabled turret no longer fires.
+- Updated tests and docs for the NPC-based turret placement and reduced static world-object list.
+
+## 2026-04-26 - Authored Local Map Data
+
+- Moved the default prototype local site and Route 18 Gas Station layouts into JSON files under `data/local_maps/`.
+- Added a domain local map builder and `LocalSiteDefinitionLoader` for authored surface/object rows plus sparse item and NPC placements.
+- Added explicit non-functional recipe and chunked procedural map source stubs that fail clearly until those systems are implemented.
+- Updated prototype session creation to register local sites from loaded map data.
+- Added loader tests for current map content, malformed authored maps, and unsupported recipe/chunk source kinds.
+
+## 2026-04-26 - Automatic Sprite Overflow And Y-Sorting
+
+- Added optional visual-only `spriteRender` metadata for world object and NPC definitions.
+- Replaced separate world object, NPC, and player visual ordering with a single `MapEntityLayer` that draws map entities by screen Y.
+- Configured the tree to render larger than one tile and the automated turret to use a wider 48x32 sprite with its barrel extending into the next tile.
+- Kept collision, hover, targeting, turret hazards, and tile ownership tied to the original grid tile.
+- Added tests for sprite render metadata loading, default absence, and non-positive size rejection.

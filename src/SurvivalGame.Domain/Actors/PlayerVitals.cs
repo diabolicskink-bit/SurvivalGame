@@ -24,6 +24,19 @@ public sealed class PlayerVitals
         Health = Health.WithCurrent(current);
     }
 
+    public int TakeDamage(int damage)
+    {
+        if (damage < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(damage), "Damage must be at least 1.");
+        }
+
+        var previousHealth = Health.Current;
+        var nextHealth = Math.Max(Health.Minimum, Health.Current - damage);
+        Health = Health.WithCurrent(nextHealth);
+        return previousHealth - nextHealth;
+    }
+
     public void SetHunger(int current)
     {
         Hunger = Hunger.WithCurrent(current);

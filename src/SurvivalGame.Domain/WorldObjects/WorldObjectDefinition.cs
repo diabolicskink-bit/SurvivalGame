@@ -11,7 +11,8 @@ public sealed record WorldObjectDefinition
         bool blocksMovement = false,
         bool blocksSight = false,
         string? mapColor = null,
-        string? spriteId = null
+        string? spriteId = null,
+        SpriteRenderProfile? spriteRender = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -35,6 +36,7 @@ public sealed record WorldObjectDefinition
         BlocksSight = blocksSight;
         MapColor = string.IsNullOrWhiteSpace(mapColor) ? "#6c756a" : mapColor.Trim();
         SpriteId = string.IsNullOrWhiteSpace(spriteId) ? null : spriteId.Trim();
+        SpriteRender = spriteRender;
     }
 
     public WorldObjectId Id { get; }
@@ -54,6 +56,8 @@ public sealed record WorldObjectDefinition
     public string MapColor { get; }
 
     public string? SpriteId { get; }
+
+    public SpriteRenderProfile? SpriteRender { get; }
 
     public bool HasTag(string tag)
     {

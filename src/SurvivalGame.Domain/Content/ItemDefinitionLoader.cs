@@ -71,6 +71,12 @@ public sealed class ItemDefinitionLoader
 
         public string[]? Actions { get; set; }
 
+        public ItemSizeDto? InventorySize { get; set; }
+
+        public int? InventoryWidth { get; set; }
+
+        public int? InventoryHeight { get; set; }
+
         public ItemDefinition ToDefinition(string sourcePath)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -98,8 +104,53 @@ public sealed class ItemDefinitionLoader
                 Weight,
                 IconId,
                 SpriteId,
-                Actions
+                Actions,
+                ReadInventorySize(sourcePath)
             );
+        }
+
+        private InventoryItemSize ReadInventorySize(string sourcePath)
+        {
+            if (InventorySize is not null)
+            {
+                return InventorySize.ToInventoryItemSize(Id!, sourcePath);
+            }
+
+            if (InventoryWidth is not null || InventoryHeight is not null)
+            {
+                if (InventoryWidth is null || InventoryHeight is null)
+                {
+                    throw new InvalidDataException(
+                        $"Item '{Id}' in '{sourcePath}' must define both inventoryWidth and inventoryHeight."
+                    );
+                }
+
+                return new InventoryItemSize(InventoryWidth.Value, InventoryHeight.Value);
+            }
+
+            return InventoryItemSize.Default;
+        }
+    }
+
+    private sealed class ItemSizeDto
+    {
+        public int Width { get; set; } = 1;
+
+        public int Height { get; set; } = 1;
+
+        public InventoryItemSize ToInventoryItemSize(string itemId, string sourcePath)
+        {
+            try
+            {
+                return new InventoryItemSize(Width, Height);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw new InvalidDataException(
+                    $"Item '{itemId}' in '{sourcePath}' has an invalid inventory size.",
+                    exception
+                );
+            }
         }
     }
 }

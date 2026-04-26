@@ -11,7 +11,9 @@ public sealed record NpcDefinition
         IEnumerable<string>? tags = null,
         bool blocksMovement = true,
         string? mapColor = null,
-        NpcBehaviorProfile? behavior = null
+        string? spriteId = null,
+        NpcBehaviorProfile? behavior = null,
+        SpriteRenderProfile? spriteRender = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -39,7 +41,9 @@ public sealed record NpcDefinition
         Tags = NormalizeTags(tags);
         BlocksMovement = blocksMovement;
         MapColor = string.IsNullOrWhiteSpace(mapColor) ? "#c75a3b" : mapColor.Trim();
+        SpriteId = string.IsNullOrWhiteSpace(spriteId) ? null : spriteId.Trim();
         Behavior = behavior ?? NpcBehaviorProfile.Inert;
+        SpriteRender = spriteRender;
     }
 
     public NpcDefinitionId Id { get; }
@@ -58,7 +62,11 @@ public sealed record NpcDefinition
 
     public string MapColor { get; }
 
+    public string? SpriteId { get; }
+
     public NpcBehaviorProfile Behavior { get; }
+
+    public SpriteRenderProfile? SpriteRender { get; }
 
     public NpcState CreateState(NpcId instanceId, GridPosition position)
     {

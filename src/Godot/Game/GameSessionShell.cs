@@ -4,37 +4,23 @@ using SurvivalGame.Domain;
 public partial class GameSessionShell : Control
 {
     private const string MainMenuScenePath = "res://src/Godot/MainMenu/MainMenu.tscn";
-    private const string OverworldScenePath = "res://src/Godot/Overworld/OverworldScreen.tscn";
+    private const string WorldMapScenePath = "res://src/Godot/WorldMap/WorldMapScreen.tscn";
     private const string GameShellScenePath = "res://src/Godot/Game/GameShell.tscn";
 
-    private PrototypeGameplaySession _gameplaySession = null!;
-    private PrototypeGameplaySession? _gasStationSession;
-    private OverworldTravelState _overworldState = null!;
-    private VehicleFuelState _vehicleFuelState = null!;
+    private PrototypeCampaignSession _campaignSession = null!;
     private Control? _currentScreen;
 
     public override void _Ready()
     {
         SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _vehicleFuelState = new VehicleFuelState(
-            PrototypeTravelMethods.VehicleFuelCapacity,
-            PrototypeTravelMethods.VehicleStartingFuel
-        );
-        _gameplaySession = PrototypeSessionFactory.CreateGameplaySession(_vehicleFuelState);
-        _overworldState = new OverworldTravelState(
-            PrototypeOverworldSites.MapWidth,
-            PrototypeOverworldSites.MapHeight,
-            PrototypeOverworldSites.StartPosition,
-            TravelMethodId.Walking,
-            _vehicleFuelState
-        );
+        _campaignSession = PrototypeSessionFactory.CreateCampaignSession();
 
-        ShowOverworld();
+        ShowWorldMap();
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_currentScreen is not OverworldScreen
+        if (_currentScreen is not WorldMapScreen
             || @event is not InputEventKey keyEvent
             || !keyEvent.Pressed
             || keyEvent.Echo
@@ -47,42 +33,37 @@ public partial class GameSessionShell : Control
         GetTree().ChangeSceneToFile(MainMenuScenePath);
     }
 
-    private void ShowOverworld()
+    private void ShowWorldMap()
     {
         ClearCurrentScreen();
+        _campaignSession.CampaignState.ReturnToWorldMap();
 
-        var scene = ResourceLoader.Load<PackedScene>(OverworldScenePath);
-        var overworld = scene.Instantiate<OverworldScreen>();
-        overworld.Configure(_overworldState, _gameplaySession.GameState.Time);
-        overworld.EnterSiteRequested += OnEnterSiteRequested;
-        AddChild(overworld);
-        _currentScreen = overworld;
+        var scene = ResourceLoader.Load<PackedScene>(WorldMapScenePath);
+        var worldMap = scene.Instantiate<WorldMapScreen>();
+        worldMap.Configure(_campaignSession.CampaignState.WorldMap, _campaignSession.CampaignState.Time);
+        worldMap.EnterSiteRequested += OnEnterSiteRequested;
+        AddChild(worldMap);
+        _currentScreen = worldMap;
     }
 
-    private void OnEnterSiteRequested(OverworldPointOfInterest site)
+    private void OnEnterSiteRequested(WorldMapPointOfInterest site)
     {
-        var session = site.Id == PrototypeLocalSites.GasStationSiteId
-            ? GetGasStationSession()
-            : _gameplaySession;
-        ShowLocalSite(session);
+        var siteId = site.Id == PrototypeLocalSites.GasStationSiteId
+            ? PrototypeLocalSites.GasStationSiteId
+            : PrototypeLocalSites.DefaultSiteId;
+        var localSite = _campaignSession.CampaignState.EnterLocalSite(siteId);
+        ShowLocalSite(localSite.Id);
     }
 
-    private PrototypeGameplaySession GetGasStationSession()
-    {
-        _gasStationSession ??= PrototypeSessionFactory.CreateGasStationSession(_gameplaySession, _vehicleFuelState);
-        return _gasStationSession;
-    }
-
-    private void ShowLocalSite(PrototypeGameplaySession session)
+    private void ShowLocalSite(string siteId)
     {
         ClearCurrentScreen();
 
         var scene = ResourceLoader.Load<PackedScene>(GameShellScenePath);
         var localGame = scene.Instantiate<GameShell>();
-        session.GameState.SetPlayerPosition(session.EntryPosition);
-        localGame.Session = session;
-        localGame.ShowsReturnToOverworld = true;
-        localGame.ReturnToOverworldRequested += ShowOverworld;
+        localGame.Session = _campaignSession.CreateGameplaySession(siteId);
+        localGame.ShowsReturnToWorldMap = true;
+        localGame.ReturnToWorldMapRequested += ShowWorldMap;
         AddChild(localGame);
         _currentScreen = localGame;
     }

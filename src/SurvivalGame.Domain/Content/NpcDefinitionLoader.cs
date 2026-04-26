@@ -69,6 +69,10 @@ public sealed class NpcDefinitionLoader
 
         public string? MapColor { get; set; }
 
+        public string? SpriteId { get; set; }
+
+        public SpriteRenderProfileDto? SpriteRender { get; set; }
+
         public NpcBehaviorProfileDto? Behavior { get; set; }
 
         public NpcDefinition ToDefinition(string sourcePath)
@@ -98,7 +102,33 @@ public sealed class NpcDefinitionLoader
                 Tags,
                 BlocksMovement,
                 MapColor,
-                Behavior?.ToProfile(sourcePath, Id) ?? NpcBehaviorProfile.Inert
+                SpriteId,
+                Behavior?.ToProfile(sourcePath, Id) ?? NpcBehaviorProfile.Inert,
+                SpriteRender?.ToProfile()
+            );
+        }
+    }
+
+    private sealed class SpriteRenderProfileDto
+    {
+        public float WidthTiles { get; set; } = 1f;
+
+        public float HeightTiles { get; set; } = 1f;
+
+        public float OffsetXTiles { get; set; }
+
+        public float OffsetYTiles { get; set; }
+
+        public float SortOffsetYTiles { get; set; }
+
+        public SpriteRenderProfile ToProfile()
+        {
+            return new SpriteRenderProfile(
+                WidthTiles,
+                HeightTiles,
+                OffsetXTiles,
+                OffsetYTiles,
+                SortOffsetYTiles
             );
         }
     }

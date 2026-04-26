@@ -3,35 +3,39 @@
 ## Included
 
 - Main menu with title, subtitle, New Run, and Quit actions.
-- New Run opens a prototype run session at the overworld travel screen.
-- Overworld travel screen with a simple drawn map/background.
-- Overworld travel party marker shown on the map.
-- A few fixed overworld points of interest, including Route 18 Gas Station.
-- Clicking the overworld sets or redirects a continuous travel destination.
-- Overworld movement is smooth map-unit movement, not tile/grid movement.
-- Current overworld travel method is displayed.
+- New Run opens a prototype run session at the world map travel screen.
+- World Map travel screen with a simple drawn map/background.
+- World Map has a larger 2100w x 1300h full map while the visible view keeps the previous 1200w x 760h scale.
+- World Map camera follows the travel party and clamps at full-map edges.
+- World Map travel party marker shown on the map.
+- Twelve fixed world map points of interest, including Route 18 Gas Station near the starting region.
+- Clicking the world map sets or redirects a continuous travel destination.
+- World Map movement is smooth map-unit movement, not tile/grid movement.
+- Current world map travel method is displayed.
 - Prototype travel methods include walking, pushbike, and vehicle.
 - Travel speed depends on the selected travel method.
-- Overworld time is displayed using the shared elapsed world tick clock.
-- Travelling on the overworld advances world time.
+- World Map time is displayed using the shared elapsed world tick clock.
+- Travelling on the world map advances world time.
 - Vehicle travel displays and consumes prototype fuel.
 - Walking and pushbike travel do not require or consume fuel.
 - If vehicle fuel reaches zero, vehicle travel stops and a clear message is shown.
 - After vehicle fuel reaches zero, the player can switch to walking or pushbike and continue travelling.
 - Enter Site becomes available when the travel party is near a point of interest.
-- Enter Site switches from the overworld into a local gameplay scene.
+- Enter Site switches from the world map into a local gameplay scene.
 - Route 18 Gas Station enters a dedicated fixed gas station local site.
-- Other current overworld points of interest enter the default prototype local site.
-- The local gameplay scene can return to the overworld.
-- Returning to the overworld preserves overworld position, time, travel method, and vehicle fuel.
-- Returning to the overworld preserves player inventory, equipment, and firearm/ammunition/feed-device state because local site sessions share the same player and stateful item store.
+- Other current world map points of interest enter the default prototype local site.
+- The local gameplay scene can return to the world map.
+- Returning to the world map preserves world map position, time, travel method, and vehicle fuel.
+- Returning to the world map preserves player inventory, equipment, and firearm/ammunition/feed-device state because local site sessions share the same player and stateful item store.
 - Local site sessions preserve their own map bounds, surfaces, world objects, ground stacks, and NPC roster.
-- Local gameplay boards size themselves from the active local site's map bounds.
-- Route 18 Gas Station is a fixed 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
+- Local gameplay boards render a fixed 27w x 18h tile viewport over the active local site's full map.
+- Larger local maps clamp the viewport near map edges; smaller local maps are centered inside the fixed viewport with dark padding.
+- Authored local site maps are loaded from JSON under `data/local_maps/`.
+- Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
 - The gas station local site spawns the player near the forecourt/store entrance.
 - Gameplay shell scene with a simple placeholder top-down grid.
-- Resizable gameplay layout that places the world board in the top-left half-width, top two-thirds-height area and uses the available right-side space for gameplay panels.
-- Player marker placed near the centre of the grid.
+- Resizable gameplay layout that places the local map board in the top-left half-width, top two-thirds-height area and uses the available right-side space for gameplay panels.
+- Player marker placed near the centre of the local viewport except when the viewport is clamped at a map edge.
 - Discrete tile movement with WASD and arrow keys.
 - Boundary checks that prevent movement outside the map.
 - UI overlay showing mode, elapsed world ticks, and player position.
@@ -41,23 +45,34 @@
 - Wait advances world time by 100 ticks.
 - Successful pickup advances world time by 50 ticks.
 - Failed boundary movement and failed pickup on an empty tile advance world time by 0 ticks.
+- Route 18 Gas Station has one fixed automated turret NPC at tile 30,12.
+- The automated turret NPC checks after successful time-advancing local actions and fires when the player is within 5 tiles.
+- Turret fire triggers once for each crossed 75-tick interval and deals 10 direct health damage per shot.
 - Clickable Wait action button.
 - Clickable Pick Up action button when the player is standing on item stacks.
 - Global action panel now shows general or selected-target actions, such as Wait, Pick Up, and Shoot.
 - Message log with startup and movement messages.
 - Escape key return from gameplay shell to main menu.
 - Domain-level player inventory tracking by item id and quantity.
-- Selectable gameplay UI section showing the player's held inventory items.
-- Inventory display is grouped into tabs for weapons, weapon parts/ammunition, consumables, and other items.
-- Stack-backed inventory items remain stacked for simple identical quantities such as ammunition and materials.
+- Generic domain grid container foundation with rectangular item placement, bounds checks, overlap checks, auto-placement, and container ids for future player/world-object/equipment containers.
+- Player stack inventory is backed by a fixed prototype 20w x 10h inventory grid.
+- Selectable gameplay UI section showing the player's carried items in Inventory and Ammo modes.
+- Inventory mode shows one physical 20w x 10h grid containing all non-ammunition stack items plus freely carried stateful items.
+- Ammo mode lists loose ammunition stacks by type and quantity.
+- Loose ammunition stack items do not consume inventory grid cells.
+- Feed devices and magazines remain physical grid items, including stateful loaded magazines.
+- Stack-backed inventory items remain stacked for simple identical quantities.
+- Stack-backed non-ammunition inventory items occupy one grid rectangle per stack.
 - Stack-backed inventory items can be inspected, dropped one at a time, or dropped as a full stack from the contextual item popup.
+- Pickup and unequip actions fail clearly when there is not enough inventory grid space for grid-using items.
+- Loose ammunition pickup can succeed even when the physical inventory grid is full.
 - Inventory and equipment are visually separated.
 - Gameplay UI is split into three visible panels: player info/general actions, equipment, and inventory. On wide windows, player info and equipment sit side by side with inventory below them.
 - Clicking an inventory or equipment item opens a small popup with item details and contextual actions.
 - Item popup details include name, quantity, location, category/type, description, tags, and relevant prototype firearm/feed state when available.
 - Item-specific actions appear in the clicked item popup rather than in the global action list.
 - JSON-backed prototype item definitions under `data/items/`.
-- Item definitions include id, name, description, category, tags, stack size, weight, icon id, sprite id, and future action ids.
+- Item definitions include id, name, description, category, tags, stack size, inventory size, weight, icon id, sprite id, and future action ids.
 - Nested type paths are derived from category and tags, such as `Weapon -> gun -> rifle -> ak47`.
 - Prototype starting inventory items for display testing.
 - Prototype item stacks placed on a few map tiles and rendered as simple markers.
@@ -66,10 +81,12 @@
 - Surface definitions include id, name, description, category, tags, movement cost, map color, and optional sprite id.
 - Surface tags are the current lightweight property mechanism, for example ice has a `slippery` tag.
 - Prototype map surface layouts using grass, carpet, concrete, tile, ice, and asphalt.
+- Local map data uses authored surface/object rows plus sparse item and NPC placements; recipe and chunked procedural source kinds are placeholders only.
 - Generated sprite assets for grass, carpet, concrete, ceramic tile, and ice surfaces.
 - Asphalt currently uses its fallback map color and has no generated sprite.
 - UI overlay shows the surface beneath the player.
 - Domain-level player vital tracking for health, hunger, thirst, fatigue, sleep debt, pain, and body temperature.
+- Player health can take direct prototype damage from the automated turret and clamps at 0.
 - Read-only gameplay UI section showing the player's tracked vitals.
 - Domain-level player equipment loadout with slots for main hand, off hand, head, body, legs, feet, and back.
 - Equipment slot definitions validate accepted `ItemTypePath` values.
@@ -105,6 +122,7 @@
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
 - Twenty prototype world objects: wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, boulder, fuel pump, gas station canopy post, gas station sign, glass door, checkout counter, store shelf, restroom fixture, trash bin, parking bollard, and abandoned vehicle.
+- World object definitions can include visual-only `spriteRender` metadata for oversized sprite footprints.
 - Prototype world object placement on local maps with simple rendering.
 - Generated sprite assets for fridge, bed, and storage crate.
 - Movement collision against world objects marked as blocking movement.
@@ -113,20 +131,24 @@
 - Refuel Vehicle appears in the global action panel when the player is cardinally adjacent to a fuel pump, the run has vehicle fuel state, and vehicle fuel is below capacity.
 - Refuel Vehicle restores vehicle fuel to the prototype capacity of 15.0 and advances shared world time by 100 ticks.
 - JSON-backed prototype NPC definitions under `data/npcs/`.
-- NPC definitions include id, name, description, species, tags, maximum health, movement blocking, map color, and a simple behavior profile.
+- NPC definitions include id, name, description, species, tags, maximum health, movement blocking, map color, optional sprite id, optional visual-only sprite render footprint metadata, and a simple behavior profile.
 - Domain NPC runtime state now separates instance id from reusable definition id, plus grid position, health, and blocking state.
-- Six prototype NPC definitions currently exist: Test Dummy, Cautious Survivor, Wandering Scavenger, Injured Traveller, Quiet Mechanic, and Field Researcher.
+- Seven prototype NPC definitions currently exist: Test Dummy, Cautious Survivor, Wandering Scavenger, Injured Traveller, Quiet Mechanic, Field Researcher, and Automated Turret.
 - One inert test dummy NPC definition is loaded from JSON and spawned on the prototype map with 200/200 health.
-- NPCs render on the world board and block movement into their tile.
+- One automated turret NPC definition is loaded from JSON and spawned on the Route 18 Gas Station map with a sprite.
+- World objects, NPCs, and the player marker render through one automatic Y-sorted entity layer.
+- Tree leaves and the automated turret sprite can visually overflow adjacent tiles without affecting those tiles.
+- NPCs render on the local map board, use sprite assets when available, and block movement into their tile.
 - Hover tooltip shows NPC name, species, behavior kind, definition tags, current/max health, and blocking state when a tile contains one.
-- The test dummy can be damaged by equipped firearm shots and visually greys out when reduced to 0 health.
+- NPCs can be damaged by equipped firearm shots and visually grey out when reduced to 0 health.
+- Disabled automated turret NPCs no longer fire.
 
 ## Not Included Yet
 
 - Opening, closing, moving, destroying, building, using, searching, or looting world objects.
 - Container contents for fridges, crates, or other objects.
 - Finite gas station fuel reserves, payment, fuel cans, pump power, ownership checks, or fuel theft rules.
-- Player damage, healing, death, or health effects.
+- Player healing, death, or health effects beyond direct turret health damage.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
 - Terrain-based time modifiers or surface-driven action costs.
 - Actor scheduling, initiative, action queues, or long action interruption.
@@ -144,18 +166,19 @@
 - Stateful item save/load persistence.
 - Generic item use actions for simple stack inventory entries.
 - Item effects or equipment stat modifiers.
-- Inventory weight, capacity, containers, or equipment containers.
+- Inventory weight limits, loose ammo capacity limits, ammo pouch UI, equipment containers, nested grid containers, manual rearranging, or item rotation.
 - Hunger, thirst, fatigue, or other survival meters.
 - Active NPC AI, decision planning, perception, memory, factions, dialogue, schedules, melee combat, hostile combat, or reciprocal combat.
 - Procedural generation.
+- Functional recipe, stamp, chunk streaming, or procedural local map generation.
 - Crafting.
 - Saving or loading.
 - Pathfinding.
 - Injuries or health systems.
 - Weather.
-- Broad world simulation beyond the fixed overworld travel shell.
-- Roads, overworld pathfinding, settlements, trading, camping, enemy parties, ambushes, overworld weather, or new combat systems.
+- Broad world simulation beyond the fixed world map travel shell.
+- Roads, world map pathfinding, settlements, trading, camping, enemy parties, ambushes, world map weather, or new combat systems.
 - Vehicle upgrades, repairs, storage, or detailed vehicle condition systems.
 - Additional site-specific local maps beyond Route 18 Gas Station; non-gas-station points of interest still enter the default prototype local gameplay scene.
-- Gas station loot, trading, NPCs, quests, procedural generation, or repair services.
+- Gas station loot, trading, non-turret NPCs, quests, procedural generation, or repair services.
 - Runtime content editing or mod loading.

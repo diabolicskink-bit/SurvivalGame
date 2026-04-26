@@ -8,6 +8,8 @@ public partial class GameShell : Control
 {
     private const string MainMenuScenePath = "res://src/Godot/MainMenu/MainMenu.tscn";
     private const int BaseCellSize = 32;
+    private const int LocalViewportWidthTiles = 27;
+    private const int LocalViewportHeightTiles = 18;
     private const int MinimumCellSize = 18;
     private const float WorldRegionWidthRatio = 0.5f;
     private const float WorldRegionHeightRatio = 2.0f / 3.0f;
@@ -27,10 +29,8 @@ public partial class GameShell : Control
     private PrototypeGameState _gameState = null!;
     private Node2D _board = null!;
     private GridView _gridView = null!;
-    private WorldObjectLayer _worldObjectLayer = null!;
     private GroundItemLayer _groundItemLayer = null!;
-    private NpcLayer _npcLayer = null!;
-    private Node2D _playerMarker = null!;
+    private MapEntityLayer _mapEntityLayer = null!;
     private PlayerController _playerController = null!;
     private Control _sidePanel = null!;
     private PanelContainer _itemActionPopup = null!;
@@ -47,27 +47,31 @@ public partial class GameShell : Control
     private Label _surfaceLabel = null!;
     private Label _targetLabel = null!;
     private Label _modeLabel = null!;
-    private Button _returnToOverworldButton = null!;
+    private Button _returnToWorldMapButton = null!;
     private SelectedItemRef? _selectedItem;
     private NpcId? _selectedTargetNpcId;
     private GridPosition? _visibleTooltipPosition;
     private GridBounds _mapBounds = new(1, 1);
+    private GridViewport _viewport = GridViewport.Create(
+        new GridBounds(1, 1),
+        new GridPosition(0, 0),
+        LocalViewportWidthTiles,
+        LocalViewportHeightTiles
+    );
     private int _cellSize = BaseCellSize;
 
-    public event Action? ReturnToOverworldRequested;
+    public event Action? ReturnToWorldMapRequested;
 
     public PrototypeGameplaySession? Session { get; set; }
 
-    public bool ShowsReturnToOverworld { get; set; }
+    public bool ShowsReturnToWorldMap { get; set; }
 
     public override void _Ready()
     {
         _board = GetNode<Node2D>("Board");
         _gridView = GetNode<GridView>("Board/GridView");
-        _worldObjectLayer = GetNode<WorldObjectLayer>("Board/WorldObjectLayer");
         _groundItemLayer = GetNode<GroundItemLayer>("Board/GroundItemLayer");
-        _npcLayer = GetNode<NpcLayer>("Board/NpcLayer");
-        _playerMarker = GetNode<Node2D>("Board/PlayerMarker");
+        _mapEntityLayer = GetNode<MapEntityLayer>("Board/MapEntityLayer");
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
         var isStandaloneSession = Session is null;
@@ -80,19 +84,10 @@ public partial class GameShell : Control
         _actionPipeline = session.ActionPipeline;
         _gameState = session.GameState;
         _mapBounds = _gameState.MapBounds;
+        RefreshViewport();
 
-        _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
-        _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-        _groundItemLayer.Configure(
-            _gameState.World.GroundItems,
-            _itemCatalog,
-            _cellSize,
-            _gameState.StatefulItems,
-            _gameState.SiteId
-        );
-        _npcLayer.Configure(_gameState.World.Npcs, _npcCatalog, _cellSize);
+        ConfigureLocalMapView();
         _playerController.MoveRequested += OnMoveRequested;
-        UpdatePlayerMarker();
 
         BuildOverlay();
         UpdateResponsiveLayout();
@@ -150,9 +145,9 @@ public partial class GameShell : Control
 
     private void ReturnFromLocalOrExit()
     {
-        if (ShowsReturnToOverworld)
+        if (ShowsReturnToWorldMap)
         {
-            ReturnToOverworldRequested?.Invoke();
+            ReturnToWorldMapRequested?.Invoke();
             return;
         }
 
@@ -202,14 +197,14 @@ public partial class GameShell : Control
         stack.AddChild(_surfaceLabel);
         stack.AddChild(_targetLabel);
 
-        _returnToOverworldButton = new Button
+        _returnToWorldMapButton = new Button
         {
-            Text = "Return to Overworld",
-            Visible = ShowsReturnToOverworld,
+            Text = "Return to World Map",
+            Visible = ShowsReturnToWorldMap,
             CustomMinimumSize = new Vector2(0, 38)
         };
-        _returnToOverworldButton.Pressed += ReturnFromLocalOrExit;
-        stack.AddChild(_returnToOverworldButton);
+        _returnToWorldMapButton.Pressed += ReturnFromLocalOrExit;
+        stack.AddChild(_returnToWorldMapButton);
 
         var separator = new HSeparator();
         stack.AddChild(separator);
@@ -604,7 +599,7 @@ public partial class GameShell : Control
             return false;
         }
 
-        if (!_gameState.World.Npcs.TryGetAt(clickedPosition.Value, out var npc))
+        if (!_gameState.LocalMap.Npcs.TryGetAt(clickedPosition.Value, out var npc))
         {
             if (_selectedTargetNpcId is not null)
             {
@@ -653,7 +648,7 @@ public partial class GameShell : Control
             return;
         }
 
-        var itemStacks = _gameState.World.GroundItems.ItemsAt(hoveredPosition.Value);
+        var itemStacks = _gameState.LocalMap.GroundItems.ItemsAt(hoveredPosition.Value);
         var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value, _gameState.SiteId);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
@@ -681,27 +676,27 @@ public partial class GameShell : Control
 
     private TileSurfaceDefinition GetSurfaceAt(GridPosition position)
     {
-        var surfaceId = _gameState.World.Map.Surfaces.GetSurfaceId(position);
+        var surfaceId = _gameState.LocalMap.Map.Surfaces.GetSurfaceId(position);
         return _surfaceCatalog.Get(surfaceId);
     }
 
     private WorldObjectDefinition? GetWorldObjectAt(GridPosition position)
     {
-        return _gameState.World.WorldObjects.TryGetObjectAt(position, out var objectId)
+        return _gameState.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId)
             ? _worldObjectCatalog.Get(objectId)
             : null;
     }
 
     private NpcState? GetNpcAt(GridPosition position)
     {
-        return _gameState.World.Npcs.TryGetAt(position, out var npc)
+        return _gameState.LocalMap.Npcs.TryGetAt(position, out var npc)
             ? npc
             : null;
     }
 
     private NpcState? GetSelectedTargetNpc()
     {
-        return _selectedTargetNpcId is not null && _gameState.World.Npcs.TryGet(_selectedTargetNpcId, out var npc)
+        return _selectedTargetNpcId is not null && _gameState.LocalMap.Npcs.TryGet(_selectedTargetNpcId, out var npc)
             ? npc
             : null;
     }
@@ -717,12 +712,14 @@ public partial class GameShell : Control
     private GridPosition? GetHoveredGridPosition()
     {
         var boardPosition = _board.GetLocalMousePosition();
-        var cell = new GridPosition(
+        var viewportCell = new GridPosition(
             Mathf.FloorToInt(boardPosition.X / _cellSize),
             Mathf.FloorToInt(boardPosition.Y / _cellSize)
         );
 
-        return _mapBounds.Contains(cell) ? cell : null;
+        return _viewport.TryViewportToMap(viewportCell, out var mapPosition)
+            ? mapPosition
+            : null;
     }
 
     private void HideItemTooltip()
@@ -731,18 +728,53 @@ public partial class GameShell : Control
         _itemTooltip.HideTooltip();
     }
 
+    private void RefreshViewport()
+    {
+        _viewport = GridViewport.Create(
+            _mapBounds,
+            _gameState.Player.Position,
+            LocalViewportWidthTiles,
+            LocalViewportHeightTiles
+        );
+    }
+
+    private void ConfigureLocalMapView()
+    {
+        _gridView.Configure(_gameState.LocalMap.Map.Surfaces, _surfaceCatalog, _cellSize, _viewport);
+        _groundItemLayer.Configure(
+            _gameState.LocalMap.GroundItems,
+            _itemCatalog,
+            _cellSize,
+            _gameState.StatefulItems,
+            _gameState.SiteId,
+            _viewport
+        );
+        _mapEntityLayer.Configure(
+            _gameState.LocalMap.WorldObjects,
+            _worldObjectCatalog,
+            _gameState.LocalMap.Npcs,
+            _npcCatalog,
+            _gameState.Player,
+            _cellSize,
+            _viewport
+        );
+    }
+
     private void UpdateResponsiveLayout()
     {
         var viewportSize = GetViewportRect().Size;
         var boardAreaWidth = Mathf.Max(
-            MinimumCellSize * _mapBounds.Width,
+            MinimumCellSize * LocalViewportWidthTiles,
             (viewportSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
         );
         var boardAreaHeight = Mathf.Max(
-            MinimumCellSize * _mapBounds.Height,
+            MinimumCellSize * LocalViewportHeightTiles,
             (viewportSize.Y * WorldRegionHeightRatio) - (LayoutMargin * 2.0f)
         );
-        var fittedCellSize = Mathf.FloorToInt(Mathf.Min(boardAreaWidth / _mapBounds.Width, boardAreaHeight / _mapBounds.Height));
+        var fittedCellSize = Mathf.FloorToInt(Mathf.Min(
+            boardAreaWidth / LocalViewportWidthTiles,
+            boardAreaHeight / LocalViewportHeightTiles
+        ));
         var nextCellSize = Mathf.Max(
             MinimumCellSize,
             fittedCellSize
@@ -751,23 +783,12 @@ public partial class GameShell : Control
         if (_cellSize != nextCellSize)
         {
             _cellSize = nextCellSize;
-            _gridView.Configure(_gameState.World.Map.Surfaces, _surfaceCatalog, _cellSize);
-            _worldObjectLayer.Configure(_gameState.World.WorldObjects, _worldObjectCatalog, _cellSize);
-            _groundItemLayer.Configure(
-                _gameState.World.GroundItems,
-                _itemCatalog,
-                _cellSize,
-                _gameState.StatefulItems,
-                _gameState.SiteId
-            );
-            _npcLayer.Configure(_gameState.World.Npcs, _npcCatalog, _cellSize);
-            UpdatePlayerMarker();
+            ConfigureLocalMapView();
         }
 
         _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
-        _playerMarker.Scale = Vector2.One * (_cellSize / (float)BaseCellSize);
 
-        var boardPixelSize = new Vector2(_mapBounds.Width * _cellSize, _mapBounds.Height * _cellSize);
+        var boardPixelSize = new Vector2(LocalViewportWidthTiles * _cellSize, LocalViewportHeightTiles * _cellSize);
         var boardRight = _board.Position.X + boardPixelSize.X;
         var boardBottom = _board.Position.Y + boardPixelSize.Y;
         var logTop = boardBottom + 14.0f;
@@ -797,11 +818,6 @@ public partial class GameShell : Control
         _logPanel.OffsetBottom = Mathf.Max(logTop + 128.0f, viewportSize.Y - LayoutMargin);
     }
 
-    private void UpdatePlayerMarker()
-    {
-        _playerMarker.Position = CellToBoardPosition(_gameState.Player.Position);
-    }
-
     private void OnActionSelected(AvailableAction action)
     {
         GameActionRequest? request = action.Request ?? action.Kind switch
@@ -823,10 +839,10 @@ public partial class GameShell : Control
     {
         var result = _actionPipeline.Execute(_gameState, request);
 
-        UpdatePlayerMarker();
-        _worldObjectLayer.QueueRedraw();
+        RefreshViewport();
+        ConfigureLocalMapView();
         _groundItemLayer.QueueRedraw();
-        _npcLayer.QueueRedraw();
+        _mapEntityLayer.QueueRedraw();
         UpdateOverlay();
         HideItemTooltip();
 
@@ -836,11 +852,4 @@ public partial class GameShell : Control
         }
     }
 
-    private Vector2 CellToBoardPosition(GridPosition cell)
-    {
-        return new Vector2(
-            (cell.X + 0.5f) * _cellSize,
-            (cell.Y + 0.5f) * _cellSize
-        );
-    }
 }

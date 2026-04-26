@@ -88,5 +88,27 @@
       "perceptionRange": 8,
       "tags": ["observant"]
     }
+  },
+  {
+    "id": "automated_turret",
+    "name": "Automated Turret",
+    "description": "A fixed prototype defense turret. It tracks nearby movement but cannot be used or reloaded yet.",
+    "species": "Machine",
+    "tags": ["hazard", "defense", "turret", "machine"],
+    "maximumHealth": 120,
+    "blocksMovement": true,
+    "mapColor": "#b93d5a",
+    "spriteId": "npc_automated_turret",
+    "spriteRender": {
+      "widthTiles": 1.5,
+      "heightTiles": 1.0,
+      "offsetXTiles": 0.25,
+      "sortOffsetYTiles": 0.45
+    },
+    "behavior": {
+      "kind": "Inert",
+      "perceptionRange": 5,
+      "tags": ["fixed", "automated_hazard"]
+    }
   }
 ]

@@ -6,6 +6,7 @@
     "category": "Medical",
     "tags": ["medical", "bandage", "wound_treatment"],
     "maxStackSize": 10,
+    "inventorySize": { "width": 1, "height": 1 },
     "weight": 0.05,
     "iconId": "bandage_clean",
     "spriteId": "item_bandage_clean",

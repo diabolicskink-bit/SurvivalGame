@@ -151,6 +151,34 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void UnloadingFeedDeviceRestoresLooseAmmoWhenInventoryGridIsFull()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeFirearms.Magazine9mmStandard);
+        for (var index = 0; index < 199; index++)
+        {
+            state.Player.Inventory.Add(new ItemId($"filler_{index}"));
+        }
+
+        state.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 20, usesGrid: false);
+
+        var loadResult = pipeline.Execute(
+            state,
+            new LoadFeedDeviceActionRequest(PrototypeFirearms.Magazine9mmStandard, PrototypeFirearms.Ammo9mmStandard)
+        );
+        var unloadResult = pipeline.Execute(
+            state,
+            new UnloadFeedDeviceActionRequest(PrototypeFirearms.Magazine9mmStandard)
+        );
+
+        Assert.True(loadResult.Succeeded);
+        Assert.True(unloadResult.Succeeded);
+        Assert.Equal(20, state.Player.Inventory.CountOf(PrototypeFirearms.Ammo9mmStandard));
+        Assert.False(state.Player.Inventory.Container.Contains(ContainerItemRef.Stack(PrototypeFirearms.Ammo9mmStandard)));
+    }
+
+    [Fact]
     public void LoadingWrongAmmunitionFailsWithoutMutatingInventoryOrState()
     {
         var pipeline = CreatePipeline();

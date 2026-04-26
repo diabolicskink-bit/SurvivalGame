@@ -6,17 +6,38 @@ namespace SurvivalGame.Domain.Tests;
 public sealed class WorldObjectTests
 {
     [Fact]
+    public void WorldObjectIdTrimsValueAndFormatsAsRawId()
+    {
+        var id = new WorldObjectId("  fuel_pump  ");
+
+        Assert.Equal("fuel_pump", id.Value);
+        Assert.Equal("fuel_pump", id.ToString());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void WorldObjectIdRejectsEmptyValues(string value)
+    {
+        Assert.Throws<ArgumentException>(() => new WorldObjectId(value));
+    }
+
+    [Fact]
     public void WorldObjectDataLoadsPrototypeObjects()
     {
         var catalog = LoadWorldObjectCatalog();
 
         Assert.Equal(20, catalog.Objects.Count);
         Assert.Equal("Wall", catalog.Get(PrototypeWorldObjects.Wall).Name);
+        Assert.Null(catalog.Get(PrototypeWorldObjects.Wall).SpriteRender);
         Assert.Equal("Fridge", catalog.Get(PrototypeWorldObjects.Fridge).Name);
         Assert.Equal("Tree", catalog.Get(PrototypeWorldObjects.Tree).Name);
         Assert.Equal("Fuel pump", catalog.Get(PrototypeWorldObjects.FuelPump).Name);
         Assert.Equal("Glass door", catalog.Get(PrototypeWorldObjects.GlassDoor).Name);
         Assert.Equal("world_object_fridge", catalog.Get(PrototypeWorldObjects.Fridge).SpriteId);
+        Assert.NotNull(catalog.Get(PrototypeWorldObjects.Tree).SpriteRender);
+        Assert.Equal(1.75f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.WidthTiles, precision: 3);
+        Assert.Equal(-0.35f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.OffsetYTiles, precision: 3);
     }
 
     [Fact]
@@ -47,9 +68,50 @@ public sealed class WorldObjectTests
         Assert.Throws<InvalidOperationException>(() => objectMap.Place(position, PrototypeWorldObjects.Boulder));
     }
 
+    [Fact]
+    public void WorldObjectDefinitionSpriteRenderRejectsNonPositiveSize()
+    {
+        var directoryPath = CreateTemporaryDirectory();
+        var filePath = Path.Combine(directoryPath, "objects.json");
+        File.WriteAllText(filePath, """
+        [
+          {
+            "id": "bad_sprite",
+            "name": "Bad Sprite",
+            "category": "Fixture",
+            "spriteRender": {
+              "widthTiles": 1,
+              "heightTiles": 0
+            }
+          }
+        ]
+        """);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WorldObjectDefinitionLoader().LoadDirectory(directoryPath));
+    }
+
+    [Fact]
+    public void SpriteRenderProfileDefaultsOffsetsToZero()
+    {
+        var render = new SpriteRenderProfile(1.25f, 1.5f);
+
+        Assert.Equal(1.25f, render.WidthTiles, precision: 3);
+        Assert.Equal(1.5f, render.HeightTiles, precision: 3);
+        Assert.Equal(0f, render.OffsetXTiles, precision: 3);
+        Assert.Equal(0f, render.OffsetYTiles, precision: 3);
+        Assert.Equal(0f, render.SortOffsetYTiles, precision: 3);
+    }
+
     private static WorldObjectCatalog LoadWorldObjectCatalog()
     {
         return new WorldObjectDefinitionLoader().LoadDirectory(GetWorldObjectDataPath());
+    }
+
+    private static string CreateTemporaryDirectory()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), "SurvivalGameWorldObjectTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directoryPath);
+        return directoryPath;
     }
 
     private static string GetWorldObjectDataPath()

@@ -8,6 +8,8 @@ public static class PrototypeNpcs
     public static readonly NpcDefinitionId InjuredTraveller = new("injured_traveller");
     public static readonly NpcDefinitionId QuietMechanic = new("quiet_mechanic");
     public static readonly NpcDefinitionId FieldResearcher = new("field_researcher");
+    public static readonly NpcDefinitionId AutomatedTurretDefinition = new("automated_turret");
 
     public static readonly NpcId TestDummy = new("test_dummy_01");
+    public static readonly NpcId GasStationTurret = new("gas_station_turret_01");
 }

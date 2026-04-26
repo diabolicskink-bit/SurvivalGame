@@ -7,11 +7,13 @@ public sealed class FirearmActionService
     public const int InsertFeedDeviceTickCost = 25;
 
     private readonly FirearmCatalog _catalog;
+    private readonly ItemCatalog? _itemCatalog;
 
-    public FirearmActionService(FirearmCatalog catalog)
+    public FirearmActionService(FirearmCatalog catalog, ItemCatalog? itemCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         _catalog = catalog;
+        _itemCatalog = itemCatalog;
     }
 
     public IReadOnlyList<AvailableAction> GetAvailableActions(PrototypeGameState state)
@@ -200,13 +202,20 @@ public sealed class FirearmActionService
             return GameActionResult.Failure($"Unknown feed device: {feedDeviceItemId}.");
         }
 
-        var unloaded = feedDevice.UnloadAll();
-        if (unloaded is null)
+        if (feedDevice.LoadedAmmunitionItemId is not { } loadedAmmunitionItemId || feedDevice.LoadedCount == 0)
         {
             return GameActionResult.Failure($"{feedDevice.DisplayName} is empty.");
         }
 
-        state.Player.Inventory.Add(unloaded.ItemId, unloaded.Quantity);
+        if (!CanAddToInventory(state.Player.Inventory, loadedAmmunitionItemId))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
+
+        var unloaded = feedDevice.UnloadAll()
+            ?? throw new InvalidOperationException($"{feedDevice.DisplayName} lost its loaded ammunition before unloading.");
+
+        TryAddToInventory(state.Player.Inventory, unloaded.ItemId, unloaded.Quantity);
         var ammunitionName = GetAmmunitionName(unloaded.ItemId);
 
         return GameActionResult.Success(
@@ -273,13 +282,19 @@ public sealed class FirearmActionService
             return GameActionResult.Failure($"{weapon.Name} has no feed device inserted.");
         }
 
-        var removedFeedDeviceItemId = weaponState.RemoveFeedDevice();
+        var removedFeedDeviceItemId = weaponState.InsertedFeedDeviceItemId;
         if (removedFeedDeviceItemId is null)
         {
             return GameActionResult.Failure($"{weapon.Name} has no feed device inserted.");
         }
 
-        state.Player.Inventory.Add(removedFeedDeviceItemId);
+        if (!CanAddToInventory(state.Player.Inventory, removedFeedDeviceItemId))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
+
+        weaponState.RemoveFeedDevice();
+        TryAddToInventory(state.Player.Inventory, removedFeedDeviceItemId);
         var feedDeviceName = _catalog.TryGetFeedDevice(removedFeedDeviceItemId, out var feedDevice)
             ? feedDevice.Name
             : removedFeedDeviceItemId.ToString();
@@ -392,10 +407,8 @@ public sealed class FirearmActionService
         var loadedQuantity = CalculateLoadQuantity(feedDevice, state.Player.Inventory.CountOf(ammunition.ItemId));
 
         weaponState.RemoveFeedDevice();
-        state.Player.Inventory.Add(feedDeviceItemId);
         feedDevice.Load(ammunition, loadedQuantity);
         state.Player.Inventory.TryRemove(ammunition.ItemId, loadedQuantity);
-        state.Player.Inventory.TryRemove(feedDeviceItemId);
         weaponState.InsertFeedDevice(feedDeviceItemId);
 
         return GameActionResult.Success(
@@ -489,14 +502,21 @@ public sealed class FirearmActionService
             return GameActionResult.Failure("That item does not hold ammunition.");
         }
 
-        var unloaded = feedDeviceItem.FeedDevice.UnloadAll();
-        if (unloaded is null)
+        if (feedDeviceItem.FeedDevice.LoadedAmmunitionItemId is not { } loadedAmmunitionItemId
+            || feedDeviceItem.FeedDevice.LoadedCount == 0)
         {
             return GameActionResult.Failure($"{feedDeviceItem.FeedDevice.DisplayName} is empty.");
         }
 
-        state.Player.Inventory.Add(unloaded.ItemId, unloaded.Quantity);
+        if (!CanAddToInventory(state.Player.Inventory, loadedAmmunitionItemId))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
 
+        var unloaded = feedDeviceItem.FeedDevice.UnloadAll()
+            ?? throw new InvalidOperationException($"{feedDeviceItem.FeedDevice.DisplayName} lost its loaded ammunition before unloading.");
+
+        TryAddToInventory(state.Player.Inventory, unloaded.ItemId, unloaded.Quantity);
         return GameActionResult.Success(
             0,
             $"Unloaded {unloaded.Quantity} {GetAmmunitionName(unloaded.ItemId)}."
@@ -720,7 +740,7 @@ public sealed class FirearmActionService
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(targetNpcId);
 
-        if (!state.World.Npcs.TryGet(targetNpcId, out var target))
+        if (!state.LocalMap.Npcs.TryGet(targetNpcId, out var target))
         {
             return GameActionResult.Failure("No target selected.");
         }
@@ -1147,6 +1167,35 @@ public sealed class FirearmActionService
         return _catalog.TryGetAmmunition(ammunitionItemId, out var ammunition)
             ? ammunition.Name
             : ammunitionItemId.ToString();
+    }
+
+    private bool CanAddToInventory(PlayerInventory inventory, ItemId itemId)
+    {
+        return inventory.CanAdd(itemId, GetInventorySize(itemId), UsesInventoryGrid(itemId));
+    }
+
+    private bool TryAddToInventory(PlayerInventory inventory, ItemId itemId, int quantity = 1)
+    {
+        return inventory.TryAdd(itemId, quantity, GetInventorySize(itemId), UsesInventoryGrid(itemId));
+    }
+
+    private InventoryItemSize GetInventorySize(ItemId itemId)
+    {
+        return _itemCatalog is not null && _itemCatalog.TryGet(itemId, out var item)
+            ? item.InventorySize
+            : InventoryItemSize.Default;
+    }
+
+    private bool UsesInventoryGrid(ItemId itemId)
+    {
+        if (_catalog.TryGetAmmunition(itemId, out _))
+        {
+            return false;
+        }
+
+        return _itemCatalog is null
+            || !_itemCatalog.TryGet(itemId, out var item)
+            || InventoryGridRules.UsesGrid(item);
     }
 
     private IEnumerable<StatefulItem> OwnedStatefulWeapons(PrototypeGameState state)

@@ -1,0 +1,77 @@
+{
+  "id": "prototype_local",
+  "displayName": "Prototype Local Site",
+  "sourceKind": "authored",
+  "size": { "width": 19, "height": 13 },
+  "startPosition": { "x": 9, "y": 6 },
+  "defaultSurface": "grass",
+  "surfaceLayer": {
+    "legend": {
+      "g": "grass",
+      "c": "concrete",
+      "p": "carpet",
+      "t": "tile",
+      "i": "ice"
+    },
+    "rows": [
+      "ggggggggggggggggggg",
+      "ggggggggggggggggggg",
+      "ggccccccccgtttttggg",
+      "ggcpppccccgtttttggg",
+      "ggcpppccccgtttttggg",
+      "ggcpppccccgtttttggg",
+      "ggccccccccggggggggg",
+      "ggggggggggggggggggg",
+      "ggggggggggggiiiiggg",
+      "ggggggggggggiiiiggg",
+      "ggggggggggggiiiiggg",
+      "ggggggggggggggggggg",
+      "ggggggggggggggggggg"
+    ]
+  },
+  "objectLayer": {
+    "legend": {
+      "#": "wall",
+      "N": "window",
+      "D": "wooden_door",
+      "F": "fridge",
+      "T": "table",
+      "C": "chair",
+      "B": "bed",
+      "S": "storage_crate",
+      "R": "tree",
+      "O": "boulder"
+    },
+    "rows": [
+      "...................",
+      "...................",
+      "..########.......O.",
+      "..#.....FN..B......",
+      "..#..T...#.........",
+      ".....C.........S...",
+      "......D............",
+      "...................",
+      "...................",
+      "...................",
+      ".R.................",
+      "...................",
+      "..................."
+    ]
+  },
+  "items": [
+    { "itemId": "stone", "quantity": 2, "x": 4, "y": 4 },
+    { "itemId": "branch", "quantity": 3, "x": 7, "y": 9 },
+    { "itemId": "water_bottle", "quantity": 1, "x": 13, "y": 5 },
+    { "itemId": "ak47", "quantity": 1, "x": 16, "y": 10 },
+    { "itemId": "baseball_cap", "quantity": 1, "x": 8, "y": 7 },
+    { "itemId": "running_shoes", "quantity": 1, "x": 10, "y": 7 }
+  ],
+  "npcs": [
+    {
+      "instanceId": "test_dummy_01",
+      "definitionId": "test_dummy",
+      "x": 14,
+      "y": 8
+    }
+  ]
+}

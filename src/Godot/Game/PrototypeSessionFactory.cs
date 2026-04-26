@@ -1,12 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SurvivalGame.Domain;
 
 public sealed class PrototypeGameplaySession
 {
     public PrototypeGameplaySession(
-        PrototypeGameState gameState,
-        string siteDisplayName,
-        GridPosition entryPosition,
+        LocalSiteState localSite,
         ItemCatalog itemCatalog,
         FirearmCatalog firearmCatalog,
         TileSurfaceCatalog surfaceCatalog,
@@ -15,9 +16,10 @@ public sealed class PrototypeGameplaySession
         GameActionPipeline actionPipeline
     )
     {
-        GameState = gameState;
-        SiteDisplayName = siteDisplayName;
-        EntryPosition = entryPosition;
+        LocalSite = localSite;
+        GameState = localSite.GameState;
+        SiteDisplayName = localSite.DisplayName;
+        EntryPosition = localSite.EntryPosition;
         ItemCatalog = itemCatalog;
         FirearmCatalog = firearmCatalog;
         SurfaceCatalog = surfaceCatalog;
@@ -25,6 +27,8 @@ public sealed class PrototypeGameplaySession
         NpcCatalog = npcCatalog;
         ActionPipeline = actionPipeline;
     }
+
+    public LocalSiteState LocalSite { get; }
 
     public PrototypeGameState GameState { get; }
 
@@ -45,25 +49,102 @@ public sealed class PrototypeGameplaySession
     public GameActionPipeline ActionPipeline { get; }
 }
 
+public sealed class PrototypeCampaignSession
+{
+    public PrototypeCampaignSession(
+        CampaignState campaignState,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog,
+        TileSurfaceCatalog surfaceCatalog,
+        WorldObjectCatalog worldObjectCatalog,
+        NpcCatalog npcCatalog,
+        GameActionPipeline actionPipeline
+    )
+    {
+        CampaignState = campaignState;
+        ItemCatalog = itemCatalog;
+        FirearmCatalog = firearmCatalog;
+        SurfaceCatalog = surfaceCatalog;
+        WorldObjectCatalog = worldObjectCatalog;
+        NpcCatalog = npcCatalog;
+        ActionPipeline = actionPipeline;
+    }
+
+    public CampaignState CampaignState { get; }
+
+    public ItemCatalog ItemCatalog { get; }
+
+    public FirearmCatalog FirearmCatalog { get; }
+
+    public TileSurfaceCatalog SurfaceCatalog { get; }
+
+    public WorldObjectCatalog WorldObjectCatalog { get; }
+
+    public NpcCatalog NpcCatalog { get; }
+
+    public GameActionPipeline ActionPipeline { get; }
+
+    public PrototypeGameplaySession CreateGameplaySession(string siteId)
+    {
+        return new PrototypeGameplaySession(
+            CampaignState.GetLocalSite(siteId),
+            ItemCatalog,
+            FirearmCatalog,
+            SurfaceCatalog,
+            WorldObjectCatalog,
+            NpcCatalog,
+            ActionPipeline
+        );
+    }
+}
+
 public static class PrototypeSessionFactory
 {
     public static PrototypeGameplaySession CreateGameplaySession(VehicleFuelState? vehicleFuelState = null)
+    {
+        var campaignSession = CreateCampaignSession(vehicleFuelState);
+        var localSite = campaignSession.CampaignState.EnterLocalSite(PrototypeLocalSites.DefaultSiteId);
+        return campaignSession.CreateGameplaySession(localSite.Id);
+    }
+
+    public static PrototypeCampaignSession CreateCampaignSession(VehicleFuelState? vehicleFuelState = null)
     {
         var itemCatalog = LoadItemCatalog();
         var firearmCatalog = LoadFirearmCatalog();
         var surfaceCatalog = LoadSurfaceCatalog();
         var worldObjectCatalog = LoadWorldObjectCatalog();
         var npcCatalog = LoadNpcCatalog();
-        var actionPipeline = new GameActionPipeline(itemCatalog, worldObjectCatalog, firearmCatalog, vehicleFuelState);
-        var localSite = PrototypeLocalSites.CreateDefault(npcCatalog);
-        var gameState = CreateGameState(localSite);
+        var vehicleFuel = vehicleFuelState ?? new VehicleFuelState(
+            PrototypeTravelMethods.VehicleFuelCapacity,
+            PrototypeTravelMethods.VehicleStartingFuel
+        );
+        var time = new WorldTime();
+        var player = new PlayerState();
+        var statefulItems = new StatefulItemStore();
+        var worldMapState = new WorldMapTravelState(
+            PrototypeWorldMapSites.MapWidth,
+            PrototypeWorldMapSites.MapHeight,
+            PrototypeWorldMapSites.StartPosition,
+            TravelMethodId.Walking,
+            vehicleFuel
+        );
+        var campaignState = new CampaignState(time, player, statefulItems, worldMapState, vehicleFuel);
 
-        AddPrototypeStartingItems(gameState, firearmCatalog);
+        var localSites = LoadLocalSites(surfaceCatalog, worldObjectCatalog, itemCatalog, npcCatalog);
 
-        return new PrototypeGameplaySession(
-            gameState,
-            localSite.DisplayName,
-            localSite.StartPosition,
+        var gasStation = GetLocalSite(localSites, PrototypeLocalSites.GasStationSiteId);
+        campaignState.AddLocalSite(CreateLocalSiteState(gasStation, player, time, statefulItems));
+
+        var defaultSite = GetLocalSite(localSites, PrototypeLocalSites.DefaultSiteId);
+        var defaultLocalSite = CreateLocalSiteState(defaultSite, player, time, statefulItems);
+        campaignState.AddLocalSite(defaultLocalSite);
+
+        AddPrototypeStartingItems(defaultLocalSite.GameState, itemCatalog, firearmCatalog);
+
+        var actionPipeline = new GameActionPipeline(itemCatalog, worldObjectCatalog, firearmCatalog, vehicleFuel);
+
+        return new PrototypeCampaignSession(
+            campaignState,
             itemCatalog,
             firearmCatalog,
             surfaceCatalog,
@@ -73,33 +154,16 @@ public static class PrototypeSessionFactory
         );
     }
 
-    public static PrototypeGameplaySession CreateGasStationSession(
-        PrototypeGameplaySession sharedSession,
-        VehicleFuelState vehicleFuelState)
+    private static LocalSiteState CreateLocalSiteState(
+        PrototypeLocalSite site,
+        PlayerState player,
+        WorldTime time,
+        StatefulItemStore statefulItems)
     {
-        var gasStation = PrototypeLocalSites.CreateGasStation();
-        var gameState = CreateGameState(
-            gasStation,
-            sharedSession.GameState.Player,
-            sharedSession.GameState.Time,
-            sharedSession.GameState.StatefulItems
-        );
-
-        return new PrototypeGameplaySession(
-            gameState,
-            gasStation.DisplayName,
-            gasStation.StartPosition,
-            sharedSession.ItemCatalog,
-            sharedSession.FirearmCatalog,
-            sharedSession.SurfaceCatalog,
-            sharedSession.WorldObjectCatalog,
-            sharedSession.NpcCatalog,
-            new GameActionPipeline(
-                sharedSession.ItemCatalog,
-                sharedSession.WorldObjectCatalog,
-                sharedSession.FirearmCatalog,
-                vehicleFuelState
-            )
+        return new LocalSiteState(
+            CreateGameState(site, player, time, statefulItems),
+            site.DisplayName,
+            site.StartPosition
         );
     }
 
@@ -110,8 +174,8 @@ public static class PrototypeSessionFactory
         StatefulItemStore? statefulItems = null)
     {
         return new PrototypeGameState(
-            new WorldState(
-                new MapState(site.Bounds, site.Surfaces),
+            new LocalMapState(
+                new LocalMap(site.Bounds, site.Surfaces),
                 site.GroundItems,
                 site.WorldObjects,
                 site.Npcs
@@ -124,41 +188,47 @@ public static class PrototypeSessionFactory
         );
     }
 
-    private static void AddPrototypeStartingItems(PrototypeGameState gameState, FirearmCatalog firearmCatalog)
+    private static void AddPrototypeStartingItems(
+        PrototypeGameState gameState,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog)
     {
-        gameState.Player.Inventory.Add(PrototypeItems.Stone, 3);
-        gameState.Player.Inventory.Add(PrototypeItems.Branch, 2);
-        gameState.Player.Inventory.Add(PrototypeItems.WaterBottle);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmStandard, 35);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo9mmHollowPoint, 20);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo762x39Standard, 60);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo308Standard, 20);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeBuckshot, 20);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeSlug, 10);
-        gameState.Player.Inventory.Add(PrototypeFirearms.Ammo22LrStandard, 100);
-        AddPrototypeStatefulItems(gameState, firearmCatalog);
+        AddStack(gameState, itemCatalog, PrototypeItems.Stone, 3);
+        AddStack(gameState, itemCatalog, PrototypeItems.Branch, 2);
+        AddStack(gameState, itemCatalog, PrototypeItems.WaterBottle);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo9mmStandard, 35);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo9mmHollowPoint, 20);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo762x39Standard, 60);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo308Standard, 20);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeBuckshot, 20);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeSlug, 10);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo22LrStandard, 100);
+        AddPrototypeStatefulItems(gameState, itemCatalog, firearmCatalog);
     }
 
-    private static void AddPrototypeStatefulItems(PrototypeGameState gameState, FirearmCatalog firearmCatalog)
+    private static void AddPrototypeStatefulItems(
+        PrototypeGameState gameState,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog)
     {
-        gameState.StatefulItems.Create(PrototypeFirearms.Pistol9mm, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeItems.Ak47, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeItems.HuntingRifle, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeFirearms.Shotgun12Gauge, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeFirearms.Rifle22, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Pistol9mm);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeItems.Ak47);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeItems.HuntingRifle);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Shotgun12Gauge);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Rifle22);
 
-        var loadedMagazine = gameState.StatefulItems.Create(
-            PrototypeFirearms.Magazine9mmStandard,
-            1,
-            StatefulItemLocation.PlayerInventory(),
-            firearmCatalog
+        var loadedMagazine = CreateCarriedStatefulItem(
+            gameState,
+            itemCatalog,
+            firearmCatalog,
+            PrototypeFirearms.Magazine9mmStandard
         );
         loadedMagazine.FeedDevice?.Load(firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 15);
 
-        gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeFirearms.Magazine9mmExtended, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeFirearms.MagazineAk30Round, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
-        gameState.StatefulItems.Create(PrototypeFirearms.MagazineAkDamaged20Round, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Magazine9mmStandard);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Magazine9mmExtended);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.MagazineAk30Round);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.MagazineAkDamaged20Round);
 
         var droppedMagazine = gameState.StatefulItems.Create(
             PrototypeFirearms.Magazine9mmStandard,
@@ -168,12 +238,7 @@ public static class PrototypeSessionFactory
         );
         droppedMagazine.FeedDevice?.Load(firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmHollowPoint), 8);
 
-        var backpack = gameState.StatefulItems.Create(
-            new ItemId("school_backpack"),
-            1,
-            StatefulItemLocation.PlayerInventory(),
-            firearmCatalog
-        );
+        var backpack = CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, new ItemId("school_backpack"));
         var food = gameState.StatefulItems.Create(
             new ItemId("canned_beans"),
             1,
@@ -181,6 +246,45 @@ public static class PrototypeSessionFactory
             firearmCatalog
         );
         gameState.StatefulItems.MoveToContained(food.Id, backpack.Id);
+    }
+
+    private static void AddStack(PrototypeGameState gameState, ItemCatalog itemCatalog, ItemId itemId, int quantity = 1)
+    {
+        gameState.Player.Inventory.Add(
+            itemId,
+            quantity,
+            GetInventorySize(itemCatalog, itemId),
+            UsesInventoryGrid(itemCatalog, itemId)
+        );
+    }
+
+    private static StatefulItem CreateCarriedStatefulItem(
+        PrototypeGameState gameState,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog,
+        ItemId itemId)
+    {
+        var item = gameState.StatefulItems.Create(itemId, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
+        if (!gameState.Player.Inventory.Container.TryAutoPlace(
+            ContainerItemRef.Stateful(item.Id),
+            GetInventorySize(itemCatalog, item.ItemId)))
+        {
+            throw new InvalidOperationException($"No inventory space available for '{item.ItemId}'.");
+        }
+
+        return item;
+    }
+
+    private static InventoryItemSize GetInventorySize(ItemCatalog itemCatalog, ItemId itemId)
+    {
+        return itemCatalog.TryGet(itemId, out var item)
+            ? item.InventorySize
+            : InventoryItemSize.Default;
+    }
+
+    private static bool UsesInventoryGrid(ItemCatalog itemCatalog, ItemId itemId)
+    {
+        return !itemCatalog.TryGet(itemId, out var item) || InventoryGridRules.UsesGrid(item);
     }
 
     private static ItemCatalog LoadItemCatalog()
@@ -211,5 +315,27 @@ public static class PrototypeSessionFactory
     {
         var dataPath = ProjectSettings.GlobalizePath("res://data/npcs");
         return new NpcDefinitionLoader().LoadDirectory(dataPath);
+    }
+
+    private static IReadOnlyList<PrototypeLocalSite> LoadLocalSites(
+        TileSurfaceCatalog surfaceCatalog,
+        WorldObjectCatalog worldObjectCatalog,
+        ItemCatalog itemCatalog,
+        NpcCatalog npcCatalog)
+    {
+        var dataPath = ProjectSettings.GlobalizePath("res://data/local_maps");
+        return new LocalSiteDefinitionLoader().LoadDirectory(
+            dataPath,
+            surfaceCatalog,
+            worldObjectCatalog,
+            itemCatalog,
+            npcCatalog
+        );
+    }
+
+    private static PrototypeLocalSite GetLocalSite(IReadOnlyList<PrototypeLocalSite> localSites, string siteId)
+    {
+        return localSites.SingleOrDefault(site => site.Id == siteId)
+            ?? throw new InvalidOperationException($"Required local site '{siteId}' was not loaded.");
     }
 }

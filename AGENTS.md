@@ -24,13 +24,15 @@ Godot should display and interact with simulation state. It should not become th
 - `data/` contains runtime game content definitions such as JSON item data. Keep it at the Godot project root so it is addressable through `res://data/...`.
 - `src/Godot/` contains Godot scenes, controls, rendering, input, and UI scripts, grouped by feature.
 - `src/Godot/MainMenu/` contains the main menu scene and menu script.
+- `src/Godot/WorldMap/` contains the broad world map travel screen and map drawing control.
 - `src/Godot/Game/` contains the current playable prototype shell.
-- `src/Godot/Game/WorldView/` contains visible map/grid/input-view scripts.
+- `src/Godot/Game/LocalMapView/` contains visible map/grid/input-view scripts.
 - `src/Godot/Game/UI/` contains gameplay overlay controls.
 - `src/Godot/Game/Prototype/` contains temporary Godot-side helpers that should migrate to domain code when the matching simulation concept becomes real.
 - `src/SurvivalGame.Domain/` contains plain C# simulation/domain code, grouped by concept.
+- `src/SurvivalGame.Domain/WorldMap/` contains broad world map travel, positions, points of interest, and travel rules.
 - `src/SurvivalGame.Domain/Actors/` contains player, NPC, creature, and actor state models.
-- `src/SurvivalGame.Domain/World/` contains grid, map, terrain, chunk, and position logic.
+- `src/SurvivalGame.Domain/LocalMaps/` contains local map, grid, terrain, chunk, and position logic.
 - `src/SurvivalGame.Domain/Items/` contains item ids, definitions, catalogs, type paths, and placed item stacks.
 - `src/SurvivalGame.Domain/Inventory/` contains inventory data structures and inventory rules.
 - `src/SurvivalGame.Domain/Content/` contains loaders/adapters for data files.
@@ -75,7 +77,7 @@ The following belong in Godot scenes, nodes, controls, and presentation scripts:
 - Visual layout.
 - UI panels.
 - Input capture.
-- Rendering the grid/world view.
+- Rendering the grid/local map view.
 - Tile visualisation.
 - Animation.
 - Audio.
@@ -134,6 +136,37 @@ Movement, wait, interaction, and future actions should eventually go through the
 - Preserve existing functionality unless asked to change it.
 - Prefer small, testable vertical changes.
 - Update docs when architecture or scope changes.
+
+## Maintenance Sweeps
+
+When the user says `Do a sweep`, treat it as permission to perform one focused codebase improvement without changing the game from a player-facing perspective.
+
+A sweep may include bug fixes, cleanup, naming improvements, dead-code removal, test coverage, documentation alignment, responsibility-boundary cleanup, or architectural refinement. It may be small or large, but it must be one coherent improvement with a clear reason.
+
+Before choosing the sweep target:
+
+- Inspect the relevant code, tests, docs, and current git state.
+- Prefer issues that improve correctness, maintainability, testability, clarity, or alignment with the Godot/domain boundary.
+- Prefer domain-layer improvements and tests when the issue involves simulation rules.
+- Preserve existing gameplay behavior unless the user explicitly asks for a behavior change.
+
+During a sweep:
+
+- Do not add new gameplay systems, mechanics, content, screens, rules, or scope.
+- Do not invent crafting, combat expansion, AI, survival simulation, procedural generation, saving, weather, quests, or similar features.
+- Keep edits as narrow as practical while still completing the improvement properly.
+- If a larger refactor is warranted, keep it behavior-preserving and verify it with focused tests.
+- Work with existing architecture and naming patterns instead of introducing new abstractions by default.
+- Update `docs/TASK_LOG.md` after the sweep. Update architecture or scope docs only when the sweep changes documented structure or guidance.
+
+When completing a sweep, summarise:
+
+- What issue or improvement was selected and why.
+- Files changed.
+- What changed.
+- How it was tested.
+- Assumptions.
+- Known limitations or anything intentionally left out.
 
 ## Performance And Scaling
 

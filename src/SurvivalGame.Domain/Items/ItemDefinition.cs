@@ -12,7 +12,8 @@ public sealed record ItemDefinition
         float weight = 0f,
         string? iconId = null,
         string? spriteId = null,
-        IEnumerable<string>? actions = null
+        IEnumerable<string>? actions = null,
+        InventoryItemSize? inventorySize = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -47,6 +48,7 @@ public sealed record ItemDefinition
         IconId = NormalizeOptional(iconId);
         SpriteId = NormalizeOptional(spriteId);
         Actions = NormalizeList(actions);
+        InventorySize = inventorySize ?? InventoryItemSize.Default;
         TypePath = BuildTypePath(Category, Tags);
     }
 
@@ -69,6 +71,8 @@ public sealed record ItemDefinition
     public string? SpriteId { get; }
 
     public IReadOnlyList<string> Actions { get; }
+
+    public InventoryItemSize InventorySize { get; }
 
     public ItemTypePath TypePath { get; }
 

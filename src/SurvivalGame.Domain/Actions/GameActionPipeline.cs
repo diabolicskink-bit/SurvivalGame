@@ -144,6 +144,9 @@ public sealed class GameActionPipeline
     public const int UnequipItemTickCost = 0;
     public const int ShootTickCost = 100;
     public const int RefuelVehicleTickCost = 100;
+    public const int AutomatedTurretRangeTiles = 5;
+    public const int AutomatedTurretTickInterval = 75;
+    public const int AutomatedTurretDamage = 10;
 
     private readonly ItemCatalog _itemCatalog;
     private readonly WorldObjectCatalog? _worldObjectCatalog;
@@ -160,7 +163,7 @@ public sealed class GameActionPipeline
         ArgumentNullException.ThrowIfNull(itemCatalog);
         _itemCatalog = itemCatalog;
         _worldObjectCatalog = worldObjectCatalog;
-        _firearmActions = firearmCatalog is null ? null : new FirearmActionService(firearmCatalog);
+        _firearmActions = firearmCatalog is null ? null : new FirearmActionService(firearmCatalog, itemCatalog);
         _vehicleFuelState = vehicleFuelState;
     }
 
@@ -173,7 +176,7 @@ public sealed class GameActionPipeline
             new(GameActionKind.Wait, "Wait", new WaitActionRequest())
         };
 
-        if (state.World.GroundItems.ItemsAt(state.Player.Position).Count > 0)
+        if (state.LocalMap.GroundItems.ItemsAt(state.Player.Position).Count > 0)
         {
             actions.Add(new AvailableAction(GameActionKind.Pickup, "Pick Up", new PickupActionRequest()));
         }
@@ -204,7 +207,8 @@ public sealed class GameActionPipeline
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(request);
 
-        return request switch
+        var startingElapsedTicks = state.Time.ElapsedTicks;
+        var result = request switch
         {
             WaitActionRequest => Wait(state),
             MoveActionRequest move => Move(state, move.Direction),
@@ -278,6 +282,66 @@ public sealed class GameActionPipeline
             RefuelVehicleActionRequest => RefuelVehicle(state),
             _ => GameActionResult.Failure("That action is not supported.")
         };
+
+        return ResolveAutomatedTurretFire(state, startingElapsedTicks, result);
+    }
+
+    private static GameActionResult ResolveAutomatedTurretFire(
+        PrototypeGameState state,
+        int startingElapsedTicks,
+        GameActionResult result)
+    {
+        if (!result.Succeeded || result.ElapsedTicks <= 0)
+        {
+            return result;
+        }
+
+        var crossedIntervals = CountCrossedTurretIntervals(startingElapsedTicks, state.Time.ElapsedTicks);
+        if (crossedIntervals <= 0)
+        {
+            return result;
+        }
+
+        var turretsInRange = state.LocalMap.Npcs.AllNpcs
+            .Where(npc => npc.DefinitionId == PrototypeNpcs.AutomatedTurretDefinition
+                && !npc.IsDisabled
+                && TileDistance(npc.Position, state.Player.Position) <= AutomatedTurretRangeTiles)
+            .ToArray();
+        if (turretsInRange.Length == 0)
+        {
+            return result;
+        }
+
+        var messages = result.Messages.ToList();
+        foreach (var turret in turretsInRange)
+        {
+            for (var shot = 0; shot < crossedIntervals; shot++)
+            {
+                var dealtDamage = state.Player.Vitals.TakeDamage(AutomatedTurretDamage);
+                messages.Add(
+                    $"Automated turret at {turret.Position.X}, {turret.Position.Y} hits you for {dealtDamage} damage. "
+                    + $"Health: {state.Player.Vitals.Health.Current}/{state.Player.Vitals.Health.Maximum}."
+                );
+            }
+        }
+
+        return new GameActionResult(result.Succeeded, result.ElapsedTicks, messages);
+    }
+
+    private static int CountCrossedTurretIntervals(int startingElapsedTicks, int endingElapsedTicks)
+    {
+        if (endingElapsedTicks <= startingElapsedTicks)
+        {
+            return 0;
+        }
+
+        return (endingElapsedTicks / AutomatedTurretTickInterval)
+            - (startingElapsedTicks / AutomatedTurretTickInterval);
+    }
+
+    private static int TileDistance(GridPosition from, GridPosition to)
+    {
+        return Math.Max(Math.Abs(from.X - to.X), Math.Abs(from.Y - to.Y));
     }
 
     private GameActionResult ExecuteFirearmAction(
@@ -292,10 +356,16 @@ public sealed class GameActionPipeline
         var result = action(_firearmActions);
         if (!result.Succeeded || result.ElapsedTicks == 0)
         {
+            if (result.Succeeded)
+            {
+                SynchronizeStatefulInventoryPlacements(state);
+            }
+
             return result;
         }
 
         state.AdvanceTime(result.ElapsedTicks);
+        SynchronizeStatefulInventoryPlacements(state);
         return GameActionResult.Success(
             result.ElapsedTicks,
             result.Messages.Concat(new[] { $"Time +{result.ElapsedTicks}." }).ToArray()
@@ -499,7 +569,7 @@ public sealed class GameActionPipeline
         }
 
         var nextPosition = state.Player.Position + direction;
-        if (!state.World.Map.Contains(nextPosition))
+        if (!state.LocalMap.Map.Contains(nextPosition))
         {
             return GameActionResult.Failure("Cannot move there.");
         }
@@ -523,7 +593,7 @@ public sealed class GameActionPipeline
     {
         blockerName = "something";
 
-        if (!state.World.WorldObjects.TryGetObjectAt(position, out var objectId))
+        if (!state.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId))
         {
             return false;
         }
@@ -540,7 +610,7 @@ public sealed class GameActionPipeline
 
     private static bool IsBlockedByNpc(PrototypeGameState state, GridPosition position, out string npcName)
     {
-        if (state.World.Npcs.TryGetAt(position, out var npc) && npc.BlocksMovement)
+        if (state.LocalMap.Npcs.TryGetAt(position, out var npc) && npc.BlocksMovement)
         {
             npcName = npc.Name;
             return true;
@@ -552,7 +622,23 @@ public sealed class GameActionPipeline
 
     private GameActionResult Pickup(PrototypeGameState state)
     {
-        var itemStacks = state.World.GroundItems.TakeAllAt(state.Player.Position);
+        var availableStacks = state.LocalMap.GroundItems.ItemsAt(state.Player.Position);
+        if (availableStacks.Count == 0)
+        {
+            return GameActionResult.Failure("There is nothing here to pick up.");
+        }
+
+        var requiredSpaces = availableStacks.Select(stack => (
+            stack.ItemId,
+            GetInventorySize(stack.ItemId),
+            UsesGrid: UsesInventoryGrid(stack.ItemId)
+        ));
+        if (!state.Player.Inventory.CanAddAll(requiredSpaces))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
+
+        var itemStacks = state.LocalMap.GroundItems.TakeAllAt(state.Player.Position);
         if (itemStacks.Count == 0)
         {
             return GameActionResult.Failure("There is nothing here to pick up.");
@@ -560,7 +646,12 @@ public sealed class GameActionPipeline
 
         foreach (var stack in itemStacks)
         {
-            state.Player.Inventory.Add(stack.ItemId, stack.Quantity);
+            state.Player.Inventory.Add(
+                stack.ItemId,
+                stack.Quantity,
+                GetInventorySize(stack.ItemId),
+                UsesInventoryGrid(stack.ItemId)
+            );
         }
 
         state.AdvanceTime(PickupTickCost);
@@ -581,6 +672,11 @@ public sealed class GameActionPipeline
             return GameActionResult.Failure("That item is not on this tile.");
         }
 
+        if (!TryPlaceStatefulItemInInventory(state, item))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
+
         state.StatefulItems.MoveToInventory(item.Id);
         state.AdvanceTime(PickupTickCost);
 
@@ -599,6 +695,7 @@ public sealed class GameActionPipeline
         }
 
         state.StatefulItems.MoveToGround(item.Id, state.Player.Position, state.SiteId);
+        state.Player.Inventory.Container.Remove(ContainerItemRef.Stateful(item.Id));
         return GameActionResult.Success(
             0,
             $"Dropped {FormatStatefulItem(item)}."
@@ -629,7 +726,7 @@ public sealed class GameActionPipeline
         }
 
         state.Player.Inventory.TryRemove(itemId, quantity);
-        state.World.GroundItems.Place(state.Player.Position, itemId, quantity);
+        state.LocalMap.GroundItems.Place(state.Player.Position, itemId, quantity);
 
         return GameActionResult.Success(
             DropItemTickCost,
@@ -671,6 +768,7 @@ public sealed class GameActionPipeline
         }
 
         state.StatefulItems.MoveToEquipment(item.Id, slot.Id);
+        state.Player.Inventory.Container.Remove(ContainerItemRef.Stateful(item.Id));
         return GameActionResult.Success(
             EquipItemTickCost,
             $"Equipped {FormatStatefulItem(item)} to {slot.DisplayName}."
@@ -683,6 +781,11 @@ public sealed class GameActionPipeline
         if (item.Location.Kind != StatefulItemLocationKind.Equipment)
         {
             return GameActionResult.Failure("That item is not equipped.");
+        }
+
+        if (!TryPlaceStatefulItemInInventory(state, item))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
         }
 
         state.StatefulItems.MoveToInventory(item.Id);
@@ -768,12 +871,29 @@ public sealed class GameActionPipeline
             return GameActionResult.Failure($"Unknown equipment slot: {slotId}.");
         }
 
+        if (!state.Player.Equipment.TryGetEquippedItem(slotId, out var existingItem))
+        {
+            return GameActionResult.Failure($"{slot.DisplayName} is empty.");
+        }
+
+        if (!state.Player.Inventory.CanAdd(
+            existingItem.ItemId,
+            GetInventorySize(existingItem.ItemId),
+            UsesInventoryGrid(existingItem.ItemId)))
+        {
+            return GameActionResult.Failure("Not enough inventory grid space.");
+        }
+
         if (!state.Player.Equipment.TryUnequipSlot(slotId, out var equippedItem))
         {
             return GameActionResult.Failure($"{slot.DisplayName} is empty.");
         }
 
-        state.Player.Inventory.Add(equippedItem.ItemId);
+        state.Player.Inventory.Add(
+            equippedItem.ItemId,
+            size: GetInventorySize(equippedItem.ItemId),
+            usesGrid: UsesInventoryGrid(equippedItem.ItemId)
+        );
 
         return GameActionResult.Success(
             UnequipItemTickCost,
@@ -795,6 +915,47 @@ public sealed class GameActionPipeline
         return _itemCatalog.TryGet(itemId, out var item)
             ? item.Name
             : itemId.ToString();
+    }
+
+    private InventoryItemSize GetInventorySize(ItemId itemId)
+    {
+        return _itemCatalog.TryGet(itemId, out var item)
+            ? item.InventorySize
+            : InventoryItemSize.Default;
+    }
+
+    private bool UsesInventoryGrid(ItemId itemId)
+    {
+        return !_itemCatalog.TryGet(itemId, out var item) || InventoryGridRules.UsesGrid(item);
+    }
+
+    private bool TryPlaceStatefulItemInInventory(PrototypeGameState state, StatefulItem item)
+    {
+        var itemRef = ContainerItemRef.Stateful(item.Id);
+        return state.Player.Inventory.Container.Contains(itemRef)
+            || state.Player.Inventory.Container.TryAutoPlace(itemRef, GetInventorySize(item.ItemId));
+    }
+
+    private void SynchronizeStatefulInventoryPlacements(PrototypeGameState state)
+    {
+        var freelyCarriedItems = state.StatefulItems.InPlayerInventory();
+        var carriedIds = freelyCarriedItems
+            .Select(item => item.Id)
+            .ToHashSet();
+
+        foreach (var placement in state.Player.Inventory.Container.Placements
+            .Where(placement => placement.Item.Kind == ContainerItemRefKind.Stateful
+                && placement.Item.StatefulItemId is not null
+                && !carriedIds.Contains(placement.Item.StatefulItemId.Value))
+            .ToArray())
+        {
+            state.Player.Inventory.Container.Remove(placement.Item);
+        }
+
+        foreach (var item in freelyCarriedItems)
+        {
+            TryPlaceStatefulItemInInventory(state, item);
+        }
     }
 
     private string DescribeStackItem(ItemId itemId, PrototypeGameState state)
@@ -924,8 +1085,8 @@ public sealed class GameActionPipeline
         return offsets.Any(offset =>
         {
             var position = state.Player.Position + offset;
-            return state.World.Map.Contains(position)
-                && state.World.WorldObjects.TryGetObjectAt(position, out var objectId)
+            return state.LocalMap.Map.Contains(position)
+                && state.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId)
                 && objectId == PrototypeWorldObjects.FuelPump;
         });
     }
