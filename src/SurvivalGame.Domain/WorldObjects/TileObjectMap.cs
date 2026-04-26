@@ -3,8 +3,10 @@ namespace SurvivalGame.Domain;
 public readonly record struct PlacedWorldObject(
     GridPosition Position,
     WorldObjectId ObjectId,
+    WorldObjectInstanceId InstanceId,
     WorldObjectFacing Facing,
-    WorldObjectFootprint Footprint)
+    WorldObjectFootprint Footprint,
+    WorldObjectContainerLootSpec? ContainerLoot)
 {
     public WorldObjectFootprint EffectiveFootprint => Footprint.Rotated(Facing);
 
@@ -17,6 +19,7 @@ public readonly record struct PlacedWorldObject(
 public sealed class TileObjectMap
 {
     private readonly List<PlacedWorldObject> _placements = new();
+    private readonly Dictionary<WorldObjectInstanceId, int> _placementIndexesById = new();
     private readonly Dictionary<GridPosition, int> _placementIndexesByPosition = new();
 
     public IReadOnlyList<PlacedWorldObject> AllObjects
@@ -53,6 +56,20 @@ public sealed class TileObjectMap
         return false;
     }
 
+    public bool TryGetPlacement(WorldObjectInstanceId instanceId, out PlacedWorldObject placement)
+    {
+        ArgumentNullException.ThrowIfNull(instanceId);
+
+        if (_placementIndexesById.TryGetValue(instanceId, out var placementIndex))
+        {
+            placement = _placements[placementIndex];
+            return true;
+        }
+
+        placement = default;
+        return false;
+    }
+
     public void Place(GridPosition position, WorldObjectId objectId)
     {
         Place(position, objectId, WorldObjectFacing.North, WorldObjectFootprint.SingleTile);
@@ -63,11 +80,19 @@ public sealed class TileObjectMap
         WorldObjectId objectId,
         WorldObjectFacing facing,
         WorldObjectFootprint footprint,
-        GridBounds? bounds = null)
+        GridBounds? bounds = null,
+        WorldObjectInstanceId? instanceId = null,
+        WorldObjectContainerLootSpec? containerLoot = null)
     {
         ArgumentNullException.ThrowIfNull(objectId);
 
-        var placement = new PlacedWorldObject(position, objectId, facing, footprint);
+        var resolvedInstanceId = instanceId ?? CreateDefaultInstanceId(objectId, position);
+        if (_placementIndexesById.ContainsKey(resolvedInstanceId))
+        {
+            throw new InvalidOperationException($"World object instance '{resolvedInstanceId}' is already placed.");
+        }
+
+        var placement = new PlacedWorldObject(position, objectId, resolvedInstanceId, facing, footprint, containerLoot);
         var occupiedPositions = placement.OccupiedPositions().ToArray();
         foreach (var occupiedPosition in occupiedPositions)
         {
@@ -89,10 +114,16 @@ public sealed class TileObjectMap
 
         var placementIndex = _placements.Count;
         _placements.Add(placement);
+        _placementIndexesById.Add(resolvedInstanceId, placementIndex);
 
         foreach (var occupiedPosition in occupiedPositions)
         {
             _placementIndexesByPosition.Add(occupiedPosition, placementIndex);
         }
+    }
+
+    private static WorldObjectInstanceId CreateDefaultInstanceId(WorldObjectId objectId, GridPosition position)
+    {
+        return new WorldObjectInstanceId($"{objectId.Value}@{position.X},{position.Y}");
     }
 }

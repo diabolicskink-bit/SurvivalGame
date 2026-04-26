@@ -4,11 +4,13 @@ public sealed class LocalMapBuilder
 {
     private readonly TileSurfaceCatalog _surfaceCatalog;
     private readonly WorldObjectCatalog _worldObjectCatalog;
+    private readonly StructureCatalog _structureCatalog;
     private readonly ItemCatalog _itemCatalog;
     private readonly NpcCatalog _npcCatalog;
     private readonly TileSurfaceMap _surfaces;
     private readonly TileItemMap _groundItems = new();
     private readonly TileObjectMap _worldObjects = new();
+    private readonly StructureEdgeMap _structures;
     private readonly NpcRoster _npcs = new();
 
     public LocalMapBuilder(
@@ -19,6 +21,7 @@ public sealed class LocalMapBuilder
         SurfaceId defaultSurfaceId,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
+        StructureCatalog structureCatalog,
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
@@ -32,6 +35,7 @@ public sealed class LocalMapBuilder
         ArgumentNullException.ThrowIfNull(defaultSurfaceId);
         ArgumentNullException.ThrowIfNull(surfaceCatalog);
         ArgumentNullException.ThrowIfNull(worldObjectCatalog);
+        ArgumentNullException.ThrowIfNull(structureCatalog);
         ArgumentNullException.ThrowIfNull(itemCatalog);
         ArgumentNullException.ThrowIfNull(npcCatalog);
 
@@ -42,6 +46,7 @@ public sealed class LocalMapBuilder
 
         _surfaceCatalog = surfaceCatalog;
         _worldObjectCatalog = worldObjectCatalog;
+        _structureCatalog = structureCatalog;
         _itemCatalog = itemCatalog;
         _npcCatalog = npcCatalog;
 
@@ -52,6 +57,7 @@ public sealed class LocalMapBuilder
 
         EnsureSurfaceDefined(defaultSurfaceId);
         _surfaces = new TileSurfaceMap(bounds, defaultSurfaceId);
+        _structures = new StructureEdgeMap(bounds);
     }
 
     public SiteId Id { get; }
@@ -73,12 +79,34 @@ public sealed class LocalMapBuilder
     public void PlaceWorldObject(
         GridPosition position,
         WorldObjectId objectId,
-        WorldObjectFacing facing = WorldObjectFacing.North)
+        WorldObjectFacing facing = WorldObjectFacing.North,
+        WorldObjectInstanceId? instanceId = null,
+        WorldObjectContainerLootSpec? containerLoot = null)
     {
         EnsureInsideBounds(position, "World object position");
         var definition = GetWorldObjectDefinition(objectId);
+        EnsureContainerLootIsValid(definition, containerLoot);
 
-        _worldObjects.Place(position, objectId, facing, definition.Footprint, Bounds);
+        _worldObjects.Place(
+            position,
+            objectId,
+            facing,
+            definition.Footprint,
+            Bounds,
+            instanceId,
+            containerLoot
+        );
+    }
+
+    public void PlaceStructureEdge(
+        GridPosition position,
+        StructureEdgeDirection direction,
+        StructureId structureId)
+    {
+        EnsureInsideBounds(position, "Structure edge tile position");
+        EnsureStructureDefined(structureId);
+
+        _structures.Place(position, direction, structureId);
     }
 
     public void PlaceGroundItem(GridPosition position, ItemId itemId, int quantity = 1)
@@ -108,6 +136,7 @@ public sealed class LocalMapBuilder
             _groundItems,
             _surfaces,
             _worldObjects,
+            _structures,
             _npcs
         );
     }
@@ -130,8 +159,35 @@ public sealed class LocalMapBuilder
         return _worldObjectCatalog.Get(objectId);
     }
 
+    private void EnsureStructureDefined(StructureId structureId)
+    {
+        _structureCatalog.Get(structureId);
+    }
+
     private void EnsureItemDefined(ItemId itemId)
     {
         _itemCatalog.Get(itemId);
+    }
+
+    private void EnsureContainerLootIsValid(
+        WorldObjectDefinition definition,
+        WorldObjectContainerLootSpec? containerLoot)
+    {
+        if (containerLoot is null)
+        {
+            return;
+        }
+
+        if (!definition.IsContainer)
+        {
+            throw new InvalidOperationException(
+                $"World object '{definition.Id}' cannot define container loot because it is not a container."
+            );
+        }
+
+        foreach (var stack in containerLoot.FixedStacks)
+        {
+            EnsureItemDefined(stack.ItemId);
+        }
     }
 }

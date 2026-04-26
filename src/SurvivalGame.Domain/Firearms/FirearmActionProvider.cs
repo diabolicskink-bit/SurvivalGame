@@ -78,6 +78,9 @@ internal sealed class FirearmActionProvider
             var weaponDefinition = _catalog.GetWeapon(weaponItem.ItemId);
             var weaponState = weaponItem.Weapon!;
 
+            AddRemoveStatefulWeaponModActions(state, itemCatalog, actions, weaponItem);
+            AddInstallStatefulWeaponModActions(state, itemCatalog, actions, weaponItem, weaponDefinition);
+
             actions.Add(new AvailableAction(
                 GameActionKind.TestFireStatefulWeapon,
                 $"Test fire {_items.FormatStatefulName(weaponItem, itemCatalog)}",
@@ -351,6 +354,62 @@ internal sealed class FirearmActionProvider
                 GameActionKind.ReloadStatefulWeapon,
                 $"Reload {_items.FormatStatefulName(weaponItem, itemCatalog)} with {ammunition.Name}",
                 new ReloadStatefulWeaponActionRequest(weaponItem.Id, ammunition.ItemId)
+            ));
+        }
+    }
+
+    private void AddInstallStatefulWeaponModActions(
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        List<AvailableAction> actions,
+        StatefulItem weaponItem,
+        WeaponDefinition weaponDefinition)
+    {
+        if (weaponItem.Weapon is null)
+        {
+            return;
+        }
+
+        foreach (var modItem in state.StatefulItems.InPlayerInventory())
+        {
+            if (!_catalog.TryGetWeaponMod(modItem.ItemId, out var modDefinition)
+                || !modDefinition.IsCompatibleWith(weaponDefinition)
+                || weaponItem.Weapon.HasInstalledMod(modDefinition.Slot))
+            {
+                continue;
+            }
+
+            actions.Add(new AvailableAction(
+                GameActionKind.InstallStatefulWeaponMod,
+                $"Install {_items.FormatStatefulName(modItem, itemCatalog)} on {_items.FormatStatefulName(weaponItem, itemCatalog)}",
+                new InstallStatefulWeaponModActionRequest(weaponItem.Id, modItem.Id)
+            ));
+        }
+    }
+
+    private void AddRemoveStatefulWeaponModActions(
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        List<AvailableAction> actions,
+        StatefulItem weaponItem)
+    {
+        if (weaponItem.Weapon is null)
+        {
+            return;
+        }
+
+        foreach (var installedMod in weaponItem.Weapon.InstalledMods.OrderBy(mod => mod.Key.Value, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!state.StatefulItems.TryGet(installedMod.Value, out var modItem)
+                || !_catalog.TryGetWeaponMod(modItem.ItemId, out var modDefinition))
+            {
+                continue;
+            }
+
+            actions.Add(new AvailableAction(
+                GameActionKind.RemoveStatefulWeaponMod,
+                $"Remove {modDefinition.Name} from {_items.FormatStatefulName(weaponItem, itemCatalog)}",
+                new RemoveStatefulWeaponModActionRequest(weaponItem.Id, installedMod.Key)
             ));
         }
     }

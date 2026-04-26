@@ -8,6 +8,14 @@ This is an early Godot 4 .NET / C# project for a 2D turn-based open-world surviv
 
 The current priority is a clean foundation. Do not add large gameplay systems unless the task explicitly asks for them.
 
+## Creative North Star
+
+The long-term game is an open sandbox survival roguelike set after a recent infrastructure collapse in the United States. The initial world should be a scaled-down but logistically believable Colorado using real map names, with a long-term possibility of a much larger nationwide journey.
+
+Survival is driven by resource logistics, grounded tactical combat, and local-site risk. The player is currently assumed to be solo, but future party or crew systems are possible. The mobile base is a core fantasy, but "base" starts as travel capacity and continuity: carried gear, knowledge, stash, bike trailer, vehicle, bus, truck, or other platform. It should not imply that a car is mandatory from the start.
+
+Use `docs/BACKGROUND.md` as soft setting and tone guidance, and `docs/DESIGN_GOALS.md` as long-term system direction. These docs should guide naming, content, and implementation choices, but they do not authorize expanding current scope. The scope guardrails below and `docs/CURRENT_SCOPE.md` remain the source of truth for what is implemented now.
+
 ## Core Architecture
 
 Godot is the presentation, input, UI, rendering, audio, and scene composition layer.
@@ -103,6 +111,61 @@ Prefer data definitions over hard-coded bespoke logic where sensible. This espec
 - Crafting recipes later, if crafting is explicitly added.
 
 Data can initially be simple C# definitions, JSON, or Godot resources. Avoid scattering content rules across UI scripts.
+
+## Sprite And Visual Asset Creation
+
+Sprites are gameplay-facing readability assets, not standalone illustrations. When creating or editing sprites for surfaces, items, NPCs, world objects, or edge-based structures, make them usable in the current local map before making them decorative.
+
+Before creating a sprite:
+
+- Decide the content id, display name, category, map color, movement/sight blocking, and simulation footprint first.
+- Match the sprite to the data-defined thing. If an object is specifically a `single_bed`, `fuel_pump`, or `tractor_wreck`, the id, sprite id, map references, tests, and player-facing text should use that specific concept rather than a vague generic name.
+- Use the existing sprite id pattern: `surface_<id>`, `item_<id>`, `npc_<id>`, `world_object_<id>`, or `structure_<style>_<piece>_<orientation>_<variant>`.
+- Treat the footprint as gameplay truth. A sprite can visually overflow a tile through `spriteRender`, but collision, hover, targeting, and placement must still match the intended footprint.
+- Decide whether the sprite's canonical north-facing shape or a particular placed orientation defines the footprint. Store the canonical footprint on the definition, then use placement `facing` for rotated map instances. For example, a north-facing `2 x 3` vehicle can be placed east-facing to occupy an effective `3 x 2` area.
+- Walls, doors, windows, fences, gates, and gaps should generally be authored as edge-based structures, not tile world objects. Tile world objects are for things occupying tile area, such as furniture, trees, vehicles, tanks, machinery, and clutter.
+
+Sprite art direction:
+
+- Use transparent PNGs with no background, frame, grid, text, watermark, UI decoration, or baked-in scene context.
+- Use a readable top-down or slightly top-down orthographic view that fits the current local map. Avoid isometric, side-view, cinematic, or heavily perspective art unless the renderer and surrounding assets explicitly support it.
+- Keep silhouettes strong at small sizes. The object should still read when displayed around a 32px tile scale.
+- Prefer clear, grounded shapes and material cues over tiny high-frequency detail.
+- Keep lighting simple and consistent. Avoid dramatic cast shadows, colored glows, and scene-specific lighting that will clash on different surfaces.
+- Do not bake large soft shadows into sprites unless the existing asset type already does so consistently.
+
+Footprints, scale, and orientation:
+
+- Make the canonical sprite face north/up by default. Use object placement `facing` to rotate long objects when needed.
+- Express footprints in map coordinates: `width` is east-west tiles, `height` is north-south tiles. A north-facing single bed is `width: 1, height: 2`; an east-facing placement of the same object occupies `2 x 1`.
+- If the visible sprite should fill its physical footprint, set the data footprint and let the renderer size the sprite from it.
+- If the sprite should visually extend beyond its physical tile, keep the footprint small and add `spriteRender` metadata for visual-only size, offset, and sort offset.
+- Do not use transparent padding to fake positioning or scale. Use `spriteRender` offsets instead.
+- Structure sprites are 2.5D edge pieces anchored to the lower edge of the crossed tile boundary. Provide distinct front and side pieces instead of rotating one wall sprite when material direction, wall face, windows, or doors should look different.
+
+Generated sprite workflow:
+
+- For generated sprites, ask for a flat removable chroma-key background unless true transparency is available in the chosen workflow. The background must be uniform, with no shadow, gradient, floor plane, texture, reflection, or lighting variation.
+- Keep generated originals outside project data unless they are intentionally source assets. Copy only the selected working image into `tmp/imagegen/` or another scratch area, then save the final transparent sprite under `data/sprites/...`.
+- Remove the chroma key locally, then inspect for leftover key-colored edge pixels. If green or magenta fringe remains, retry with a tighter matte or manually clear only the remaining near-transparent key pixels.
+- Trim first, then downscale or optimize. Downscaling before trimming can blur chroma edges into the subject and make cleanup harder.
+- View the final sprite on transparency before wiring it into data. A sprite that looks good on a solid background can still have bad edge spill or unusable silhouette at map scale.
+
+Asset hygiene:
+
+- Trim transparent padding tightly after generation or editing, leaving only the pixels needed for antialiasing.
+- After trimming, verify the alpha bounding box starts at or very near the image edges, the corners are transparent, and the image has an alpha channel.
+- If renaming a sprite file, update its `.import` file source path and any JSON `spriteId` references.
+- Keep existing `.import` files with their sprite when possible so Godot import metadata remains stable.
+- Do not leave obsolete sprite files, stale `spriteId` references, temporary chroma/alpha working files, or temporary Godot `.import` files behind.
+
+Verification for sprite work:
+
+- Search for old ids, sprite ids, and generic names after renaming or specializing an asset.
+- Load the relevant catalogs or run domain tests so missing sprite ids, bad object ids, footprint overlaps, and local map loader errors are caught.
+- When adding or changing world-object sprite ids, run a direct reference check that every JSON `spriteId` resolves to an existing PNG.
+- Build the Godot project when C# constants, renderer code, or scene-facing references change.
+- For visually important sprites, inspect the image dimensions and alpha bounds before finishing, and manually view the sprite when practical.
 
 ## Turn And Action Pipeline
 
@@ -208,6 +271,8 @@ For future large-map work:
 Update relevant docs when making meaningful changes:
 
 - `AGENTS.md` only when project-wide AI/developer guidance changes.
+- `docs/BACKGROUND.md` when setting, tone, or creative north-star guidance changes.
+- `docs/DESIGN_GOALS.md` when long-term gameplay or system direction changes.
 - `docs/ARCHITECTURE.md` when project structure or major architecture changes.
 - `docs/CURRENT_SCOPE.md` when project scope changes.
 - `docs/TASK_LOG.md` after each implemented task.

@@ -6,7 +6,9 @@ public partial class EquipmentPanel : VBoxContainer
 {
     private const int ItemFontSize = 16;
 
-    public event Action<SelectedItemRef, Vector2>? ItemSelected;
+    public event Action<SelectedItemRef, Vector2>? ItemActionRequested;
+    public event Action<SelectedItemRef, Vector2>? ItemHovered;
+    public event Action<SelectedItemRef>? ItemHoverEnded;
 
     public override void _Ready()
     {
@@ -127,7 +129,23 @@ public partial class EquipmentPanel : VBoxContainer
         button.AddThemeStyleboxOverride("normal", selected ? CreateSelectedStyle() : CreateRowStyle());
         button.AddThemeStyleboxOverride("hover", CreateHoverStyle());
         button.AddThemeStyleboxOverride("pressed", CreateSelectedStyle());
-        button.Pressed += () => ItemSelected?.Invoke(itemRef, GetViewport().GetMousePosition());
+        button.MouseEntered += () => ItemHovered?.Invoke(itemRef, GetViewport().GetMousePosition());
+        button.MouseExited += () => ItemHoverEnded?.Invoke(itemRef);
+        button.GuiInput += @event =>
+        {
+            if (@event is InputEventMouseMotion)
+            {
+                ItemHovered?.Invoke(itemRef, GetViewport().GetMousePosition());
+                return;
+            }
+
+            if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right })
+            {
+                ItemActionRequested?.Invoke(itemRef, GetViewport().GetMousePosition());
+                button.AcceptEvent();
+            }
+        };
+
         return button;
     }
 

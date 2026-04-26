@@ -17,6 +17,7 @@ public sealed class LocalSiteDefinitionLoader
         string directoryPath,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
+        StructureCatalog structureCatalog,
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
@@ -32,14 +33,49 @@ public sealed class LocalSiteDefinitionLoader
 
         return Directory.EnumerateFiles(directoryPath, "*.json")
             .OrderBy(path => path)
-            .Select(filePath => LoadFile(filePath, surfaceCatalog, worldObjectCatalog, itemCatalog, npcCatalog))
+            .Select(filePath => LoadFile(filePath, surfaceCatalog, worldObjectCatalog, structureCatalog, itemCatalog, npcCatalog))
             .ToArray();
+    }
+
+    public IReadOnlyList<PrototypeLocalSite> LoadDirectory(
+        string directoryPath,
+        TileSurfaceCatalog surfaceCatalog,
+        WorldObjectCatalog worldObjectCatalog,
+        ItemCatalog itemCatalog,
+        NpcCatalog npcCatalog)
+    {
+        return LoadDirectory(
+            directoryPath,
+            surfaceCatalog,
+            worldObjectCatalog,
+            LoadSiblingStructureCatalog(directoryPath),
+            itemCatalog,
+            npcCatalog
+        );
     }
 
     public PrototypeLocalSite LoadFile(
         string filePath,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
+        ItemCatalog itemCatalog,
+        NpcCatalog npcCatalog)
+    {
+        return LoadFile(
+            filePath,
+            surfaceCatalog,
+            worldObjectCatalog,
+            LoadSiblingStructureCatalog(Path.GetDirectoryName(filePath) ?? string.Empty),
+            itemCatalog,
+            npcCatalog
+        );
+    }
+
+    public PrototypeLocalSite LoadFile(
+        string filePath,
+        TileSurfaceCatalog surfaceCatalog,
+        WorldObjectCatalog worldObjectCatalog,
+        StructureCatalog structureCatalog,
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
@@ -52,7 +88,7 @@ public sealed class LocalSiteDefinitionLoader
         var row = JsonSerializer.Deserialize<LocalSiteDefinitionDto>(json, JsonOptions)
             ?? throw new InvalidDataException($"Local map definition file is empty or invalid: {filePath}");
 
-        return row.ToSite(filePath, surfaceCatalog, worldObjectCatalog, itemCatalog, npcCatalog);
+        return row.ToSite(filePath, surfaceCatalog, worldObjectCatalog, structureCatalog, itemCatalog, npcCatalog);
     }
 
     private sealed class LocalSiteDefinitionDto
@@ -75,6 +111,8 @@ public sealed class LocalSiteDefinitionLoader
 
         public ObjectPlacementDto[]? ObjectPlacements { get; set; }
 
+        public StructureEdgePlacementDto[]? StructureEdges { get; set; }
+
         public GroundItemPlacementDto[]? Items { get; set; }
 
         public NpcPlacementDto[]? Npcs { get; set; }
@@ -83,6 +121,7 @@ public sealed class LocalSiteDefinitionLoader
             string sourcePath,
             TileSurfaceCatalog surfaceCatalog,
             WorldObjectCatalog worldObjectCatalog,
+            StructureCatalog structureCatalog,
             ItemCatalog itemCatalog,
             NpcCatalog npcCatalog)
         {
@@ -93,6 +132,7 @@ public sealed class LocalSiteDefinitionLoader
                     sourcePath,
                     surfaceCatalog,
                     worldObjectCatalog,
+                    structureCatalog,
                     itemCatalog,
                     npcCatalog
                 ),
@@ -106,6 +146,7 @@ public sealed class LocalSiteDefinitionLoader
             string sourcePath,
             TileSurfaceCatalog surfaceCatalog,
             WorldObjectCatalog worldObjectCatalog,
+            StructureCatalog structureCatalog,
             ItemCatalog itemCatalog,
             NpcCatalog npcCatalog)
         {
@@ -122,6 +163,7 @@ public sealed class LocalSiteDefinitionLoader
                     new SurfaceId(RequiredString(DefaultSurface, nameof(DefaultSurface), sourcePath)),
                     surfaceCatalog,
                     worldObjectCatalog,
+                    structureCatalog,
                     itemCatalog,
                     npcCatalog
                 );
@@ -129,6 +171,7 @@ public sealed class LocalSiteDefinitionLoader
                 ApplySurfaceLayer(builder, SurfaceLayer, sourcePath);
                 ApplyObjectLayer(builder, ObjectLayer, sourcePath);
                 ApplyObjectPlacements(builder, ObjectPlacements, sourcePath);
+                ApplyStructureEdges(builder, StructureEdges, sourcePath);
                 ApplyGroundItems(builder, Items);
                 ApplyNpcs(builder, Npcs);
 
@@ -174,6 +217,8 @@ public sealed class LocalSiteDefinitionLoader
 
     private sealed class ObjectPlacementDto
     {
+        public string? InstanceId { get; set; }
+
         public string? ObjectId { get; set; }
 
         public int X { get; set; }
@@ -181,6 +226,26 @@ public sealed class LocalSiteDefinitionLoader
         public int Y { get; set; }
 
         public string? Facing { get; set; }
+
+        public ContainerPlacementDto? Container { get; set; }
+    }
+
+    private sealed class StructureEdgePlacementDto
+    {
+        public string? StructureId { get; set; }
+
+        public int X { get; set; }
+
+        public int Y { get; set; }
+
+        public string? Edge { get; set; }
+    }
+
+    private sealed class ContainerPlacementDto
+    {
+        public GroundItemPlacementDto[]? FixedLoot { get; set; }
+
+        public string[]? LootTables { get; set; }
     }
 
     private sealed class GroundItemPlacementDto
@@ -305,6 +370,20 @@ public sealed class LocalSiteDefinitionLoader
         return legend;
     }
 
+    private static StructureCatalog LoadSiblingStructureCatalog(string localMapDirectoryPath)
+    {
+        var parent = Directory.GetParent(localMapDirectoryPath);
+        if (parent is null)
+        {
+            return new StructureCatalog();
+        }
+
+        var structureDirectoryPath = Path.Combine(parent.FullName, "structures");
+        return Directory.Exists(structureDirectoryPath)
+            ? new StructureDefinitionLoader().LoadDirectory(structureDirectoryPath)
+            : new StructureCatalog();
+    }
+
     private static char ParseEmptySymbol(string? emptySymbol, string layerName, string sourcePath)
     {
         if (string.IsNullOrEmpty(emptySymbol))
@@ -330,9 +409,53 @@ public sealed class LocalSiteDefinitionLoader
             builder.PlaceWorldObject(
                 new GridPosition(placement.X, placement.Y),
                 new WorldObjectId(RequiredString(placement.ObjectId, nameof(placement.ObjectId), sourcePath)),
-                ParseWorldObjectFacing(placement.Facing, sourcePath)
+                ParseWorldObjectFacing(placement.Facing, sourcePath),
+                ParseWorldObjectInstanceId(placement.InstanceId),
+                ParseContainerLoot(placement.Container, sourcePath)
             );
         }
+    }
+
+    private static void ApplyStructureEdges(
+        LocalMapBuilder builder,
+        StructureEdgePlacementDto[]? placements,
+        string sourcePath)
+    {
+        foreach (var placement in placements ?? Array.Empty<StructureEdgePlacementDto>())
+        {
+            builder.PlaceStructureEdge(
+                new GridPosition(placement.X, placement.Y),
+                ParseStructureEdgeDirection(placement.Edge, sourcePath),
+                new StructureId(RequiredString(placement.StructureId, nameof(placement.StructureId), sourcePath))
+            );
+        }
+    }
+
+    private static WorldObjectInstanceId? ParseWorldObjectInstanceId(string? rawInstanceId)
+    {
+        return string.IsNullOrWhiteSpace(rawInstanceId)
+            ? null
+            : new WorldObjectInstanceId(rawInstanceId);
+    }
+
+    private static WorldObjectContainerLootSpec? ParseContainerLoot(
+        ContainerPlacementDto? container,
+        string sourcePath)
+    {
+        if (container is null)
+        {
+            return null;
+        }
+
+        var fixedStacks = (container.FixedLoot ?? Array.Empty<GroundItemPlacementDto>())
+            .Select(placement => new GroundItemStack(
+                new ItemId(RequiredString(placement.ItemId, nameof(placement.ItemId), sourcePath)),
+                placement.Quantity
+            ));
+        var lootTables = (container.LootTables ?? Array.Empty<string>())
+            .Select(rawLootTable => new LootTableId(RequiredString(rawLootTable, "lootTable", sourcePath)));
+
+        return new WorldObjectContainerLootSpec(fixedStacks, lootTables);
     }
 
     private static void ApplyGroundItems(LocalMapBuilder builder, GroundItemPlacementDto[]? placements)
@@ -390,6 +513,25 @@ public sealed class LocalSiteDefinitionLoader
             "west" => WorldObjectFacing.West,
             _ => throw new InvalidDataException(
                 $"World object placement in '{sourcePath}' has unsupported facing '{rawFacing}'."
+            )
+        };
+    }
+
+    private static StructureEdgeDirection ParseStructureEdgeDirection(string? rawEdge, string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(rawEdge))
+        {
+            throw new InvalidDataException($"Structure edge placement in '{sourcePath}' is missing an edge direction.");
+        }
+
+        return rawEdge.Trim().ToLowerInvariant() switch
+        {
+            "north" => StructureEdgeDirection.North,
+            "east" => StructureEdgeDirection.East,
+            "south" => StructureEdgeDirection.South,
+            "west" => StructureEdgeDirection.West,
+            _ => throw new InvalidDataException(
+                $"Structure edge placement in '{sourcePath}' has unsupported edge direction '{rawEdge}'."
             )
         };
     }

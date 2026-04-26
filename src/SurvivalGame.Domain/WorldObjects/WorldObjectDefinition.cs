@@ -13,7 +13,8 @@ public sealed record WorldObjectDefinition
         string? mapColor = null,
         string? spriteId = null,
         SpriteRenderProfile? spriteRender = null,
-        WorldObjectFootprint? footprint = null
+        WorldObjectFootprint? footprint = null,
+        WorldObjectContainerDefinition? container = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -39,6 +40,7 @@ public sealed record WorldObjectDefinition
         SpriteId = string.IsNullOrWhiteSpace(spriteId) ? null : spriteId.Trim();
         SpriteRender = spriteRender;
         Footprint = footprint ?? WorldObjectFootprint.SingleTile;
+        Container = container;
     }
 
     public WorldObjectId Id { get; }
@@ -62,6 +64,10 @@ public sealed record WorldObjectDefinition
     public SpriteRenderProfile? SpriteRender { get; }
 
     public WorldObjectFootprint Footprint { get; }
+
+    public WorldObjectContainerDefinition? Container { get; }
+
+    public bool IsContainer => Container is not null;
 
     public bool HasTag(string tag)
     {

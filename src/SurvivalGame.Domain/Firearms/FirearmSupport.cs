@@ -151,7 +151,21 @@ internal sealed record ShootNpcPlan(
     string WeaponName,
     FeedDeviceState ActiveFeed,
     NpcState Target,
-    AmmunitionDefinition Ammunition);
+    AmmunitionDefinition Ammunition,
+    int Damage);
+
+internal sealed record InstallWeaponModPlan(
+    StatefulItem WeaponItem,
+    WeaponDefinition WeaponDefinition,
+    StatefulItem ModItem,
+    WeaponModDefinition ModDefinition);
+
+internal sealed record RemoveWeaponModPlan(
+    StatefulItem WeaponItem,
+    WeaponDefinition WeaponDefinition,
+    WeaponModSlotId SlotId,
+    StatefulItem ModItem,
+    WeaponModDefinition ModDefinition);
 
 internal sealed record LoadAmmunitionResult(int LoadedQuantity);
 

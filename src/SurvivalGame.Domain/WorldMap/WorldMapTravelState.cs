@@ -102,6 +102,15 @@ public sealed class WorldMapTravelState
 
     public WorldMapTravelResult Advance(double deltaSeconds, WorldTime time, TravelMethodDefinition travelMethod)
     {
+        return Advance(deltaSeconds, time, travelMethod, worldMap: null);
+    }
+
+    public WorldMapTravelResult Advance(
+        double deltaSeconds,
+        WorldTime time,
+        TravelMethodDefinition travelMethod,
+        WorldMapDefinition? worldMap)
+    {
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(travelMethod);
 
@@ -135,26 +144,31 @@ public sealed class WorldMapTravelState
             return WorldMapTravelResult.Idle;
         }
 
-        var requestedDistance = Math.Min(travelMethod.SpeedMapUnitsPerSecond * deltaSeconds, remainingDistance);
+        var travelCost = worldMap?.GetTravelCost(Position, travelMethod)
+            ?? new WorldMapTravelCost(1.0, 1.0, WorldMapTerrainKind.Plains, IsNearRoad: false);
+        var effectiveSpeed = travelMethod.SpeedMapUnitsPerSecond * travelCost.SpeedMultiplier;
+        var effectiveFuelUse = travelMethod.FuelUsePerMapUnit * travelCost.FuelUseMultiplier;
+
+        var requestedDistance = Math.Min(effectiveSpeed * deltaSeconds, remainingDistance);
         var travelledDistance = requestedDistance;
         var fuelDepleted = false;
 
         if (travelMethod.UsesFuel)
         {
-            var requestedFuel = requestedDistance * travelMethod.FuelUsePerMapUnit;
+            var requestedFuel = requestedDistance * effectiveFuelUse;
             if (requestedFuel >= _vehicleFuel.CurrentFuel)
             {
-                travelledDistance = travelMethod.FuelUsePerMapUnit <= 0
+                travelledDistance = effectiveFuelUse <= 0
                     ? requestedDistance
-                    : _vehicleFuel.CurrentFuel / travelMethod.FuelUsePerMapUnit;
+                    : _vehicleFuel.CurrentFuel / effectiveFuelUse;
                 fuelDepleted = true;
             }
 
-            _vehicleFuel.Consume(travelledDistance * travelMethod.FuelUsePerMapUnit);
+            _vehicleFuel.Consume(travelledDistance * effectiveFuelUse);
         }
 
         Position = Position.MoveToward(destination, travelledDistance);
-        var actualSeconds = travelledDistance / travelMethod.SpeedMapUnitsPerSecond;
+        var actualSeconds = travelledDistance / effectiveSpeed;
         var elapsedTicks = AdvanceTravelTime(time, actualSeconds);
         var arrived = Position.DistanceTo(destination) <= ArrivalEpsilon && !fuelDepleted;
 

@@ -6,7 +6,10 @@ public sealed record WorldMapPointOfInterest
         string id,
         string displayName,
         WorldMapPosition position,
-        double enterRadius
+        double enterRadius,
+        WorldMapPointCategory category = WorldMapPointCategory.LocalSite,
+        int labelPriority = 3,
+        string? localSiteId = null
     )
     {
         if (enterRadius <= 0)
@@ -18,6 +21,9 @@ public sealed record WorldMapPointOfInterest
         DisplayName = ValidateRequired(displayName, nameof(displayName));
         Position = position;
         EnterRadius = enterRadius;
+        Category = category;
+        LabelPriority = labelPriority;
+        LocalSiteId = string.IsNullOrWhiteSpace(localSiteId) ? null : localSiteId.Trim();
     }
 
     public string Id { get; }
@@ -27,6 +33,12 @@ public sealed record WorldMapPointOfInterest
     public WorldMapPosition Position { get; }
 
     public double EnterRadius { get; }
+
+    public WorldMapPointCategory Category { get; }
+
+    public int LabelPriority { get; }
+
+    public string? LocalSiteId { get; }
 
     public bool IsNear(WorldMapPosition position)
     {

@@ -401,6 +401,186 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void SearchContainerIsAvailableForAdjacentContainerObjects()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var worldObjects = new TileObjectMap();
+        var containerId = new WorldObjectInstanceId("test_fridge_01");
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+
+        var actions = pipeline.GetAvailableActions(state);
+
+        Assert.Contains(actions, action =>
+            action.Kind == GameActionKind.SearchContainer
+            && action.Request is SearchContainerActionRequest request
+            && request.ContainerId == containerId
+        );
+        Assert.Empty(state.LocalMap.ContainerStates.RealizedContainers);
+    }
+
+    [Fact]
+    public void SearchContainerLazilyRealizesFixedLootAndAdvancesTime()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var containerId = new WorldObjectInstanceId("test_fridge_01");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId,
+            containerLoot: new WorldObjectContainerLootSpec(new[]
+            {
+                new GroundItemStack(new ItemId("canned_beans"), 2),
+                new GroundItemStack(PrototypeItems.WaterBottle, 1)
+            })
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+
+        var result = pipeline.Execute(new SearchContainerActionRequest(containerId), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(WorldObjectContainerDefinition.DefaultSearchTickCost, result.ElapsedTicks);
+        Assert.Equal(WorldObjectContainerDefinition.DefaultSearchTickCost, state.Time.ElapsedTicks);
+        var containerState = Assert.Single(state.LocalMap.ContainerStates.RealizedContainers);
+        Assert.Equal(2, containerState.CountOf(new ItemId("canned_beans")));
+        Assert.Equal(1, containerState.CountOf(PrototypeItems.WaterBottle));
+        Assert.Equal(0, state.Player.Inventory.CountOf(new ItemId("canned_beans")));
+        Assert.Contains("You search Fridge. You find 2 x Canned beans, Water bottle. Time +75.", result.Messages);
+    }
+
+    [Fact]
+    public void SearchContainerWithNoFixedLootRealizesAsEmpty()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var containerId = new WorldObjectInstanceId("empty_fridge_01");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+
+        var result = pipeline.Execute(new SearchContainerActionRequest(containerId), state);
+
+        Assert.True(result.Succeeded);
+        var containerState = Assert.Single(state.LocalMap.ContainerStates.RealizedContainers);
+        Assert.True(containerState.IsEmpty);
+        Assert.Contains("You search Fridge. It is empty. Time +75.", result.Messages);
+    }
+
+    [Fact]
+    public void TakeContainerItemMovesStackIntoInventoryAfterSearch()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var containerId = new WorldObjectInstanceId("test_fridge_01");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId,
+            containerLoot: new WorldObjectContainerLootSpec(new[]
+            {
+                new GroundItemStack(new ItemId("canned_beans"), 2)
+            })
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+        pipeline.Execute(new SearchContainerActionRequest(containerId), state);
+
+        var result = pipeline.Execute(
+            new TakeContainerItemStackActionRequest(containerId, new ItemId("canned_beans"), 2),
+            state
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.PickupTickCost, result.ElapsedTicks);
+        Assert.Equal(
+            WorldObjectContainerDefinition.DefaultSearchTickCost + GameActionPipeline.PickupTickCost,
+            state.Time.ElapsedTicks
+        );
+        Assert.Equal(2, state.Player.Inventory.CountOf(new ItemId("canned_beans")));
+        Assert.True(Assert.Single(state.LocalMap.ContainerStates.RealizedContainers).IsEmpty);
+        Assert.Contains("Took 2 x Canned beans from Fridge. Time +50.", result.Messages);
+    }
+
+    [Fact]
+    public void TakeContainerItemFailsBeforeContainerIsSearched()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var containerId = new WorldObjectInstanceId("test_fridge_01");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId,
+            containerLoot: new WorldObjectContainerLootSpec(new[]
+            {
+                new GroundItemStack(new ItemId("canned_beans"), 1)
+            })
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+
+        var result = pipeline.Execute(
+            new TakeContainerItemStackActionRequest(containerId, new ItemId("canned_beans"), 1),
+            state
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Player.Inventory.CountOf(new ItemId("canned_beans")));
+        Assert.Contains("Search Fridge first.", result.Messages);
+    }
+
+    [Fact]
+    public void TakeContainerItemFailsWithoutRemovingLootWhenInventoryGridIsFull()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog());
+        var containerId = new WorldObjectInstanceId("test_fridge_01");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.Fridge,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            instanceId: containerId,
+            containerLoot: new WorldObjectContainerLootSpec(new[]
+            {
+                new GroundItemStack(new ItemId("canned_beans"), 1)
+            })
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+        pipeline.Execute(new SearchContainerActionRequest(containerId), state);
+        for (var index = 0; index < 200; index++)
+        {
+            state.Player.Inventory.Add(new ItemId($"filler_{index}"));
+        }
+
+        var result = pipeline.Execute(
+            new TakeContainerItemStackActionRequest(containerId, new ItemId("canned_beans"), 1),
+            state
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Player.Inventory.CountOf(new ItemId("canned_beans")));
+        Assert.Equal(1, Assert.Single(state.LocalMap.ContainerStates.RealizedContainers).CountOf(new ItemId("canned_beans")));
+        Assert.Contains("Not enough inventory grid space.", result.Messages);
+    }
+
+    [Fact]
     public void EquipMovesItemFromInventoryToSlotWithoutAdvancingTime()
     {
         var pipeline = CreatePipeline();
@@ -586,6 +766,14 @@ public sealed class GameActionPipelineTests
         var catalog = new ItemCatalog();
         catalog.Add(new ItemDefinition(PrototypeItems.Stone, "Stone", "", "Material"));
         catalog.Add(new ItemDefinition(PrototypeItems.Branch, "Branch", "", "Material"));
+        catalog.Add(new ItemDefinition(new ItemId("canned_beans"), "Canned beans", "", "Food"));
+        catalog.Add(new ItemDefinition(
+            PrototypeItems.WaterBottle,
+            "Water bottle",
+            "",
+            "Food",
+            inventorySize: new InventoryItemSize(1, 2)
+        ));
         catalog.Add(new ItemDefinition(
             PrototypeItems.BaseballCap,
             "Baseball cap",
@@ -625,6 +813,14 @@ public sealed class GameActionPipelineTests
         var catalog = new WorldObjectCatalog();
         catalog.Add(new WorldObjectDefinition(PrototypeWorldObjects.Wall, "Wall", "", "Structure", blocksMovement: true));
         catalog.Add(new WorldObjectDefinition(PrototypeWorldObjects.Chair, "Chair", "", "Furniture"));
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.Fridge,
+            "Fridge",
+            "",
+            "Appliance",
+            blocksMovement: true,
+            container: new WorldObjectContainerDefinition("fridge_basic")
+        ));
         return catalog;
     }
 

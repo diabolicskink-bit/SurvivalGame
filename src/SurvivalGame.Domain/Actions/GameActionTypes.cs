@@ -28,8 +28,12 @@ public enum GameActionKind
     LoadStatefulWeapon,
     ReloadStatefulWeapon,
     TestFireStatefulWeapon,
+    InstallStatefulWeaponMod,
+    RemoveStatefulWeaponMod,
     ShootNpc,
-    RefuelVehicle
+    RefuelVehicle,
+    SearchContainer,
+    TakeContainerItemStack
 }
 
 public abstract record GameActionRequest(GameActionKind Kind);
@@ -109,10 +113,22 @@ public sealed record ReloadStatefulWeaponActionRequest(StatefulItemId WeaponItem
 public sealed record TestFireStatefulWeaponActionRequest(StatefulItemId WeaponItemId)
     : GameActionRequest(GameActionKind.TestFireStatefulWeapon);
 
+public sealed record InstallStatefulWeaponModActionRequest(StatefulItemId WeaponItemId, StatefulItemId ModItemId)
+    : GameActionRequest(GameActionKind.InstallStatefulWeaponMod);
+
+public sealed record RemoveStatefulWeaponModActionRequest(StatefulItemId WeaponItemId, WeaponModSlotId SlotId)
+    : GameActionRequest(GameActionKind.RemoveStatefulWeaponMod);
+
 public sealed record ShootNpcActionRequest(NpcId TargetNpcId)
     : GameActionRequest(GameActionKind.ShootNpc);
 
 public sealed record RefuelVehicleActionRequest() : GameActionRequest(GameActionKind.RefuelVehicle);
+
+public sealed record SearchContainerActionRequest(WorldObjectInstanceId ContainerId)
+    : GameActionRequest(GameActionKind.SearchContainer);
+
+public sealed record TakeContainerItemStackActionRequest(WorldObjectInstanceId ContainerId, ItemId ItemId, int Quantity)
+    : GameActionRequest(GameActionKind.TakeContainerItemStack);
 
 public sealed record AvailableAction(GameActionKind Kind, string Label, GameActionRequest? Request = null);
 

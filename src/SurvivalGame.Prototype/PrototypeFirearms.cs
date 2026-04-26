@@ -24,4 +24,11 @@ public static class PrototypeFirearms
     public static readonly ItemId Magazine9mmExtended = new("magazine_9mm_extended");
     public static readonly ItemId MagazineAk30Round = new("magazine_ak_30_round");
     public static readonly ItemId MagazineAkDamaged20Round = new("magazine_ak_damaged_20_round");
+
+    public static readonly WeaponModSlotId OpticSlot = new("optic");
+    public static readonly WeaponModSlotId BarrelSlot = new("barrel");
+
+    public static readonly ItemId RedDotSight = new("red_dot_sight");
+    public static readonly ItemId HuntingScope = new("hunting_scope");
+    public static readonly ItemId MatchBarrel = new("match_barrel");
 }

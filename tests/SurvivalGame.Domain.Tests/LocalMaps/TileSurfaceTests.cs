@@ -27,10 +27,14 @@ public sealed class TileSurfaceTests
     {
         var catalog = LoadSurfaceCatalog();
 
-        Assert.Equal(6, catalog.Surfaces.Count);
         Assert.Equal("Grass", catalog.Get(PrototypeSurfaces.Grass).Name);
         Assert.Equal("Concrete", catalog.Get(PrototypeSurfaces.Concrete).Name);
         Assert.Equal("Asphalt", catalog.Get(PrototypeSurfaces.Asphalt).Name);
+        Assert.Equal("Dirt", catalog.Get(PrototypeSurfaces.Dirt).Name);
+        Assert.Equal("Gravel", catalog.Get(PrototypeSurfaces.Gravel).Name);
+        Assert.Equal("Weathered wood", catalog.Get(PrototypeSurfaces.WeatheredWood).Name);
+        Assert.Equal("Linoleum", catalog.Get(PrototypeSurfaces.Linoleum).Name);
+        Assert.Equal("Scrub", catalog.Get(PrototypeSurfaces.Scrub).Name);
         Assert.Equal("surface_grass", catalog.Get(PrototypeSurfaces.Grass).SpriteId);
     }
 

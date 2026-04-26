@@ -9,7 +9,7 @@ public static class PrototypeWorldObjects
     public static readonly WorldObjectId Window = new("window");
     public static readonly WorldObjectId Table = new("table");
     public static readonly WorldObjectId Chair = new("chair");
-    public static readonly WorldObjectId Bed = new("bed");
+    public static readonly WorldObjectId SingleBed = new("single_bed");
     public static readonly WorldObjectId StorageCrate = new("storage_crate");
     public static readonly WorldObjectId Boulder = new("boulder");
     public static readonly WorldObjectId FuelPump = new("fuel_pump");

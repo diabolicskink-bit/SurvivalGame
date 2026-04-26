@@ -19,6 +19,13 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Equal(PrototypeSurfaces.Ice, defaultSite.Surfaces.GetSurfaceId(new GridPosition(12, 8)));
         Assert.True(defaultSite.WorldObjects.TryGetObjectAt(new GridPosition(6, 6), out var door));
         Assert.Equal(PrototypeWorldObjects.WoodenDoor, door);
+        Assert.True(defaultSite.WorldObjects.TryGetPlacement(new WorldObjectInstanceId("prototype_fridge_01"), out var fridgePlacement));
+        Assert.Equal(new GridPosition(8, 3), fridgePlacement.Position);
+        Assert.Contains(
+            fridgePlacement.ContainerLoot!.FixedStacks,
+            stack => stack.ItemId == new ItemId("canned_beans") && stack.Quantity == 2);
+        Assert.True(defaultSite.WorldObjects.TryGetPlacement(new WorldObjectInstanceId("prototype_storage_crate_01"), out var cratePlacement));
+        Assert.Equal(new GridPosition(15, 5), cratePlacement.Position);
         Assert.Contains(
             defaultSite.GroundItems.ItemsAt(new GridPosition(4, 4)),
             stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 2);
@@ -30,8 +37,25 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Equal(new GridPosition(21, 14), gasStation.StartPosition);
         Assert.True(gasStation.WorldObjects.TryGetObjectAt(new GridPosition(25, 9), out var pump));
         Assert.Equal(PrototypeWorldObjects.FuelPump, pump);
+        Assert.True(gasStation.WorldObjects.TryGetPlacementAt(new GridPosition(7, 6), out var shelfPlacement));
+        Assert.Equal(new WorldObjectInstanceId("store_shelf@7,6"), shelfPlacement.InstanceId);
         Assert.True(gasStation.Npcs.TryGetAt(new GridPosition(30, 12), out var turret));
         Assert.Equal(PrototypeNpcs.GasStationTurret, turret.Id);
+
+        var farmstead = Assert.Single(sites, site => site.Id == PrototypeLocalSites.FarmsteadSiteId);
+        Assert.Equal(PrototypeLocalSites.FarmsteadBounds, farmstead.Bounds);
+        Assert.Equal(new GridPosition(4, 41), farmstead.StartPosition);
+        Assert.Equal(PrototypeSurfaces.Dirt, farmstead.Surfaces.GetSurfaceId(farmstead.StartPosition));
+        Assert.Equal(PrototypeSurfaces.WeatheredWood, farmstead.Surfaces.GetSurfaceId(new GridPosition(26, 30)));
+        Assert.True(farmstead.Structures.TryGetEdgeAt(new GridPosition(26, 28), StructureEdgeDirection.South, out var frontDoor));
+        Assert.Equal(new StructureId("open_wooden_door"), frontDoor.StructureId);
+        Assert.True(farmstead.Structures.TryGetEdgeAt(new GridPosition(44, 34), StructureEdgeDirection.South, out var paddockGate));
+        Assert.Equal(new StructureId("open_farm_gate"), paddockGate.StructureId);
+        Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(42, 7), out var tank));
+        Assert.Equal(new WorldObjectId("water_tank"), tank);
+        Assert.Contains(
+            farmstead.GroundItems.ItemsAt(new GridPosition(49, 17)),
+            stack => stack.ItemId == new ItemId("hammer") && stack.Quantity == 1);
     }
 
     [Fact]
@@ -138,12 +162,61 @@ public sealed class LocalSiteDefinitionLoaderTests
             }
             """);
 
-        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(7, 6), out var placement));
+        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(5, 4), out var placement));
         Assert.Equal(new GridPosition(2, 3), placement.Position);
         Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, placement.ObjectId);
         Assert.Equal(WorldObjectFacing.East, placement.Facing);
-        Assert.Equal(new WorldObjectFootprint(4, 6), placement.Footprint);
-        Assert.Equal(new WorldObjectFootprint(6, 4), placement.EffectiveFootprint);
+        Assert.Equal(new WorldObjectFootprint(2, 4), placement.Footprint);
+        Assert.Equal(new WorldObjectFootprint(4, 2), placement.EffectiveFootprint);
+    }
+
+    [Fact]
+    public void AuthoredMapLoadsStructureEdges()
+    {
+        var site = LoadSingleFromJson(
+            """
+            {
+              "id": "structure_edges",
+              "displayName": "Structure Edges",
+              "sourceKind": "authored",
+              "size": { "width": 3, "height": 3 },
+              "startPosition": { "x": 1, "y": 1 },
+              "defaultSurface": "grass",
+              "structureEdges": [
+                { "structureId": "wall", "x": 1, "y": 1, "edge": "north" },
+                { "structureId": "open_doorway", "x": 1, "y": 1, "edge": "east" }
+              ]
+            }
+            """,
+            CreateStructureCatalog());
+
+        Assert.True(site.Structures.TryGetEdgeAt(new GridPosition(1, 1), StructureEdgeDirection.North, out var wall));
+        Assert.Equal(new StructureId("wall"), wall.StructureId);
+        Assert.True(site.Structures.TryGetEdgeAt(new GridPosition(1, 1), StructureEdgeDirection.East, out var doorway));
+        Assert.Equal(new StructureId("open_doorway"), doorway.StructureId);
+    }
+
+    [Fact]
+    public void AuthoredMapRejectsDuplicateStructureEdges()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
+            """
+            {
+              "id": "duplicate_structure_edge",
+              "displayName": "Duplicate Structure Edge",
+              "sourceKind": "authored",
+              "size": { "width": 3, "height": 3 },
+              "startPosition": { "x": 1, "y": 1 },
+              "defaultSurface": "grass",
+              "structureEdges": [
+                { "structureId": "wall", "x": 1, "y": 1, "edge": "north" },
+                { "structureId": "wall", "x": 1, "y": 0, "edge": "south" }
+              ]
+            }
+            """,
+            CreateStructureCatalog()));
+
+        Assert.Contains("already has a structure", ex.Message);
     }
 
     [Fact]
@@ -209,12 +282,13 @@ public sealed class LocalSiteDefinitionLoaderTests
             GetDataPath("local_maps"),
             LoadSurfaceCatalog(),
             LoadWorldObjectCatalog(),
+            LoadStructureCatalog(),
             LoadItemCatalog(),
             LoadNpcCatalog()
         );
     }
 
-    private static PrototypeLocalSite LoadSingleFromJson(string json)
+    private static PrototypeLocalSite LoadSingleFromJson(string json, StructureCatalog? structureCatalog = null)
     {
         var directory = Directory.CreateTempSubdirectory("survival-map-loader-tests-");
         try
@@ -225,6 +299,7 @@ public sealed class LocalSiteDefinitionLoaderTests
                 filePath,
                 LoadSurfaceCatalog(),
                 LoadWorldObjectCatalog(),
+                structureCatalog ?? new StructureCatalog(),
                 LoadItemCatalog(),
                 LoadNpcCatalog()
             );
@@ -243,6 +318,35 @@ public sealed class LocalSiteDefinitionLoaderTests
     private static WorldObjectCatalog LoadWorldObjectCatalog()
     {
         return new WorldObjectDefinitionLoader().LoadDirectory(GetDataPath("world_objects"));
+    }
+
+    private static StructureCatalog LoadStructureCatalog()
+    {
+        return new StructureDefinitionLoader().LoadDirectory(GetDataPath("structures"));
+    }
+
+    private static StructureCatalog CreateStructureCatalog()
+    {
+        var catalog = new StructureCatalog();
+        catalog.Add(new StructureDefinition(
+            new StructureId("wall"),
+            "Wall",
+            "",
+            "Structure",
+            "generic",
+            "wall",
+            blocksMovement: true,
+            blocksSight: true));
+        catalog.Add(new StructureDefinition(
+            new StructureId("open_doorway"),
+            "Open doorway",
+            "",
+            "Doorway",
+            "generic",
+            "doorway",
+            blocksMovement: false,
+            connectsAsWall: false));
+        return catalog;
     }
 
     private static ItemCatalog LoadItemCatalog()

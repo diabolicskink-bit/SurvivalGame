@@ -23,11 +23,13 @@ public sealed class GasStationSiteTests
         Assert.Equal(PrototypeWorldObjects.StoreShelf, shelf);
         Assert.True(site.WorldObjects.TryGetObjectAt(new GridPosition(33, 21), out var vehicle));
         Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, vehicle);
-        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(37, 23), out var vehiclePlacement));
+        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(35, 21), out var vehiclePlacement));
         Assert.Equal(new GridPosition(32, 20), vehiclePlacement.Position);
         Assert.Equal(WorldObjectFacing.East, vehiclePlacement.Facing);
-        Assert.Equal(new WorldObjectFootprint(6, 4), vehiclePlacement.EffectiveFootprint);
-        Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(38, 23), out _));
+        Assert.Equal(new WorldObjectFootprint(2, 4), vehiclePlacement.Footprint);
+        Assert.Equal(new WorldObjectFootprint(4, 2), vehiclePlacement.EffectiveFootprint);
+        Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(36, 21), out _));
+        Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(35, 22), out _));
         Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(30, 12), out _));
         Assert.True(site.Npcs.TryGetAt(new GridPosition(30, 12), out var turret));
         Assert.Equal(PrototypeNpcs.GasStationTurret, turret.Id);
@@ -68,6 +70,12 @@ public sealed class GasStationSiteTests
 
         Assert.False(blockedByVehicleFootprint.Succeeded);
         Assert.Equal(new GridPosition(31, 21), state.Player.Position);
+
+        state.SetPlayerPosition(new GridPosition(37, 21));
+        var aroundVehicleFootprint = pipeline.Execute(new MoveActionRequest(GridOffset.Left), state);
+
+        Assert.True(aroundVehicleFootprint.Succeeded);
+        Assert.Equal(new GridPosition(36, 21), state.Player.Position);
     }
 
     [Fact]

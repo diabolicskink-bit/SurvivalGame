@@ -5,6 +5,8 @@ public sealed class FirearmActionService
     public const int LoadRoundTickCost = 10;
     public const int RemoveFeedDeviceTickCost = 25;
     public const int InsertFeedDeviceTickCost = 25;
+    public const int InstallWeaponModTickCost = 50;
+    public const int RemoveWeaponModTickCost = 50;
 
     private readonly FirearmItemServices _items;
     private readonly FirearmValidator _validator;
@@ -168,6 +170,27 @@ public sealed class FirearmActionService
         return TestFire(_validator.ValidateTestFireStatefulWeapon(state, weaponItemId));
     }
 
+    public GameActionResult InstallStatefulWeaponMod(
+        PrototypeGameState state,
+        StatefulItemId weaponItemId,
+        StatefulItemId modItemId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return InstallWeaponMod(_validator.ValidateInstallStatefulWeaponMod(state, weaponItemId, modItemId), state.StatefulItems);
+    }
+
+    public GameActionResult RemoveStatefulWeaponMod(
+        PrototypeGameState state,
+        StatefulItemId weaponItemId,
+        WeaponModSlotId slotId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(slotId);
+
+        return RemoveWeaponMod(_validator.ValidateRemoveStatefulWeaponMod(state, weaponItemId, slotId), state.StatefulItems);
+    }
+
     public GameActionResult ShootEquippedNpc(PrototypeGameState state, NpcId targetNpcId)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -291,6 +314,42 @@ public sealed class FirearmActionService
         return GameActionResult.Success(
             0,
             $"Test fired {plan.WeaponName} using {_items.GetAmmunitionName(result.AmmunitionItemId)}."
+        );
+    }
+
+    private GameActionResult InstallWeaponMod(
+        FirearmValidation<InstallWeaponModPlan> validation,
+        StatefulItemStore statefulItems)
+    {
+        if (!validation.Succeeded)
+        {
+            return validation.ToFailureResult();
+        }
+
+        var plan = RequirePlan(validation);
+        _operations.InstallWeaponMod(plan, statefulItems);
+
+        return GameActionResult.Success(
+            InstallWeaponModTickCost,
+            $"Installed {plan.ModDefinition.Name} on {plan.WeaponDefinition.Name}."
+        );
+    }
+
+    private GameActionResult RemoveWeaponMod(
+        FirearmValidation<RemoveWeaponModPlan> validation,
+        StatefulItemStore statefulItems)
+    {
+        if (!validation.Succeeded)
+        {
+            return validation.ToFailureResult();
+        }
+
+        var plan = RequirePlan(validation);
+        _operations.RemoveWeaponMod(plan, statefulItems);
+
+        return GameActionResult.Success(
+            RemoveWeaponModTickCost,
+            $"Removed {plan.ModDefinition.Name} from {plan.WeaponDefinition.Name}."
         );
     }
 

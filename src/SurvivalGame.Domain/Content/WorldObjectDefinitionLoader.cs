@@ -73,6 +73,8 @@ public sealed class WorldObjectDefinitionLoader
 
         public WorldObjectFootprintDto? Footprint { get; set; }
 
+        public WorldObjectContainerDto? Container { get; set; }
+
         public WorldObjectDefinition ToDefinition(string sourcePath)
         {
             if (string.IsNullOrWhiteSpace(Id))
@@ -101,8 +103,33 @@ public sealed class WorldObjectDefinitionLoader
                 MapColor,
                 SpriteId,
                 SpriteRender?.ToProfile(),
-                Footprint?.ToFootprint()
+                Footprint?.ToFootprint(),
+                Container?.ToContainerDefinition(Id, sourcePath)
             );
+        }
+    }
+
+    private sealed class WorldObjectContainerDto
+    {
+        public string? ProfileId { get; set; }
+
+        public int SearchTicks { get; set; } = WorldObjectContainerDefinition.DefaultSearchTickCost;
+
+        public WorldObjectContainerDefinition ToContainerDefinition(string objectId, string sourcePath)
+        {
+            if (string.IsNullOrWhiteSpace(ProfileId))
+            {
+                throw new InvalidDataException($"World object '{objectId}' in '{sourcePath}' has a container without a profileId.");
+            }
+
+            try
+            {
+                return new WorldObjectContainerDefinition(ProfileId, SearchTicks);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                throw new InvalidDataException($"World object '{objectId}' in '{sourcePath}' has an invalid container definition.", ex);
+            }
         }
     }
 

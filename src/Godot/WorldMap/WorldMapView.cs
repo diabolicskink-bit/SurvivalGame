@@ -1,45 +1,27 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SurvivalGame.Domain;
 
 public partial class WorldMapView : Control
 {
     private static readonly Color BackgroundColor = new(0.035f, 0.047f, 0.054f);
-    private static readonly Color MapColor = new(0.18f, 0.27f, 0.19f);
-    private static readonly Color FieldColor = new(0.26f, 0.35f, 0.19f, 0.72f);
-    private static readonly Color ScrubColor = new(0.15f, 0.23f, 0.19f, 0.72f);
-    private static readonly Color WaterColor = new(0.08f, 0.20f, 0.25f, 0.78f);
+    private static readonly Color MapColor = new(0.13f, 0.19f, 0.14f);
     private static readonly Color BorderColor = new(0.48f, 0.57f, 0.45f);
     private static readonly Color DestinationColor = new(0.91f, 0.81f, 0.46f);
-    private static readonly Color SiteColor = new(0.90f, 0.76f, 0.42f);
     private static readonly Color PartyColor = new(0.92f, 0.94f, 0.90f);
-
-    private static readonly WorldFeatureRect[] FeatureRects =
-    [
-        new(new WorldMapPosition(95.0, 100.0), 335.0, 170.0, FeatureKind.Field),
-        new(new WorldMapPosition(690.0, 430.0), 310.0, 140.0, FeatureKind.Field),
-        new(new WorldMapPosition(540.0, 135.0), 430.0, 170.0, FeatureKind.Scrub),
-        new(new WorldMapPosition(1320.0, 210.0), 360.0, 180.0, FeatureKind.Scrub),
-        new(new WorldMapPosition(1480.0, 835.0), 430.0, 190.0, FeatureKind.Field),
-        new(new WorldMapPosition(420.0, 910.0), 390.0, 170.0, FeatureKind.Field),
-        new(new WorldMapPosition(1160.0, 1040.0), 300.0, 150.0, FeatureKind.Scrub)
-    ];
-
-    private static readonly WorldMapPosition[] Stream =
-    [
-        new(25.0, 545.0),
-        new(265.0, 480.0),
-        new(575.0, 515.0),
-        new(910.0, 440.0),
-        new(1175.0, 470.0),
-        new(1430.0, 565.0),
-        new(1710.0, 545.0),
-        new(2070.0, 650.0)
-    ];
+    private static readonly Color InterstateColor = new(0.82f, 0.74f, 0.55f, 0.94f);
+    private static readonly Color UsHighwayColor = new(0.66f, 0.69f, 0.60f, 0.90f);
+    private static readonly Color StateHighwayColor = new(0.50f, 0.56f, 0.49f, 0.86f);
+    private static readonly Color RoadCasingColor = new(0.07f, 0.085f, 0.07f, 0.90f);
+    private static readonly Color RoadLabelColor = new(0.85f, 0.88f, 0.78f, 0.88f);
+    private static readonly Color RoadLabelShadowColor = new(0.03f, 0.04f, 0.03f, 0.90f);
+    private static readonly Color CityColor = new(0.86f, 0.87f, 0.78f);
+    private static readonly Color LandmarkColor = new(0.90f, 0.76f, 0.42f);
+    private static readonly Color LocalSiteColor = new(0.98f, 0.63f, 0.36f);
 
     private WorldMapTravelState? _travelState;
-    private IReadOnlyList<WorldMapPointOfInterest> _sites = Array.Empty<WorldMapPointOfInterest>();
+    private WorldMapDefinition? _worldMap;
 
     public event Action<WorldMapPosition>? DestinationSelected;
 
@@ -48,10 +30,10 @@ public partial class WorldMapView : Control
         MouseFilter = MouseFilterEnum.Stop;
     }
 
-    public void Configure(WorldMapTravelState travelState, IReadOnlyList<WorldMapPointOfInterest> sites)
+    public void Configure(WorldMapTravelState travelState, WorldMapDefinition worldMap)
     {
         _travelState = travelState;
-        _sites = sites;
+        _worldMap = worldMap;
         QueueRedraw();
     }
 
@@ -82,23 +64,17 @@ public partial class WorldMapView : Control
         var mapRect = GetMapRect();
         DrawRect(mapRect, MapColor);
 
-        if (_travelState is null)
+        if (_travelState is null || _worldMap is null)
         {
             DrawRect(mapRect, BorderColor, filled: false, width: 2.0f);
             return;
         }
 
         var viewport = CreateCurrentViewport();
-        DrawMapFeatures(mapRect, viewport);
+        DrawTerrainRegions(mapRect, viewport);
+        DrawRoads(mapRect, viewport);
         DrawRect(mapRect, BorderColor, filled: false, width: 2.0f);
-
-        foreach (var site in _sites)
-        {
-            if (viewport.Contains(site.Position))
-            {
-                DrawSiteMarker(site, mapRect, viewport);
-            }
-        }
+        DrawPointsOfInterest(mapRect, viewport);
 
         if (_travelState.Destination is { } destination)
         {
@@ -108,74 +84,224 @@ public partial class WorldMapView : Control
         DrawPartyMarker(MapToScreen(_travelState.Position, mapRect, viewport));
     }
 
-    private void DrawMapFeatures(Rect2 mapRect, WorldMapViewport viewport)
+    private void DrawTerrainRegions(Rect2 mapRect, WorldMapViewport viewport)
     {
-        foreach (var feature in FeatureRects)
-        {
-            DrawFeatureRect(feature, mapRect, viewport);
-        }
-
-        for (var i = 0; i < Stream.Length - 1; i++)
-        {
-            DrawStreamSegment(Stream[i], Stream[i + 1], mapRect, viewport);
-        }
-    }
-
-    private void DrawFeatureRect(WorldFeatureRect feature, Rect2 mapRect, WorldMapViewport viewport)
-    {
-        var featureRect = new WorldRect(feature.Position, feature.Width, feature.Height);
-        if (!featureRect.Intersects(viewport))
+        if (_worldMap is null)
         {
             return;
         }
 
-        var screenRect = WorldRectToScreen(featureRect, mapRect, viewport);
-        var clippedRect = ClipRect(screenRect, mapRect);
-        if (clippedRect.Size.X <= 0 || clippedRect.Size.Y <= 0)
+        foreach (var region in _worldMap.TerrainRegions)
+        {
+            var points = new Vector2[region.Points.Count];
+            for (var i = 0; i < region.Points.Count; i++)
+            {
+                points[i] = MapToScreen(region.Points[i], mapRect, viewport);
+            }
+
+            DrawColoredPolygon(points, ColorFromHex(region.MapColor, MapColor));
+        }
+    }
+
+    private void DrawRoads(Rect2 mapRect, WorldMapViewport viewport)
+    {
+        if (_worldMap is null)
         {
             return;
         }
 
-        DrawRect(clippedRect, feature.Kind == FeatureKind.Field ? FieldColor : ScrubColor);
+        var roads = _worldMap.Roads
+            .OrderByDescending(road => road.Priority)
+            .ToArray();
+
+        foreach (var road in roads)
+        {
+            DrawRoadPass(road, RoadCasingColor, RoadFillWidth(road) + RoadCasingWidth(road), mapRect, viewport);
+        }
+
+        foreach (var road in roads)
+        {
+            DrawRoadPass(road, RoadFillColor(road), RoadFillWidth(road), mapRect, viewport);
+        }
+
+        DrawRoadLabels(mapRect, viewport);
     }
 
-    private void DrawStreamSegment(
-        WorldMapPosition start,
-        WorldMapPosition end,
+    private void DrawRoadPass(
+        WorldMapRoad road,
+        Color color,
+        float width,
         Rect2 mapRect,
         WorldMapViewport viewport)
     {
-        if (!viewport.Contains(start) && !viewport.Contains(end) && !SegmentMayCrossViewport(start, end, viewport))
+        foreach (var segment in road.Segments)
+        {
+            for (var i = 0; i < segment.Points.Count - 1; i++)
+            {
+                DrawRoadSegment(segment.Points[i], segment.Points[i + 1], color, width, mapRect, viewport);
+            }
+        }
+    }
+
+    private void DrawRoadSegment(
+        WorldMapPosition start,
+        WorldMapPosition end,
+        Color color,
+        float width,
+        Rect2 mapRect,
+        WorldMapViewport viewport)
+    {
+        if (!TryClipSegmentToViewport(start, end, viewport, out var clippedStart, out var clippedEnd))
         {
             return;
         }
 
-        var screenStart = ClipPointToRect(MapToScreen(start, mapRect, viewport), mapRect);
-        var screenEnd = ClipPointToRect(MapToScreen(end, mapRect, viewport), mapRect);
-        DrawLine(screenStart, screenEnd, WaterColor, 14.0f);
+        var screenStart = MapToScreen(clippedStart, mapRect, viewport);
+        var screenEnd = MapToScreen(clippedEnd, mapRect, viewport);
+        DrawLine(screenStart, screenEnd, color, width);
+    }
+
+    private void DrawRoadLabels(Rect2 mapRect, WorldMapViewport viewport)
+    {
+        if (_worldMap is null)
+        {
+            return;
+        }
+
+        var drawn = 0;
+        foreach (var road in _worldMap.Roads.OrderBy(road => road.Priority))
+        {
+            if (road.Priority > 2 || drawn >= 8)
+            {
+                continue;
+            }
+
+            if (!TryFindRoadLabelPosition(road, viewport, out var labelPosition))
+            {
+                continue;
+            }
+
+            var screenPosition = MapToScreen(labelPosition, mapRect, viewport);
+            var labelOffset = new Vector2(8, -5);
+            DrawString(
+                ThemeDB.FallbackFont,
+                screenPosition + labelOffset + new Vector2(1, 1),
+                road.DisplayName,
+                HorizontalAlignment.Left,
+                width: 80,
+                fontSize: 11,
+                modulate: RoadLabelShadowColor
+            );
+            DrawString(
+                ThemeDB.FallbackFont,
+                screenPosition + labelOffset,
+                road.DisplayName,
+                HorizontalAlignment.Left,
+                width: 80,
+                fontSize: 11,
+                modulate: RoadLabelColor
+            );
+            drawn++;
+        }
+    }
+
+    private static bool TryFindRoadLabelPosition(
+        WorldMapRoad road,
+        WorldMapViewport viewport,
+        out WorldMapPosition position)
+    {
+        foreach (var segment in road.Segments)
+        {
+            for (var i = 0; i < segment.Points.Count - 1; i++)
+            {
+                if (!TryClipSegmentToViewport(
+                    segment.Points[i],
+                    segment.Points[i + 1],
+                    viewport,
+                    out var clippedStart,
+                    out var clippedEnd))
+                {
+                    continue;
+                }
+
+                position = new WorldMapPosition(
+                    (clippedStart.X + clippedEnd.X) / 2.0,
+                    (clippedStart.Y + clippedEnd.Y) / 2.0
+                );
+                return true;
+            }
+        }
+
+        position = default;
+        return false;
+    }
+
+    private void DrawPointsOfInterest(Rect2 mapRect, WorldMapViewport viewport)
+    {
+        if (_worldMap is null)
+        {
+            return;
+        }
+
+        foreach (var site in _worldMap.PointsOfInterest.OrderByDescending(site => site.LabelPriority))
+        {
+            if (viewport.Contains(site.Position))
+            {
+                DrawSiteMarker(site, mapRect, viewport);
+            }
+        }
     }
 
     private void DrawSiteMarker(WorldMapPointOfInterest site, Rect2 mapRect, WorldMapViewport viewport)
     {
         var point = MapToScreen(site.Position, mapRect, viewport);
-        var diamond = new[]
+        var color = site.Category switch
         {
-            point + new Vector2(0, -10),
-            point + new Vector2(10, 0),
-            point + new Vector2(0, 10),
-            point + new Vector2(-10, 0)
+            WorldMapPointCategory.City => CityColor,
+            WorldMapPointCategory.LocalSite => LocalSiteColor,
+            _ => LandmarkColor
         };
-        DrawColoredPolygon(diamond, SiteColor);
-        DrawCircle(point, 4.0f, BackgroundColor);
-        DrawString(
-            ThemeDB.FallbackFont,
-            point + new Vector2(13, -8),
-            site.DisplayName,
-            HorizontalAlignment.Left,
-            width: 180,
-            fontSize: 14,
-            modulate: new Color(0.88f, 0.91f, 0.82f)
-        );
+        var radius = site.Category == WorldMapPointCategory.City ? 4.0f : 6.0f;
+
+        if (site.Category == WorldMapPointCategory.Landmark)
+        {
+            var diamond = new[]
+            {
+                point + new Vector2(0, -radius),
+                point + new Vector2(radius, 0),
+                point + new Vector2(0, radius),
+                point + new Vector2(-radius, 0)
+            };
+            DrawColoredPolygon(diamond, color);
+        }
+        else
+        {
+            DrawCircle(point, radius, color);
+        }
+
+        if (site.Category == WorldMapPointCategory.LocalSite)
+        {
+            DrawCircle(point, radius + 3.0f, new Color(color.R, color.G, color.B, 0.28f));
+        }
+
+        if (ShouldDrawLabel(site))
+        {
+            DrawString(
+                ThemeDB.FallbackFont,
+                point + new Vector2(9, -7),
+                site.DisplayName,
+                HorizontalAlignment.Left,
+                width: 190,
+                fontSize: site.LabelPriority <= 1 ? 14 : 12,
+                modulate: new Color(0.88f, 0.91f, 0.82f)
+            );
+        }
+    }
+
+    private static bool ShouldDrawLabel(WorldMapPointOfInterest site)
+    {
+        return site.Category == WorldMapPointCategory.LocalSite
+            || site.LabelPriority <= 2;
     }
 
     private void DrawDestination(WorldMapPosition destination, Rect2 mapRect, WorldMapViewport viewport)
@@ -226,23 +352,15 @@ public partial class WorldMapView : Control
 
     private WorldMapViewport CreateCurrentViewport()
     {
-        if (_travelState is null)
-        {
-            return WorldMapViewport.Create(
-                PrototypeWorldMapSites.MapWidth,
-                PrototypeWorldMapSites.MapHeight,
-                PrototypeWorldMapSites.VisibleWidth,
-                PrototypeWorldMapSites.VisibleHeight,
-                PrototypeWorldMapSites.StartPosition
-            );
-        }
+        var definition = _worldMap ?? PrototypeWorldMapSites.Definition;
+        var focus = _travelState?.Position ?? definition.StartPosition;
 
         return WorldMapViewport.Create(
-            _travelState.MapWidth,
-            _travelState.MapHeight,
-            PrototypeWorldMapSites.VisibleWidth,
-            PrototypeWorldMapSites.VisibleHeight,
-            _travelState.Position
+            definition.MapWidth,
+            definition.MapHeight,
+            definition.VisibleWidth,
+            definition.VisibleHeight,
+            focus
         );
     }
 
@@ -263,29 +381,6 @@ public partial class WorldMapView : Control
         return viewport.ViewportToMap(new WorldMapPosition(x, y));
     }
 
-    private static Rect2 WorldRectToScreen(WorldRect rect, Rect2 mapRect, WorldMapViewport viewport)
-    {
-        var position = viewport.MapToViewport(rect.Position);
-        var scaleX = mapRect.Size.X / (float)viewport.Width;
-        var scaleY = mapRect.Size.Y / (float)viewport.Height;
-        return new Rect2(
-            mapRect.Position + new Vector2((float)position.X * scaleX, (float)position.Y * scaleY),
-            new Vector2((float)rect.Width * scaleX, (float)rect.Height * scaleY)
-        );
-    }
-
-    private static Rect2 ClipRect(Rect2 rect, Rect2 clip)
-    {
-        var left = Mathf.Max(rect.Position.X, clip.Position.X);
-        var top = Mathf.Max(rect.Position.Y, clip.Position.Y);
-        var right = Mathf.Min(rect.Position.X + rect.Size.X, clip.Position.X + clip.Size.X);
-        var bottom = Mathf.Min(rect.Position.Y + rect.Size.Y, clip.Position.Y + clip.Size.Y);
-        return new Rect2(
-            new Vector2(left, top),
-            new Vector2(Mathf.Max(0, right - left), Mathf.Max(0, bottom - top))
-        );
-    }
-
     private static Vector2 ClipPointToRect(Vector2 point, Rect2 rect)
     {
         return new Vector2(
@@ -294,42 +389,117 @@ public partial class WorldMapView : Control
         );
     }
 
-    private static bool SegmentMayCrossViewport(
+    private static bool TryClipSegmentToViewport(
         WorldMapPosition start,
         WorldMapPosition end,
-        WorldMapViewport viewport)
+        WorldMapViewport viewport,
+        out WorldMapPosition clippedStart,
+        out WorldMapPosition clippedEnd)
     {
-        var left = Math.Min(start.X, end.X);
-        var right = Math.Max(start.X, end.X);
-        var top = Math.Min(start.Y, end.Y);
-        var bottom = Math.Max(start.Y, end.Y);
+        clippedStart = start;
+        clippedEnd = end;
 
-        return right >= viewport.Origin.X
-            && left <= viewport.Right
-            && bottom >= viewport.Origin.Y
-            && top <= viewport.Bottom;
-    }
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var t0 = 0.0;
+        var t1 = 1.0;
 
-    private enum FeatureKind
-    {
-        Field,
-        Scrub
-    }
-
-    private readonly record struct WorldFeatureRect(
-        WorldMapPosition Position,
-        double Width,
-        double Height,
-        FeatureKind Kind);
-
-    private readonly record struct WorldRect(WorldMapPosition Position, double Width, double Height)
-    {
-        public bool Intersects(WorldMapViewport viewport)
+        if (!ClipLine(-dx, start.X - viewport.Origin.X, ref t0, ref t1)
+            || !ClipLine(dx, viewport.Right - start.X, ref t0, ref t1)
+            || !ClipLine(-dy, start.Y - viewport.Origin.Y, ref t0, ref t1)
+            || !ClipLine(dy, viewport.Bottom - start.Y, ref t0, ref t1))
         {
-            return Position.X + Width >= viewport.Origin.X
-                && Position.X <= viewport.Right
-                && Position.Y + Height >= viewport.Origin.Y
-                && Position.Y <= viewport.Bottom;
+            return false;
         }
+
+        clippedStart = new WorldMapPosition(start.X + (t0 * dx), start.Y + (t0 * dy));
+        clippedEnd = new WorldMapPosition(start.X + (t1 * dx), start.Y + (t1 * dy));
+        return true;
+    }
+
+    private static bool ClipLine(double denominator, double numerator, ref double t0, ref double t1)
+    {
+        if (Math.Abs(denominator) < double.Epsilon)
+        {
+            return numerator >= 0;
+        }
+
+        var t = numerator / denominator;
+        if (denominator < 0)
+        {
+            if (t > t1)
+            {
+                return false;
+            }
+
+            if (t > t0)
+            {
+                t0 = t;
+            }
+        }
+        else
+        {
+            if (t < t0)
+            {
+                return false;
+            }
+
+            if (t < t1)
+            {
+                t1 = t;
+            }
+        }
+
+        return true;
+    }
+
+    private static Color RoadFillColor(WorldMapRoad road)
+    {
+        return road.Kind switch
+        {
+            WorldMapRoadKind.Interstate => InterstateColor,
+            WorldMapRoadKind.UsHighway => UsHighwayColor,
+            WorldMapRoadKind.StateHighway => StateHighwayColor,
+            _ => StateHighwayColor
+        };
+    }
+
+    private static float RoadFillWidth(WorldMapRoad road)
+    {
+        var laneBonus = Math.Min(4, Math.Max(0, road.LaneCount - 2)) * 0.7f;
+        return road.Kind switch
+        {
+            WorldMapRoadKind.Interstate => 5.6f + laneBonus,
+            WorldMapRoadKind.UsHighway => 4.0f + laneBonus,
+            WorldMapRoadKind.StateHighway => 2.8f + (laneBonus * 0.65f),
+            _ => 2.4f
+        };
+    }
+
+    private static float RoadCasingWidth(WorldMapRoad road)
+    {
+        return road.Kind == WorldMapRoadKind.Interstate ? 2.6f : 2.0f;
+    }
+
+    private static Color ColorFromHex(string hex, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+        {
+            return fallback;
+        }
+
+        var value = hex.Trim().TrimStart('#');
+        if (value.Length != 6
+            || !int.TryParse(value, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
+        {
+            return fallback;
+        }
+
+        return new Color(
+            ((rgb >> 16) & 0xff) / 255.0f,
+            ((rgb >> 8) & 0xff) / 255.0f,
+            (rgb & 0xff) / 255.0f,
+            0.92f
+        );
     }
 }

@@ -95,6 +95,8 @@ public sealed class PrototypeGameState
 
     public TileObjectMap WorldObjects => LocalMap.WorldObjects;
 
+    public StructureEdgeMap Structures => LocalMap.Structures;
+
     public NpcRoster Npcs => LocalMap.Npcs;
 
     public GridPosition PlayerPosition => Player.Position;

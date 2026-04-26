@@ -32,6 +32,27 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void WeaponModsLoadPrototypeSlotsCompatibilityAndEffects()
+    {
+        var catalog = LoadFirearmCatalog();
+        var pistol = catalog.GetWeapon(PrototypeFirearms.Pistol9mm);
+        var huntingRifle = catalog.GetWeapon(PrototypeItems.HuntingRifle);
+        var redDot = catalog.GetWeaponMod(PrototypeFirearms.RedDotSight);
+        var huntingScope = catalog.GetWeaponMod(PrototypeFirearms.HuntingScope);
+        var matchBarrel = catalog.GetWeaponMod(PrototypeFirearms.MatchBarrel);
+
+        Assert.Equal(PrototypeFirearms.OpticSlot, redDot.Slot);
+        Assert.True(redDot.IsCompatibleWith(pistol));
+        Assert.Equal(3, redDot.EffectiveRangeBonus);
+        Assert.Equal(PrototypeFirearms.OpticSlot, huntingScope.Slot);
+        Assert.True(huntingScope.IsCompatibleWith(huntingRifle));
+        Assert.False(huntingScope.IsCompatibleWith(pistol));
+        Assert.Equal(16, huntingScope.MaximumRangeBonus);
+        Assert.Equal(PrototypeFirearms.BarrelSlot, matchBarrel.Slot);
+        Assert.Equal(5, matchBarrel.DamageBonus);
+    }
+
+    [Fact]
     public void AmmunitionTracksSizeAndVariant()
     {
         var catalog = LoadFirearmCatalog();
@@ -478,6 +499,211 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void InstallingAndRemovingStatefulWeaponModMovesItemAndAdvancesTime()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var redDot = state.StatefulItems.Create(
+            PrototypeFirearms.RedDotSight,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var installResult = pipeline.Execute(new InstallStatefulWeaponModActionRequest(pistol.Id, redDot.Id), state);
+
+        Assert.True(installResult.Succeeded);
+        Assert.Equal(FirearmActionService.InstallWeaponModTickCost, installResult.ElapsedTicks);
+        Assert.Equal(FirearmActionService.InstallWeaponModTickCost, state.Time.ElapsedTicks);
+        Assert.True(pistol.Weapon!.TryGetInstalledMod(PrototypeFirearms.OpticSlot, out var installedModId));
+        Assert.Equal(redDot.Id, installedModId);
+        var insertedLocation = Assert.IsType<InsertedLocation>(redDot.Location);
+        Assert.Equal(pistol.Id, insertedLocation.ParentItemId);
+
+        var removeResult = pipeline.Execute(new RemoveStatefulWeaponModActionRequest(pistol.Id, PrototypeFirearms.OpticSlot), state);
+
+        Assert.True(removeResult.Succeeded);
+        Assert.Equal(FirearmActionService.RemoveWeaponModTickCost, removeResult.ElapsedTicks);
+        Assert.Equal(
+            FirearmActionService.InstallWeaponModTickCost + FirearmActionService.RemoveWeaponModTickCost,
+            state.Time.ElapsedTicks
+        );
+        Assert.False(pistol.Weapon.HasInstalledMod(PrototypeFirearms.OpticSlot));
+        Assert.Equal(StatefulItemLocationKind.PlayerInventory, redDot.Location.Kind);
+    }
+
+    [Fact]
+    public void InstallingSecondWeaponModInSameSlotFailsWithoutMutation()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var rifle = state.StatefulItems.Create(
+            PrototypeItems.Ak47,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var redDot = state.StatefulItems.Create(
+            PrototypeFirearms.RedDotSight,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var huntingScope = state.StatefulItems.Create(
+            PrototypeFirearms.HuntingScope,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var installRedDot = pipeline.Execute(new InstallStatefulWeaponModActionRequest(rifle.Id, redDot.Id), state);
+        var installScope = pipeline.Execute(new InstallStatefulWeaponModActionRequest(rifle.Id, huntingScope.Id), state);
+
+        Assert.True(installRedDot.Succeeded);
+        Assert.False(installScope.Succeeded);
+        Assert.Equal(StatefulItemLocationKind.PlayerInventory, huntingScope.Location.Kind);
+        Assert.True(rifle.Weapon!.TryGetInstalledMod(PrototypeFirearms.OpticSlot, out var installedModId));
+        Assert.Equal(redDot.Id, installedModId);
+        Assert.Contains("AK-style rifle already has a mod installed in the optic slot.", installScope.Messages);
+    }
+
+    [Fact]
+    public void InstallingIncompatibleWeaponModFailsWithoutMutation()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var huntingScope = state.StatefulItems.Create(
+            PrototypeFirearms.HuntingScope,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var result = pipeline.Execute(new InstallStatefulWeaponModActionRequest(pistol.Id, huntingScope.Id), state);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(StatefulItemLocationKind.PlayerInventory, huntingScope.Location.Kind);
+        Assert.Empty(pistol.Weapon!.InstalledMods);
+        Assert.Contains("hunting scope does not fit 9mm pistol.", result.Messages);
+    }
+
+    [Fact]
+    public void InstalledWeaponModExtendsShootingMaximumRange()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(87, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(new GridBounds(100, 5), npcs, startPosition: new GridPosition(2, 2));
+        var rifle = state.StatefulItems.Create(
+            PrototypeItems.HuntingRifle,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        rifle.Weapon!.BuiltInFeed!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo308Standard), 4);
+        var scope = state.StatefulItems.Create(
+            PrototypeFirearms.HuntingScope,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var installResult = pipeline.Execute(new InstallStatefulWeaponModActionRequest(rifle.Id, scope.Id), state);
+        var shootResult = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(installResult.Succeeded);
+        Assert.True(shootResult.Succeeded);
+        Assert.Equal(130, target.Health.Current);
+        Assert.Contains("Shot Test Dummy with .308 hunting rifle using .308 standard rounds for 70 damage.", shootResult.Messages);
+    }
+
+    [Fact]
+    public void InstalledWeaponModIncreasesShootingDamage()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+        var matchBarrel = state.StatefulItems.Create(
+            PrototypeFirearms.MatchBarrel,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var installResult = pipeline.Execute(new InstallStatefulWeaponModActionRequest(pistol.Id, matchBarrel.Id), state);
+        var shootResult = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(installResult.Succeeded);
+        Assert.True(shootResult.Succeeded);
+        Assert.Equal(170, target.Health.Current);
+        Assert.Contains("Shot Test Dummy with 9mm pistol using 9mm standard rounds for 30 damage.", shootResult.Messages);
+    }
+
+    [Fact]
+    public void InspectStatefulWeaponShowsInstalledModsAndModifiedStats()
+    {
+        var pipeline = CreatePipelineWithItemCatalog();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        var matchBarrel = state.StatefulItems.Create(
+            PrototypeFirearms.MatchBarrel,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+        pipeline.Execute(new InstallStatefulWeaponModActionRequest(pistol.Id, matchBarrel.Id), state);
+
+        var result = pipeline.Execute(new InspectStatefulItemActionRequest(pistol.Id), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(result.Messages, message => message.Contains("Modified range: 10 effective / 24 max tiles"));
+        Assert.Contains(result.Messages, message => message.Contains("Damage bonus: +5"));
+        Assert.Contains(result.Messages, message => message.Contains("Mods: barrel: Match barrel"));
+    }
+
+    [Fact]
     public void ShootingNpcRequiresEquippedFirearm()
     {
         var pipeline = CreatePipeline();
@@ -556,6 +782,11 @@ public sealed class FirearmSystemTests
         return new GameActionPipeline(new ItemCatalog(), firearmCatalog: LoadFirearmCatalog());
     }
 
+    private static GameActionPipeline CreatePipelineWithItemCatalog()
+    {
+        return new GameActionPipeline(LoadItemCatalog(), firearmCatalog: LoadFirearmCatalog());
+    }
+
     private static PrototypeGameState CreateState(
         GridBounds? bounds = null,
         NpcRoster? npcs = null,
@@ -576,6 +807,28 @@ public sealed class FirearmSystemTests
     private static FirearmCatalog LoadFirearmCatalog()
     {
         return new FirearmDefinitionLoader().LoadDirectory(GetFirearmDataPath());
+    }
+
+    private static ItemCatalog LoadItemCatalog()
+    {
+        return new ItemDefinitionLoader().LoadDirectory(GetItemDataPath());
+    }
+
+    private static string GetItemDataPath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var itemDataPath = Path.Combine(directory.FullName, "data", "items");
+            if (Directory.Exists(itemDataPath))
+            {
+                return itemDataPath;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate data/items from the test output directory.");
     }
 
     private static string GetFirearmDataPath()

@@ -10,7 +10,9 @@ public partial class InventoryPanel : VBoxContainer
     private const int TabFontSize = 15;
     private InventoryPanelMode _activeMode = InventoryPanelMode.Inventory;
 
-    public event Action<SelectedItemRef, Vector2>? ItemSelected;
+    public event Action<SelectedItemRef, Vector2>? ItemActionRequested;
+    public event Action<SelectedItemRef, Vector2>? ItemHovered;
+    public event Action<SelectedItemRef>? ItemHoverEnded;
 
     public override void _Ready()
     {
@@ -48,7 +50,9 @@ public partial class InventoryPanel : VBoxContainer
         SelectedItemRef? selectedItem)
     {
         var grid = new InventoryGridView();
-        grid.ItemSelected += (itemRef, position) => ItemSelected?.Invoke(itemRef, position);
+        grid.ItemActionRequested += (itemRef, position) => ItemActionRequested?.Invoke(itemRef, position);
+        grid.ItemHovered += (itemRef, position) => ItemHovered?.Invoke(itemRef, position);
+        grid.ItemHoverEnded += itemRef => ItemHoverEnded?.Invoke(itemRef);
         AddChild(grid);
         grid.Display(
             inventory,
@@ -160,7 +164,22 @@ public partial class InventoryPanel : VBoxContainer
         button.AddThemeStyleboxOverride("normal", selected ? CreateSelectedStyle() : CreateTabStyle());
         button.AddThemeStyleboxOverride("hover", CreateHoverStyle());
         button.AddThemeStyleboxOverride("pressed", CreateSelectedStyle());
-        button.Pressed += () => ItemSelected?.Invoke(itemRef, GetViewport().GetMousePosition());
+        button.MouseEntered += () => ItemHovered?.Invoke(itemRef, GetViewport().GetMousePosition());
+        button.MouseExited += () => ItemHoverEnded?.Invoke(itemRef);
+        button.GuiInput += @event =>
+        {
+            if (@event is InputEventMouseMotion)
+            {
+                ItemHovered?.Invoke(itemRef, GetViewport().GetMousePosition());
+                return;
+            }
+
+            if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right })
+            {
+                ItemActionRequested?.Invoke(itemRef, GetViewport().GetMousePosition());
+                button.AcceptEvent();
+            }
+        };
 
         return button;
     }

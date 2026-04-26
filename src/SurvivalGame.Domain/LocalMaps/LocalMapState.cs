@@ -2,7 +2,13 @@ namespace SurvivalGame.Domain;
 
 public sealed class LocalMapState
 {
-    public LocalMapState(LocalMap map, TileItemMap groundItems, TileObjectMap worldObjects, NpcRoster? npcs = null)
+    public LocalMapState(
+        LocalMap map,
+        TileItemMap groundItems,
+        TileObjectMap worldObjects,
+        NpcRoster? npcs = null,
+        WorldObjectContainerStateStore? containerStates = null,
+        StructureEdgeMap? structures = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(groundItems);
@@ -11,7 +17,14 @@ public sealed class LocalMapState
         Map = map;
         GroundItems = groundItems;
         WorldObjects = worldObjects;
+        Structures = structures ?? new StructureEdgeMap(map.Bounds);
         Npcs = npcs ?? new NpcRoster();
+        ContainerStates = containerStates ?? new WorldObjectContainerStateStore();
+
+        if (Structures.Bounds != Map.Bounds)
+        {
+            throw new ArgumentException("Structure edge map bounds must match map bounds.", nameof(structures));
+        }
 
         foreach (var npc in Npcs.AllNpcs)
         {
@@ -28,5 +41,9 @@ public sealed class LocalMapState
 
     public TileObjectMap WorldObjects { get; }
 
+    public StructureEdgeMap Structures { get; }
+
     public NpcRoster Npcs { get; }
+
+    public WorldObjectContainerStateStore ContainerStates { get; }
 }

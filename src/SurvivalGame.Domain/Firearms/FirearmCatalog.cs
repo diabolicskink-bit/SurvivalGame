@@ -5,12 +5,15 @@ public sealed class FirearmCatalog
     private readonly Dictionary<ItemId, WeaponDefinition> _weapons = new();
     private readonly Dictionary<ItemId, AmmunitionDefinition> _ammunition = new();
     private readonly Dictionary<ItemId, FeedDeviceDefinition> _feedDevices = new();
+    private readonly Dictionary<ItemId, WeaponModDefinition> _weaponMods = new();
 
     public IReadOnlyCollection<WeaponDefinition> Weapons => _weapons.Values.ToArray();
 
     public IReadOnlyCollection<AmmunitionDefinition> Ammunition => _ammunition.Values.ToArray();
 
     public IReadOnlyCollection<FeedDeviceDefinition> FeedDevices => _feedDevices.Values.ToArray();
+
+    public IReadOnlyCollection<WeaponModDefinition> WeaponMods => _weaponMods.Values.ToArray();
 
     public void AddWeapon(WeaponDefinition weapon)
     {
@@ -39,6 +42,16 @@ public sealed class FirearmCatalog
         if (!_feedDevices.TryAdd(feedDevice.ItemId, feedDevice))
         {
             throw new InvalidOperationException($"Feed device '{feedDevice.ItemId}' is already defined.");
+        }
+    }
+
+    public void AddWeaponMod(WeaponModDefinition weaponMod)
+    {
+        ArgumentNullException.ThrowIfNull(weaponMod);
+
+        if (!_weaponMods.TryAdd(weaponMod.ItemId, weaponMod))
+        {
+            throw new InvalidOperationException($"Weapon mod '{weaponMod.ItemId}' is already defined.");
         }
     }
 
@@ -81,6 +94,19 @@ public sealed class FirearmCatalog
         return false;
     }
 
+    public bool TryGetWeaponMod(ItemId itemId, out WeaponModDefinition weaponMod)
+    {
+        ArgumentNullException.ThrowIfNull(itemId);
+        if (_weaponMods.TryGetValue(itemId, out var foundWeaponMod))
+        {
+            weaponMod = foundWeaponMod;
+            return true;
+        }
+
+        weaponMod = null!;
+        return false;
+    }
+
     public WeaponDefinition GetWeapon(ItemId itemId)
     {
         if (TryGetWeapon(itemId, out var weapon))
@@ -109,5 +135,15 @@ public sealed class FirearmCatalog
         }
 
         throw new KeyNotFoundException($"Feed device '{itemId}' is not defined.");
+    }
+
+    public WeaponModDefinition GetWeaponMod(ItemId itemId)
+    {
+        if (TryGetWeaponMod(itemId, out var weaponMod))
+        {
+            return weaponMod;
+        }
+
+        throw new KeyNotFoundException($"Weapon mod '{itemId}' is not defined.");
     }
 }

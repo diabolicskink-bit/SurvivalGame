@@ -57,5 +57,50 @@
     "tags": ["hard", "urban", "road", "vehicle_surface"],
     "movementCost": 1,
     "mapColor": "#303437"
+  },
+  {
+    "id": "dirt",
+    "name": "Dirt",
+    "description": "Packed rural dirt worn into ruts and footpaths.",
+    "category": "Natural",
+    "tags": ["outdoor", "soil", "track"],
+    "movementCost": 1,
+    "mapColor": "#7b6040"
+  },
+  {
+    "id": "gravel",
+    "name": "Gravel",
+    "description": "Loose pale gravel with weeds pushing through.",
+    "category": "Built",
+    "tags": ["outdoor", "hard", "yard", "vehicle_surface"],
+    "movementCost": 1,
+    "mapColor": "#8c8a7d"
+  },
+  {
+    "id": "weathered_wood",
+    "name": "Weathered wood",
+    "description": "Greyed timber boards, warped by years of heat and rain.",
+    "category": "Built",
+    "tags": ["wood", "floor", "interior"],
+    "movementCost": 1,
+    "mapColor": "#7b6b56"
+  },
+  {
+    "id": "linoleum",
+    "name": "Linoleum",
+    "description": "Faded sheet flooring, curled at the corners and stained near the walls.",
+    "category": "Interior",
+    "tags": ["floor", "kitchen", "utility"],
+    "movementCost": 1,
+    "mapColor": "#6f7763"
+  },
+  {
+    "id": "scrub",
+    "name": "Scrub",
+    "description": "Dry tangled scrub and knee-high rural weeds.",
+    "category": "Natural",
+    "tags": ["outdoor", "plant", "rough"],
+    "movementCost": 1,
+    "mapColor": "#566a3f"
   }
 ]

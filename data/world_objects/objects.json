@@ -29,13 +29,17 @@
   {
     "id": "fridge",
     "name": "Fridge",
-    "description": "A heavy household refrigerator. It is only scenery for now.",
+    "description": "A heavy household refrigerator that can be searched for supplies.",
     "category": "Appliance",
     "tags": ["appliance", "kitchen", "container_candidate"],
     "blocksMovement": true,
     "blocksSight": false,
     "mapColor": "#b5c4c8",
-    "spriteId": "world_object_fridge"
+    "spriteId": "world_object_fridge",
+    "container": {
+      "profileId": "fridge_basic",
+      "searchTicks": 75
+    }
   },
   {
     "id": "wooden_door",
@@ -78,26 +82,31 @@
     "mapColor": "#9a744a"
   },
   {
-    "id": "bed",
-    "name": "Bed",
-    "description": "A bed frame and mattress. Sleeping is not implemented yet.",
+    "id": "single_bed",
+    "name": "Single bed",
+    "description": "A narrow single bed frame and mattress. Sleeping is not implemented yet.",
     "category": "Furniture",
-    "tags": ["furniture", "rest"],
+    "tags": ["furniture", "rest", "single_bed"],
     "blocksMovement": true,
     "blocksSight": false,
     "mapColor": "#786b9a",
-    "spriteId": "world_object_bed"
+    "spriteId": "world_object_single_bed",
+    "footprint": { "width": 1, "height": 2 }
   },
   {
     "id": "storage_crate",
     "name": "Storage crate",
-    "description": "A wooden crate. Storage and looting are not implemented yet.",
+    "description": "A wooden crate that can be searched for supplies.",
     "category": "Container",
     "tags": ["container_candidate", "wood"],
     "blocksMovement": true,
     "blocksSight": false,
     "mapColor": "#a17643",
-    "spriteId": "world_object_storage_crate"
+    "spriteId": "world_object_storage_crate",
+    "container": {
+      "profileId": "crate_basic",
+      "searchTicks": 75
+    }
   },
   {
     "id": "boulder",
@@ -164,13 +173,17 @@
   {
     "id": "store_shelf",
     "name": "Store shelf",
-    "description": "A convenience-store shelf. Looting shelf contents is not implemented.",
+    "description": "A convenience-store shelf that can be searched for remaining goods.",
     "category": "Furniture",
     "tags": ["furniture", "shelf", "store", "container_candidate"],
     "blocksMovement": true,
     "blocksSight": false,
     "mapColor": "#8a6544",
-    "spriteId": "world_object_store_shelf"
+    "spriteId": "world_object_store_shelf",
+    "container": {
+      "profileId": "store_shelf_basic",
+      "searchTicks": 75
+    }
   },
   {
     "id": "restroom_fixture",
@@ -185,12 +198,16 @@
   {
     "id": "trash_bin",
     "name": "Trash bin",
-    "description": "A metal trash bin. Searching containers is not implemented.",
+    "description": "A metal trash bin that can be searched.",
     "category": "Container",
     "tags": ["container_candidate", "trash"],
     "blocksMovement": true,
     "blocksSight": false,
-    "mapColor": "#5b6668"
+    "mapColor": "#5b6668",
+    "container": {
+      "profileId": "trash_basic",
+      "searchTicks": 75
+    }
   },
   {
     "id": "parking_bollard",
@@ -212,6 +229,682 @@
     "blocksSight": true,
     "mapColor": "#59636f",
     "spriteId": "world_object_abandoned_vehicle",
-    "footprint": { "width": 4, "height": 6 }
+    "footprint": { "width": 2, "height": 4 }
+  },
+  {
+    "id": "verandah_post",
+    "name": "Verandah post",
+    "description": "A leaning timber post still holding up part of the verandah roof.",
+    "category": "Structure",
+    "tags": ["built", "support", "verandah", "wood"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8a724e"
+  },
+  {
+    "id": "verandah_railing",
+    "name": "Verandah railing",
+    "description": "A low timber railing with missing slats and a few sharp edges.",
+    "category": "Structure",
+    "tags": ["built", "barrier", "verandah", "wood"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8c774f"
+  },
+  {
+    "id": "collapsed_roof_patch",
+    "name": "Collapsed roof patch",
+    "description": "A pile of fallen roofing, timber, and dust.",
+    "category": "Structure",
+    "tags": ["built", "debris", "roof", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#5f5d55"
+  },
+  {
+    "id": "farmhouse_step",
+    "name": "Farmhouse step",
+    "description": "A cracked step leading up to the front verandah.",
+    "category": "Structure",
+    "tags": ["built", "step", "entry"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#9a8c73"
+  },
+  {
+    "id": "sofa",
+    "name": "Sofa",
+    "description": "A sagging sofa with sun-faded upholstery and mouse-chewed arms.",
+    "category": "Furniture",
+    "tags": ["furniture", "domestic", "sitting_room"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7a5a66"
+  },
+  {
+    "id": "armchair",
+    "name": "Armchair",
+    "description": "A heavy old armchair slumped toward one side.",
+    "category": "Furniture",
+    "tags": ["furniture", "domestic", "sitting_room"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#806454"
+  },
+  {
+    "id": "low_table",
+    "name": "Low table",
+    "description": "A low coffee table scarred by water rings and old ash.",
+    "category": "Furniture",
+    "tags": ["furniture", "table", "domestic"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8c6643"
+  },
+  {
+    "id": "bookcase",
+    "name": "Bookcase",
+    "description": "A narrow bookcase with swollen shelves and damp paperbacks.",
+    "category": "Furniture",
+    "tags": ["furniture", "shelf", "domestic", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#775839"
+  },
+  {
+    "id": "fireplace",
+    "name": "Fireplace",
+    "description": "A soot-blackened brick fireplace with cold ash in the grate.",
+    "category": "Fixture",
+    "tags": ["fixture", "fireplace", "domestic"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#6d4f46"
+  },
+  {
+    "id": "rug_roll",
+    "name": "Rolled rug",
+    "description": "A dusty rug curled into a heavy roll.",
+    "category": "Furniture",
+    "tags": ["furniture", "fabric", "domestic"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#86616b"
+  },
+  {
+    "id": "dresser",
+    "name": "Dresser",
+    "description": "A bedroom dresser with jammed drawers and peeling varnish.",
+    "category": "Furniture",
+    "tags": ["furniture", "bedroom", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#83613f"
+  },
+  {
+    "id": "wardrobe",
+    "name": "Wardrobe",
+    "description": "A tall wardrobe smelling of dust, cedar, and mildew.",
+    "category": "Furniture",
+    "tags": ["furniture", "bedroom", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#765538"
+  },
+  {
+    "id": "nightstand",
+    "name": "Nightstand",
+    "description": "A small nightstand beside the single bed.",
+    "category": "Furniture",
+    "tags": ["furniture", "bedroom", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8a6844"
+  },
+  {
+    "id": "writing_desk",
+    "name": "Writing desk",
+    "description": "A compact desk with a cracked writing surface.",
+    "category": "Furniture",
+    "tags": ["furniture", "desk", "domestic"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7d5b3a"
+  },
+  {
+    "id": "cot_frame",
+    "name": "Cot frame",
+    "description": "A narrow cot frame with its mattress long removed.",
+    "category": "Furniture",
+    "tags": ["furniture", "bedroom", "rest"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#766f63"
+  },
+  {
+    "id": "standing_lamp",
+    "name": "Standing lamp",
+    "description": "A bent standing lamp with no bulb in the socket.",
+    "category": "Furniture",
+    "tags": ["furniture", "light", "domestic"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#c0a15a"
+  },
+  {
+    "id": "broken_mirror",
+    "name": "Broken mirror",
+    "description": "A broken mirror leaning against the wall in glittering pieces.",
+    "category": "Furniture",
+    "tags": ["furniture", "glass", "broken"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#aeb7b5"
+  },
+  {
+    "id": "kitchen_counter",
+    "name": "Kitchen counter",
+    "description": "A swollen laminate counter with warped cupboard doors.",
+    "category": "Furniture",
+    "tags": ["furniture", "counter", "kitchen", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8f7a55"
+  },
+  {
+    "id": "stove",
+    "name": "Stove",
+    "description": "An old freestanding stove with rusty burners.",
+    "category": "Appliance",
+    "tags": ["appliance", "kitchen", "cooking"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#797c79"
+  },
+  {
+    "id": "kitchen_sink",
+    "name": "Kitchen sink",
+    "description": "A stained sink set into the counter. Plumbing is not implemented.",
+    "category": "Fixture",
+    "tags": ["fixture", "kitchen", "plumbing"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#9aa7a5"
+  },
+  {
+    "id": "pantry_shelf",
+    "name": "Pantry shelf",
+    "description": "A simple pantry shelf with warped boards and dust rings from jars.",
+    "category": "Furniture",
+    "tags": ["furniture", "shelf", "pantry", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8c724b"
+  },
+  {
+    "id": "pantry_bin",
+    "name": "Pantry bin",
+    "description": "A lidded bin once used for dry goods.",
+    "category": "Container",
+    "tags": ["container_candidate", "pantry"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#78705b"
+  },
+  {
+    "id": "bathroom_sink",
+    "name": "Bathroom sink",
+    "description": "A cracked basin with a rust-streaked drain.",
+    "category": "Fixture",
+    "tags": ["fixture", "bathroom", "plumbing"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b2b9b4"
+  },
+  {
+    "id": "toilet",
+    "name": "Toilet",
+    "description": "An old toilet with no running water.",
+    "category": "Fixture",
+    "tags": ["fixture", "bathroom", "plumbing"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b6bbb6"
+  },
+  {
+    "id": "bathtub",
+    "name": "Bathtub",
+    "description": "A stained enamel bathtub with dust gathered in the bottom.",
+    "category": "Fixture",
+    "tags": ["fixture", "bathroom", "plumbing"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#aeb8b4"
+  },
+  {
+    "id": "medicine_cabinet",
+    "name": "Medicine cabinet",
+    "description": "A tiny wall cabinet with a cloudy mirror. Searching containers is not implemented.",
+    "category": "Container",
+    "tags": ["container_candidate", "bathroom", "medical"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#98aaa3"
+  },
+  {
+    "id": "washing_machine",
+    "name": "Washing machine",
+    "description": "A top-loading washing machine with its lid stuck open.",
+    "category": "Appliance",
+    "tags": ["appliance", "laundry"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#9ea5a1"
+  },
+  {
+    "id": "laundry_tub",
+    "name": "Laundry tub",
+    "description": "A deep utility sink with cracked enamel.",
+    "category": "Fixture",
+    "tags": ["fixture", "laundry", "plumbing"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#9aa6a2"
+  },
+  {
+    "id": "drying_rack",
+    "name": "Drying rack",
+    "description": "A folding rack bowed under old, stiff fabric.",
+    "category": "Furniture",
+    "tags": ["furniture", "laundry"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8e8a72"
+  },
+  {
+    "id": "boot_rack",
+    "name": "Boot rack",
+    "description": "A low rack holding mud flakes and one lonely boot print.",
+    "category": "Furniture",
+    "tags": ["furniture", "mudroom"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7d6140"
+  },
+  {
+    "id": "mudroom_bench",
+    "name": "Mudroom bench",
+    "description": "A scuffed bench beside the rear exit.",
+    "category": "Furniture",
+    "tags": ["furniture", "mudroom"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#806342"
+  },
+  {
+    "id": "workbench",
+    "name": "Workbench",
+    "description": "A heavy workbench scarred by saw cuts and oil stains.",
+    "category": "Workshop",
+    "tags": ["workshop", "bench", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#82613d"
+  },
+  {
+    "id": "tool_rack",
+    "name": "Tool rack",
+    "description": "A wall rack with silhouettes where tools used to hang.",
+    "category": "Workshop",
+    "tags": ["workshop", "tools", "rack"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8b784f"
+  },
+  {
+    "id": "tool_chest",
+    "name": "Tool chest",
+    "description": "A dented metal tool chest with stiff drawers.",
+    "category": "Container",
+    "tags": ["container_candidate", "workshop", "tools"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#8e3f36"
+  },
+  {
+    "id": "metal_shelf",
+    "name": "Metal shelf",
+    "description": "A tall metal shelf stacked with dusty tins and unusable parts.",
+    "category": "Workshop",
+    "tags": ["workshop", "shelf", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#70797b"
+  },
+  {
+    "id": "parts_bin",
+    "name": "Parts bin",
+    "description": "A shallow bin filled with mismatched bolts and machine fragments.",
+    "category": "Container",
+    "tags": ["container_candidate", "workshop", "parts"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#72736a"
+  },
+  {
+    "id": "sawhorse",
+    "name": "Sawhorse",
+    "description": "A wooden sawhorse standing crooked on the concrete.",
+    "category": "Workshop",
+    "tags": ["workshop", "wood", "support"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#98744a"
+  },
+  {
+    "id": "vise_stand",
+    "name": "Vise stand",
+    "description": "A bolted-down metal vise on a squat stand.",
+    "category": "Workshop",
+    "tags": ["workshop", "metal", "tool"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#60696d"
+  },
+  {
+    "id": "generator_shell",
+    "name": "Generator shell",
+    "description": "The gutted shell of a small generator.",
+    "category": "Machinery",
+    "tags": ["machinery", "salvage", "generator"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#5f675f"
+  },
+  {
+    "id": "compressor_tank",
+    "name": "Compressor tank",
+    "description": "A squat compressor tank with hoses cut away.",
+    "category": "Machinery",
+    "tags": ["machinery", "workshop", "tank"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#607075"
+  },
+  {
+    "id": "fuel_drum",
+    "name": "Fuel drum",
+    "description": "A capped fuel drum. Fuel transfer is not implemented.",
+    "category": "Container",
+    "tags": ["container_candidate", "fuel", "drum"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#a44d35"
+  },
+  {
+    "id": "metal_barrel",
+    "name": "Metal barrel",
+    "description": "A rusted metal barrel with old dents around the rim.",
+    "category": "Container",
+    "tags": ["container_candidate", "barrel", "metal"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#686b66"
+  },
+  {
+    "id": "oil_stain",
+    "name": "Oil stain",
+    "description": "A dark oil stain soaked into the concrete.",
+    "category": "Marking",
+    "tags": ["workshop", "stain", "oil"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#252827"
+  },
+  {
+    "id": "burn_barrel",
+    "name": "Burn barrel",
+    "description": "A blackened drum used for burning yard waste.",
+    "category": "Utility",
+    "tags": ["yard", "barrel", "fire"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#3f403b"
+  },
+  {
+    "id": "woodpile",
+    "name": "Woodpile",
+    "description": "A low pile of split firewood gone grey with age.",
+    "category": "Utility",
+    "tags": ["wood", "fuel", "yard"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7b5f3d"
+  },
+  {
+    "id": "log_rounds",
+    "name": "Log rounds",
+    "description": "Unsplit rounds of timber stacked near the shed path.",
+    "category": "Utility",
+    "tags": ["wood", "yard"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#705639"
+  },
+  {
+    "id": "scrub_thicket",
+    "name": "Scrub thicket",
+    "description": "A dry thicket of thorny weeds and woody stems.",
+    "category": "Vegetation",
+    "tags": ["natural", "plant", "scrub", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#4f643d"
+  },
+  {
+    "id": "dead_garden_bed",
+    "name": "Dead garden bed",
+    "description": "A collapsed garden bed full of dry stalks and cracked soil.",
+    "category": "Vegetation",
+    "tags": ["garden", "dead", "yard"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#766a3f"
+  },
+  {
+    "id": "water_tank",
+    "name": "Water tank",
+    "description": "A large corrugated rainwater tank. Water collection is not implemented.",
+    "category": "Utility",
+    "tags": ["water", "tank", "farm", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#6f8c91",
+    "footprint": { "width": 3, "height": 3 }
+  },
+  {
+    "id": "rain_barrel",
+    "name": "Rain barrel",
+    "description": "A small barrel sitting under a rusted downpipe.",
+    "category": "Utility",
+    "tags": ["water", "barrel", "farm"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#587a80"
+  },
+  {
+    "id": "hand_pump",
+    "name": "Hand pump",
+    "description": "A cast-iron pump bolted over a dry concrete pad.",
+    "category": "Utility",
+    "tags": ["water", "pump", "farm"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#556468"
+  },
+  {
+    "id": "clothesline_post",
+    "name": "Clothesline post",
+    "description": "A plain post with rusted clothesline wire trailing from it.",
+    "category": "Utility",
+    "tags": ["yard", "post", "laundry"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#9a845a"
+  },
+  {
+    "id": "trough",
+    "name": "Trough",
+    "description": "A long stock trough, dry and packed with leaves.",
+    "category": "Farm",
+    "tags": ["farm", "animal", "water", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#7c8784",
+    "footprint": { "width": 3, "height": 1 }
+  },
+  {
+    "id": "hay_bale",
+    "name": "Hay bale",
+    "description": "A compact bale of old hay, grey and brittle outside.",
+    "category": "Farm",
+    "tags": ["farm", "fodder", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b09145"
+  },
+  {
+    "id": "feed_sack",
+    "name": "Feed sack",
+    "description": "A slumped sack of spoiled feed.",
+    "category": "Farm",
+    "tags": ["farm", "fodder", "container_candidate"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#aa9464"
+  },
+  {
+    "id": "old_farm_sign",
+    "name": "Old farm sign",
+    "description": "A faded property sign, too weathered to read clearly.",
+    "category": "Structure",
+    "tags": ["built", "sign", "farm"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#b39c55"
+  },
+  {
+    "id": "mailbox",
+    "name": "Mailbox",
+    "description": "A battered rural mailbox by the track.",
+    "category": "Structure",
+    "tags": ["built", "mailbox", "roadside"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#697174"
+  },
+  {
+    "id": "tractor_wreck",
+    "name": "Tractor wreck",
+    "description": "A dead tractor, nose down in gravel and weeds.",
+    "category": "Vehicle",
+    "tags": ["vehicle", "farm", "wreck", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#6c5d3b",
+    "spriteId": "world_object_tractor_wreck",
+    "footprint": { "width": 2, "height": 3 }
+  },
+  {
+    "id": "farm_trailer",
+    "name": "Farm trailer",
+    "description": "A small farm trailer with one wheel sunk into the dirt.",
+    "category": "Vehicle",
+    "tags": ["vehicle", "farm", "trailer", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#77715d",
+    "spriteId": "world_object_farm_trailer",
+    "footprint": { "width": 2, "height": 3 }
+  },
+  {
+    "id": "machinery_junk",
+    "name": "Machinery junk",
+    "description": "A heap of rusted machine housings and anonymous farm parts.",
+    "category": "Machinery",
+    "tags": ["machinery", "salvage", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#675f52"
+  },
+  {
+    "id": "tire_stack",
+    "name": "Tire stack",
+    "description": "A stack of cracked old tires.",
+    "category": "Vehicle",
+    "tags": ["vehicle", "rubber", "salvage"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#2f3330"
+  },
+  {
+    "id": "engine_block",
+    "name": "Engine block",
+    "description": "A heavy engine block left where it dropped.",
+    "category": "Machinery",
+    "tags": ["machinery", "vehicle", "salvage"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#4f5554"
+  },
+  {
+    "id": "axle_stand",
+    "name": "Axle stand",
+    "description": "A pair of axle stands, one bent under old strain.",
+    "category": "Workshop",
+    "tags": ["workshop", "vehicle", "support"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#727160"
+  },
+  {
+    "id": "sheet_metal_stack",
+    "name": "Sheet metal stack",
+    "description": "A stack of rust-speckled sheet metal.",
+    "category": "Material",
+    "tags": ["metal", "salvage", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#6f7471"
+  },
+  {
+    "id": "rusted_plough",
+    "name": "Rusted plough",
+    "description": "A rusted plough with dull blades half-hidden by weeds.",
+    "category": "Farm",
+    "tags": ["farm", "machinery", "salvage", "barrier"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#704f3c"
+  },
+  {
+    "id": "wheelbarrow",
+    "name": "Wheelbarrow",
+    "description": "A wheelbarrow with a flat tire and a tray full of leaves.",
+    "category": "Utility",
+    "tags": ["yard", "farm", "tool"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#66724e"
+  },
+  {
+    "id": "crushed_drum",
+    "name": "Crushed drum",
+    "description": "A crushed metal drum folded in on itself.",
+    "category": "Junk",
+    "tags": ["metal", "salvage", "yard"],
+    "blocksMovement": true,
+    "blocksSight": false,
+    "mapColor": "#6d6258"
   }
 ]

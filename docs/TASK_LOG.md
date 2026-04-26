@@ -1,5 +1,122 @@
 # Task Log
 
+## 2026-04-26 - Real Colorado Road Layer
+
+- Replaced the hand-authored world-map road polylines with a committed generated road file at `data/world_map/colorado_roads.generated.json`.
+- Added `tools/world_map/generate_colorado_roads.py` to fetch curated Interstates, US Highways, and State Highways from Colorado GIS basemap layers and simplify them deterministically.
+- Extended world-map road domain data from single point lists to multi-segment geometry with road kind, priority, lane count, surface width, and travel influence radius.
+- Updated the world-map loader so `colorado.json` can reference external road files while keeping POIs, terrain, and projection data in the main map definition.
+- Reworked world-map road rendering to draw casing/fill roads with class/lane-based widths and world-coordinate segment clipping so roads do not pivot while panning.
+- Kept current click-to-travel behavior and first-pass road/terrain travel-cost sampling; road snapping and pathfinding remain out of scope.
+- Added domain tests for generated road loading, required major routes, multi-segment distance checks, road metadata, bounds, and travel-cost behavior.
+- Updated Colorado source notes, architecture docs, and current-scope wording.
+
+## 2026-04-26 - Colorado World Map Scale Tuning
+
+- Reduced the current scaled Colorado world map by one third from 15600x11400 to 10400x7600 to balance marker spacing with navigation scale.
+- Reduced road travel influence radii by the same proportion so road-adjacent travel-cost behavior stays consistent.
+- Updated tests and current-scope documentation for the tuned map scale.
+
+## 2026-04-26 - Colorado World Map Scale Increase Follow-Up
+
+- Tripled the scaled Colorado world map dimensions again from 5200x3800 to 15600x11400 for much wider spacing between map markers.
+- Tripled road travel influence radii from the previous scale so road-adjacent travel-cost behavior remains comparable.
+- Updated current-scope documentation for the larger full-map dimensions.
+
+## 2026-04-26 - Colorado World Map Scale Increase
+
+- Doubled the scaled Colorado world map dimensions from 2600x1900 to 5200x3800 while keeping the same real coordinate projection and curated POI/road placement.
+- Doubled road travel influence radii so first-pass road/terrain travel-cost behavior remains comparable at the larger scale.
+- Updated current-scope documentation for the larger full-map dimensions.
+
+## 2026-04-26 - Colorado World Map V1
+
+- Replaced the hard-coded prototype overworld with a JSON-backed scaled Colorado world map definition under `data/world_map/`.
+- Added domain world-map definition models and a loader for projection bounds, city/town markers, landmark POIs, road polylines, terrain regions, start position, label priority, category, and optional local-site routing metadata.
+- Added curated Colorado content with major city/town markers, recognizable landmark POIs, simplified major road corridors, broad terrain regions, and Front Range test POIs for the existing gas station and farmstead local maps.
+- Updated world map rendering to draw data-backed terrain regions, roads, city markers, landmark markers, local-site markers, and label-priority-filtered text.
+- Added first-pass hybrid travel costs so road proximity and terrain modify world-map speed and vehicle fuel use without adding pathfinding or road snapping.
+- Added source/selection notes in `docs/COLORADO_WORLD_MAP_SOURCES.md` and updated architecture/current-scope documentation.
+- Added domain tests for Colorado map loading, required anchors, test local-site placement, and travel-cost behavior.
+
+## 2026-04-26 - Background Bible Direction Expansion
+
+- Expanded `docs/BACKGROUND.md` with Colorado-specific logistics anchors, real-US social texture, and a clearer private consistency model for The Failover.
+- Added earned mobile-base progression guidance from foot travel through bike/cart, fragile vehicles, reliable vehicles, and larger practical hub platforms.
+- Clarified grounded tactical combat pressure, Colorado-specific site families, faction seeds, and content decision priorities.
+- Kept the additions as soft setting/design guidance only, with no code, data, gameplay, or current-scope changes.
+
+## 2026-04-26 - Direction Documentation Restructure
+
+- Reworked `docs/BACKGROUND.md` into a concise setting reference bible for the Failover premise, Colorado-first US setting, tone, threats, site guidance, factions, and content decision rules.
+- Replaced `docs/GAME_BRIEF.md` with `docs/DESIGN_GOALS.md` as a long-term system direction document covering the core loop, travel/mobile base, local maps, combat/ballistics, inventory, NPCs/factions, survival/time, world generation, and UI readability.
+- Added a compact Creative North Star section to `AGENTS.md` so future AI sessions can steer toward the intended setting and systems without treating long-term goals as current scope.
+- Clarified that `BACKGROUND.md` and `DESIGN_GOALS.md` guide decisions but do not authorize scope expansion; `docs/CURRENT_SCOPE.md` remains the current implementation source of truth.
+- Kept code, data, gameplay behavior, and public APIs unchanged.
+
+## 2026-04-26 - Initial Weapon Mod System
+
+- Added JSON-backed weapon mod definitions for red dot sight, hunting scope, and match barrel.
+- Added stateful weapon mod installation/removal actions with slot and weapon-family compatibility.
+- Stored installed weapon mods on stateful weapon state while keeping each mod as a specific stateful item.
+- Applied installed weapon mod bonuses to shooting maximum range and damage.
+- Displayed weapon mod details, installed mods, modified ranges, and damage bonuses in item details.
+- Added prototype starting mod items for manual testing.
+- Added tests for mod loading, compatibility, duplicate-slot rejection, install/remove state, modified range, modified damage, and inspect details.
+- Kept stack-backed weapon mods, crafting/tools, accuracy/recoil/suppressor effects, durability, and save/load persistence out of scope.
+
+## 2026-04-26 - Lootable World Object Containers
+
+- Added searchable world-object container metadata with definition-level profiles and placement-level fixed loot config.
+- Added stable world-object instance ids for placements, including automatic ids for object-layer placements and explicit ids for authored sparse placements.
+- Added lazy per-site container runtime state so containers are only realized after search, preserving searched/remaining contents across local-site re-entry.
+- Added Search Container and Take Container Item Stack actions through the domain action pipeline, with inventory-grid validation and time costs.
+- Exposed nearby Search/Take actions in the existing Godot action panel.
+- Seeded the default prototype site's fridge and storage crate with fixed loot while leaving empty-profile searchable containers ready for future random loot tables.
+- Added tests for lazy realization, empty containers, fixed loot, taking loot, inventory-full safety, authored container config loading, and placement instance ids.
+- Kept random loot rolling, stateful item container loot, open/close states, nested containers, and full container transfer UI out of scope.
+
+## 2026-04-26 - Sprite Creation Guidance
+
+- Added project-wide AI guidance for creating usable transparent sprites.
+- Covered naming, data-footprint alignment, top-down readability, trimming transparent padding, `.import` upkeep, and verification expectations.
+
+## 2026-04-26 - Single Bed Footprint And Sprite Trim
+
+- Renamed the generic bed world object to `single_bed` with player-facing Single bed naming.
+- Updated local map references to use the specific single-bed object id.
+- Changed the single bed footprint to one tile wide by two tiles long, matching the north-facing bed sprite.
+- Renamed and trimmed the single bed sprite asset to remove transparent padding around the visible single bed.
+- Updated tests and documentation references from generic bed wording where they referred to the object/sprite.
+
+## 2026-04-26 - Abandoned Farmhouse Local Site
+
+- Added Abandoned Farmhouse as a dedicated `farmstead` local site for the existing World Map point of interest.
+- Authored a 64x44 rural property map with south-west dirt track entry, farmhouse rooms, front verandah, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, and scrub/fence perimeter.
+- Added rural surfaces for dirt, gravel, weathered wood, linoleum, and scrub.
+- Expanded static world objects with farmhouse walls, passable doors and gates, domestic furniture, kitchen/bath/laundry fixtures, workshop clutter, water tank, fences, paddock props, and farm machinery wreckage.
+- Added farmhouse-themed pickup item definitions and placed tools, salvage, pantry food, medical supplies, and clothing/equipment across the property.
+- Updated local site registration and World Map routing so matching point-of-interest ids enter registered authored local sites, while unmatched points still fall back to the default prototype map.
+- Added focused domain tests for farmhouse loading, surfaces, objects, movement collision/passable routes, item placement, and no-NPC spawning.
+
+## 2026-04-26 - Trimmed Additional Sprite Padding
+
+- Cropped transparent padding from the automated turret, store shelf, and fuel pump sprite assets.
+- Kept the existing sprite ids and Godot import metadata intact so object/NPC definitions continue to reference the same asset paths.
+
+## 2026-04-26 - World Object Footprint Bug Fixes
+
+- Corrected the abandoned vehicle's data-defined footprint to a canonical 2x4 shape so the east-facing gas station placement blocks the visible 4x2 vehicle area instead of a larger surrounding rectangle.
+- Changed the gameplay board to a clipped Control so partially visible world-object sprites do not draw outside the local viewport.
+- Updated tests and local map view documentation for the corrected footprint and viewport clipping behavior.
+
+## 2026-04-26 - Hover Item Info And Right-Click Actions
+
+- Split inventory/equipment item interaction into transient hover info and right-click contextual actions.
+- Hovering carried or equipped items now shows read-only item details only while the pointer remains over the item.
+- Right-clicking carried or equipped items now opens an item action menu, which stays visible only while the pointer is over the item or the menu.
+- Kept item actions routed through existing domain action requests and did not add new inventory mechanics.
+
 ## 2026-04-26 - Multi-Tile Static World Object Footprints
 
 - Added rectangular world-object footprints and cardinal placement facing to the domain model.
@@ -142,7 +259,7 @@
 ## 2026-04-25 - Prototype World Objects
 
 - Added domain definitions, catalog loading, and tile placement for static world objects.
-- Added JSON definitions for wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, and boulder.
+- Added JSON definitions for wall, tree, fridge, wooden door, window, table, chair, single bed, storage crate, and boulder.
 - Added a Godot world object layer to render placed objects from domain state.
 - Added movement blocking for world objects whose definitions block movement.
 - Added world object details to tile hover tooltips.
@@ -151,7 +268,7 @@
 
 ## 2026-04-25 - World Object Sprites
 
-- Generated and added sprite assets for fridge, storage crate, and bed.
+- Generated and added sprite assets for fridge, storage crate, and single bed.
 - Added optional `spriteId` support to world object definitions.
 - Updated the world object renderer to draw object sprites when available and fall back to simple rectangles otherwise.
 - Kept world object behavior unchanged.
@@ -496,3 +613,32 @@
 - Reframed test guidance around all implementation work, not only refactors.
 - Clarified that production code should never preserve stale APIs, helpers, fixtures, file layouts, mocks, or expectations solely for test compatibility.
 - Directed future agents to update, rewrite, move, or delete tests when the best implementation changes structure while still preserving intended player-facing behavior and domain invariants.
+
+## 2026-04-26 - Edge-Based Structures And 2.5D Wall Rendering
+
+- Added edge-based structure definitions, catalogs, placement maps, authored map loading, and render variant resolution for walls, doors, windows, fences, gates, and gaps.
+- Updated movement to check the crossed structure edge before tile-object and NPC blocking.
+- Added structure loading to prototype session setup and local map state, plus hover tooltip support for structures bordering the hovered tile.
+- Updated `MapEntityLayer` to render edge structures in the Y-sorted entity pass with fallback 2.5D front/side wall geometry when no structure sprite exists.
+- Added `data/structures/structures.json` and authored Abandoned Farmhouse structure edges for the house, interior partitions, shed, and paddock fencing.
+- Added focused tests for structure edge lookup, duplicate validation, render variant resolution, structure-edge movement, map loading, and farmhouse structure presence.
+
+## 2026-04-26 - Edge Wall Visual Cleanup
+
+- Removed the remaining farmhouse wall, door, window, fence, gate, and gap tile-object definitions from the world-object catalog so those pieces are structure-edge-only.
+- Removed unused old wall symbols from the Abandoned Farmhouse object layer legend and tightened tests so those ids cannot return as tile blockers.
+- Reworked side-wall fallback rendering to stay on its own vertical edge cell, slant upward, avoid overpainting doorway openings, and only draw opening jambs at the ends of multi-tile openings.
+- Reduced repeated per-tile outlines on front wall runs so connected wall stretches and corner joins read less like separate stacked blocks.
+
+## 2026-04-26 - Farm Vehicle World Object Sprites
+
+- Added transparent world-object sprites for the farmhouse `tractor_wreck` and `farm_trailer` objects.
+- Wired both definitions to their new sprite ids and normalized their canonical north-facing footprints to `2x3`.
+- Set the authored farmhouse placements to face east so their effective occupied map footprint remains `3x2`.
+- Updated world-object catalog tests to cover the new sprite ids and canonical footprints.
+
+## 2026-04-26 - Sprite Guidance Follow-Up
+
+- Expanded AI sprite creation guidance with lessons from generated farm vehicle assets.
+- Clarified canonical north-facing footprints versus rotated placement `facing`.
+- Added generated-sprite workflow notes for chroma-key cleanup, trim/downscale order, alpha validation, sprite reference checks, and temporary `.import` cleanup.

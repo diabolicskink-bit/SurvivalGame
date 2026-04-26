@@ -3,11 +3,13 @@ namespace SurvivalGame.Domain;
 public sealed class ItemDescriber
 {
     private readonly ItemCatalog _itemCatalog;
+    private readonly FirearmCatalog? _firearmCatalog;
 
-    public ItemDescriber(ItemCatalog itemCatalog)
+    public ItemDescriber(ItemCatalog itemCatalog, FirearmCatalog? firearmCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
         _itemCatalog = itemCatalog;
+        _firearmCatalog = firearmCatalog;
     }
 
     public string FormatStack(GroundItemStack stack)
@@ -77,7 +79,7 @@ public sealed class ItemDescriber
         return $"{name} [{item.Id}]{stateText}";
     }
 
-    public string DescribeStatefulItem(StatefulItem item)
+    public string DescribeStatefulItem(StatefulItem item, StatefulItemStore? statefulItems = null)
     {
         var definition = _itemCatalog.TryGet(item.ItemId, out var foundDefinition)
             ? foundDefinition
@@ -95,6 +97,11 @@ public sealed class ItemDescriber
             details += $" Feed: {FormatFeedState(item.FeedDevice)} accepts {item.FeedDevice.AmmoSize}.";
         }
 
+        if (_firearmCatalog?.TryGetWeaponMod(item.ItemId, out var weaponMod) == true)
+        {
+            details += $" Weapon mod: {weaponMod.Slot} slot. Effects: {FormatModEffects(weaponMod)}. Compatible families: {string.Join(", ", weaponMod.CompatibleWeaponFamilies)}.";
+        }
+
         if (item.Weapon is not null)
         {
             var feed = item.Weapon.BuiltInFeed;
@@ -102,6 +109,15 @@ public sealed class ItemDescriber
             details += feed is null
                 ? $" Inserted feed: {inserted}."
                 : $" Built-in feed: {FormatFeedState(feed)}.";
+
+            if (_firearmCatalog?.TryGetWeapon(item.ItemId, out var weaponDefinition) == true)
+            {
+                var stats = statefulItems is null
+                    ? ModifiedWeaponStats.From(weaponDefinition, Array.Empty<WeaponModDefinition>())
+                    : WeaponModState.GetModifiedStats(weaponDefinition, item.Weapon, statefulItems, _firearmCatalog);
+                details += $" Modified range: {stats.EffectiveRangeTiles} effective / {stats.MaximumRangeTiles} max tiles. Damage bonus: {FormatSigned(stats.DamageBonus)}.";
+                details += $" Mods: {FormatInstalledMods(item.Weapon, statefulItems)}.";
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(definition?.Description))
@@ -110,6 +126,52 @@ public sealed class ItemDescriber
         }
 
         return details;
+    }
+
+    private string FormatInstalledMods(StatefulWeaponState weapon, StatefulItemStore? statefulItems)
+    {
+        if (weapon.InstalledMods.Count == 0)
+        {
+            return "none";
+        }
+
+        return string.Join(", ", weapon.InstalledMods
+            .OrderBy(mod => mod.Key.Value, StringComparer.OrdinalIgnoreCase)
+            .Select(mod =>
+            {
+                if (statefulItems is not null
+                    && statefulItems.TryGet(mod.Value, out var modItem)
+                    && _itemCatalog.TryGet(modItem.ItemId, out var modDefinition))
+                {
+                    return $"{mod.Key}: {modDefinition.DisplayName} [{mod.Value}]";
+                }
+
+                return $"{mod.Key}: {mod.Value}";
+            }));
+    }
+
+    private static string FormatModEffects(WeaponModDefinition mod)
+    {
+        var effects = new List<string>();
+        AddSignedEffect(effects, "effective range", mod.EffectiveRangeBonus);
+        AddSignedEffect(effects, "max range", mod.MaximumRangeBonus);
+        AddSignedEffect(effects, "damage", mod.DamageBonus);
+        return effects.Count == 0 ? "none" : string.Join(", ", effects);
+    }
+
+    private static void AddSignedEffect(List<string> effects, string label, int value)
+    {
+        if (value == 0)
+        {
+            return;
+        }
+
+        effects.Add($"{label} {FormatSigned(value)}");
+    }
+
+    private static string FormatSigned(int value)
+    {
+        return value > 0 ? $"+{value}" : value.ToString();
     }
 
     private static string FormatFeedState(FeedDeviceState feedDevice)

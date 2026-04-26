@@ -17,6 +17,7 @@ public sealed class GameActionPipeline
 
     private readonly ItemCatalog _itemCatalog;
     private readonly WorldObjectCatalog? _worldObjectCatalog;
+    private readonly StructureCatalog? _structureCatalog;
     private readonly NpcCatalog? _npcCatalog;
     private readonly FirearmActionService? _firearmActions;
     private readonly VehicleFuelState? _vehicleFuelState;
@@ -29,17 +30,19 @@ public sealed class GameActionPipeline
         WorldObjectCatalog? worldObjectCatalog = null,
         FirearmCatalog? firearmCatalog = null,
         VehicleFuelState? vehicleFuelState = null,
-        NpcCatalog? npcCatalog = null
+        NpcCatalog? npcCatalog = null,
+        StructureCatalog? structureCatalog = null
     )
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
 
         _itemCatalog = itemCatalog;
         _worldObjectCatalog = worldObjectCatalog;
+        _structureCatalog = structureCatalog;
         _npcCatalog = npcCatalog;
         _firearmActions = firearmCatalog is null ? null : new FirearmActionService(firearmCatalog, itemCatalog);
         _vehicleFuelState = vehicleFuelState;
-        _itemDescriber = new ItemDescriber(itemCatalog);
+        _itemDescriber = new ItemDescriber(itemCatalog, firearmCatalog);
         _registry = new ActionHandlerRegistry(new IActionHandler[]
         {
             new MovementHandler(),
@@ -83,6 +86,7 @@ public sealed class GameActionPipeline
             state,
             _itemCatalog,
             _worldObjectCatalog,
+            _structureCatalog,
             _npcCatalog,
             _firearmActions,
             _vehicleFuelState,

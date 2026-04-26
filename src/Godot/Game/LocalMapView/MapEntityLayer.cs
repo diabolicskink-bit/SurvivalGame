@@ -8,11 +8,15 @@ public partial class MapEntityLayer : Node2D
     private static readonly SpriteRenderProfile DefaultNpcSpriteRender = new(0.9f, 0.9f);
 
     private readonly Dictionary<string, Texture2D?> _objectSpriteCache = new();
+    private readonly Dictionary<string, Texture2D?> _structureSpriteCache = new();
     private readonly Dictionary<string, Texture2D?> _npcSpriteCache = new();
+    private readonly StructureRenderResolver _structureRenderResolver = new();
     private int _cellSize = 32;
     private GridViewport? _viewport;
     private TileObjectMap? _objectMap;
     private WorldObjectCatalog? _objectCatalog;
+    private StructureEdgeMap? _structureMap;
+    private StructureCatalog? _structureCatalog;
     private NpcRoster? _npcs;
     private NpcCatalog? _npcCatalog;
     private PlayerState? _player;
@@ -20,6 +24,8 @@ public partial class MapEntityLayer : Node2D
     public void Configure(
         TileObjectMap objectMap,
         WorldObjectCatalog objectCatalog,
+        StructureEdgeMap structureMap,
+        StructureCatalog structureCatalog,
         NpcRoster npcs,
         NpcCatalog npcCatalog,
         PlayerState player,
@@ -28,6 +34,8 @@ public partial class MapEntityLayer : Node2D
     {
         _objectMap = objectMap;
         _objectCatalog = objectCatalog;
+        _structureMap = structureMap;
+        _structureCatalog = structureCatalog;
         _npcs = npcs;
         _npcCatalog = npcCatalog;
         _player = player;
@@ -39,6 +47,7 @@ public partial class MapEntityLayer : Node2D
     public override void _Draw()
     {
         var commands = new List<EntityDrawCommand>();
+        AddStructureCommands(commands);
         AddWorldObjectCommands(commands);
         AddNpcCommands(commands);
         AddPlayerCommand(commands);
@@ -66,6 +75,11 @@ public partial class MapEntityLayer : Node2D
 
         foreach (var placedObject in _objectMap.AllObjects)
         {
+            if (IsRenderedAsEdgeStructure(placedObject.ObjectId))
+            {
+                continue;
+            }
+
             var definition = TryGetWorldObjectDefinition(placedObject.ObjectId);
             var render = GetObjectRenderProfile(placedObject, definition);
             var hasSprite = TryGetObjectSprite(definition, out var sprite);
@@ -85,6 +99,38 @@ public partial class MapEntityLayer : Node2D
                 sortKey,
                 Priority: 0,
                 () => DrawWorldObject(placedObject, definition, render, hasSprite ? sprite : null)
+            ));
+        }
+    }
+
+    private bool IsRenderedAsEdgeStructure(WorldObjectId objectId)
+    {
+        return _structureMap is { IsEmpty: false }
+            && _structureCatalog is not null
+            && _structureCatalog.TryGet(new StructureId(objectId.Value), out _);
+    }
+
+    private void AddStructureCommands(List<EntityDrawCommand> commands)
+    {
+        if (_structureMap is null || _structureCatalog is null)
+        {
+            return;
+        }
+
+        foreach (var edge in _structureMap.AllEdges)
+        {
+            var renderInfo = _structureRenderResolver.Resolve(edge, _structureMap, _structureCatalog);
+            var rect = GetStructureRenderBounds(renderInfo);
+            if (!IntersectsViewport(rect))
+            {
+                continue;
+            }
+
+            var sortKey = GetStructureSortKey(renderInfo);
+            commands.Add(new EntityDrawCommand(
+                sortKey,
+                Priority: -1,
+                () => DrawStructure(renderInfo)
             ));
         }
     }
@@ -171,6 +217,27 @@ public partial class MapEntityLayer : Node2D
         return true;
     }
 
+    private bool TryGetStructureSprite(StructureRenderInfo renderInfo, out Texture2D sprite)
+    {
+        sprite = null!;
+        var spriteId = renderInfo.SpriteId;
+
+        if (!_structureSpriteCache.TryGetValue(spriteId, out var cachedSprite))
+        {
+            var spritePath = $"res://data/sprites/structures/{spriteId}.png";
+            cachedSprite = LoadSpriteTexture(spritePath);
+            _structureSpriteCache[spriteId] = cachedSprite;
+        }
+
+        if (cachedSprite is null)
+        {
+            return false;
+        }
+
+        sprite = cachedSprite;
+        return true;
+    }
+
     private bool TryGetNpcSprite(NpcDefinition? definition, out Texture2D sprite)
     {
         sprite = null!;
@@ -239,6 +306,200 @@ public partial class MapEntityLayer : Node2D
         DrawRect(objectRect, color.Lightened(0.25f), false, 1.5f);
     }
 
+    private void DrawStructure(StructureRenderInfo renderInfo)
+    {
+        if (TryGetStructureSprite(renderInfo, out var sprite))
+        {
+            DrawTextureRect(sprite, GetStructureRenderBounds(renderInfo), false);
+            return;
+        }
+
+        DrawStructureFallback(renderInfo);
+    }
+
+    private void DrawStructureFallback(StructureRenderInfo renderInfo)
+    {
+        var color = ParseHtmlColor(renderInfo.Definition.MapColor, new Color(0.45f, 0.47f, 0.42f));
+        if (renderInfo.Orientation == StructureVisualOrientation.Front)
+        {
+            DrawFrontStructureFallback(renderInfo, color);
+        }
+        else
+        {
+            DrawSideStructureFallback(renderInfo, color);
+        }
+    }
+
+    private void DrawFrontStructureFallback(StructureRenderInfo renderInfo, Color color)
+    {
+        var key = renderInfo.Edge.Key;
+        var origin = _viewport?.Origin ?? new GridPosition(0, 0);
+        var x = ((key.X - origin.X) * _cellSize) - 0.5f;
+        var baseY = (key.Y - origin.Y) * _cellSize;
+        var width = _cellSize + 1.0f;
+        var faceHeight = _cellSize * 0.62f;
+        var capHeight = _cellSize * 0.16f;
+        var faceRect = new Rect2(x, baseY - faceHeight, width, faceHeight);
+        var capRect = new Rect2(x, baseY - faceHeight - capHeight, width, capHeight);
+
+        DrawRect(new Rect2(x + 2, baseY - 2, width, 5), new Color(0.01f, 0.012f, 0.01f, 0.32f), true);
+
+        if (!renderInfo.Definition.BlocksMovement)
+        {
+            var postWidth = Mathf.Max(3.0f, _cellSize * 0.12f);
+            if (!OpeningConnectsBefore(renderInfo))
+            {
+                DrawRect(new Rect2(x, faceRect.Position.Y, postWidth, faceRect.Size.Y), color.Darkened(0.08f), true);
+            }
+
+            if (!OpeningConnectsAfter(renderInfo))
+            {
+                DrawRect(new Rect2(x + width - postWidth, faceRect.Position.Y, postWidth, faceRect.Size.Y), color.Darkened(0.08f), true);
+            }
+
+            DrawLine(new Vector2(x, baseY), new Vector2(x + width, baseY), color.Lightened(0.2f), 2.0f);
+            return;
+        }
+
+        DrawRect(faceRect, color, true);
+        DrawRect(capRect, color.Lightened(0.16f), true);
+        DrawLine(faceRect.Position, new Vector2(faceRect.End.X, faceRect.Position.Y), color.Lightened(0.2f), 1.0f);
+        DrawLine(new Vector2(faceRect.Position.X, faceRect.End.Y), faceRect.End, color.Darkened(0.28f), 1.0f);
+        DrawLine(capRect.Position, new Vector2(capRect.End.X, capRect.Position.Y), color.Lightened(0.28f), 1.0f);
+
+        if (renderInfo.Variant is "start" or "single")
+        {
+            DrawLine(faceRect.Position, new Vector2(faceRect.Position.X, faceRect.End.Y), color.Darkened(0.18f), 1.0f);
+            DrawLine(capRect.Position, new Vector2(capRect.Position.X, capRect.End.Y), color.Darkened(0.12f), 1.0f);
+        }
+
+        if (renderInfo.Variant is "end" or "single")
+        {
+            DrawLine(new Vector2(faceRect.End.X, faceRect.Position.Y), faceRect.End, color.Darkened(0.3f), 1.0f);
+            DrawLine(new Vector2(capRect.End.X, capRect.Position.Y), capRect.End, color.Darkened(0.2f), 1.0f);
+        }
+
+        if (renderInfo.Definition.PieceKind.Contains("window", StringComparison.OrdinalIgnoreCase))
+        {
+            DrawStructureWindowInset(faceRect, renderInfo.Definition.PieceKind);
+        }
+    }
+
+    private void DrawSideStructureFallback(StructureRenderInfo renderInfo, Color color)
+    {
+        var key = renderInfo.Edge.Key;
+        var origin = _viewport?.Origin ?? new GridPosition(0, 0);
+        var baseX = (key.X - origin.X) * _cellSize;
+        var topY = ((key.Y - origin.Y) * _cellSize) - 0.5f;
+        var bottomY = topY + _cellSize + 1.0f;
+        var halfWidth = Mathf.Max(4.0f, _cellSize * 0.13f);
+        var skew = Mathf.Max(2.0f, _cellSize * 0.09f);
+
+        var leftTop = new Vector2(baseX - halfWidth, topY + skew);
+        var rightTop = new Vector2(baseX + halfWidth, topY - skew);
+        var rightBottom = new Vector2(baseX + halfWidth, bottomY - skew);
+        var leftBottom = new Vector2(baseX - halfWidth, bottomY + skew);
+
+        var sideFace = new[] { leftTop, rightTop, rightBottom, leftBottom };
+        var shadowOffset = new Vector2(2.0f, 3.0f);
+
+        if (!renderInfo.Definition.BlocksMovement)
+        {
+            var jambLength = Mathf.Max(5.0f, _cellSize * 0.16f);
+            if (!OpeningConnectsBefore(renderInfo))
+            {
+                DrawLine(new Vector2(baseX, topY), new Vector2(baseX, topY + jambLength), color.Lightened(0.18f), 2.0f);
+            }
+
+            if (!OpeningConnectsAfter(renderInfo))
+            {
+                DrawLine(
+                    new Vector2(baseX, bottomY - jambLength),
+                    new Vector2(baseX, bottomY),
+                    color.Darkened(0.12f),
+                    2.0f
+                );
+            }
+
+            return;
+        }
+
+        DrawColoredPolygon(new[]
+        {
+            leftTop + shadowOffset,
+            rightTop + shadowOffset,
+            rightBottom + shadowOffset,
+            leftBottom + shadowOffset
+        }, new Color(0.01f, 0.012f, 0.01f, 0.28f));
+
+        DrawColoredPolygon(sideFace, color.Darkened(0.04f));
+        DrawLine(leftTop, leftBottom, color.Lightened(0.08f), 1.0f);
+        DrawLine(rightTop, rightBottom, color.Darkened(0.3f), 1.0f);
+
+        if (renderInfo.Variant is "start" or "single")
+        {
+            DrawLine(leftTop, rightTop, color.Lightened(0.24f), 2.0f);
+        }
+
+        if (renderInfo.Variant is "end" or "single")
+        {
+            DrawLine(leftBottom, rightBottom, color.Darkened(0.24f), 2.0f);
+        }
+
+        if (renderInfo.Definition.PieceKind.Contains("window", StringComparison.OrdinalIgnoreCase))
+        {
+            var windowTop = topY + (_cellSize * 0.28f);
+            DrawLine(
+                new Vector2(baseX, windowTop),
+                new Vector2(baseX, windowTop + (_cellSize * 0.42f)),
+                new Color(0.46f, 0.66f, 0.72f),
+                Mathf.Max(2.0f, _cellSize * 0.08f)
+            );
+        }
+    }
+
+    private bool OpeningConnectsBefore(StructureRenderInfo renderInfo)
+    {
+        return OpeningConnects(renderInfo.Edge.Key.NeighborBefore(), renderInfo.Edge.StructureId);
+    }
+
+    private bool OpeningConnectsAfter(StructureRenderInfo renderInfo)
+    {
+        return OpeningConnects(renderInfo.Edge.Key.NeighborAfter(), renderInfo.Edge.StructureId);
+    }
+
+    private bool OpeningConnects(StructureEdgeKey key, StructureId structureId)
+    {
+        return _structureMap is not null
+            && _structureMap.TryGetEdge(key, out var neighbor)
+            && neighbor.StructureId == structureId;
+    }
+
+    private void DrawStructureWindowInset(Rect2 faceRect, string pieceKind)
+    {
+        var inset = new Rect2(
+            faceRect.Position + new Vector2(faceRect.Size.X * 0.22f, faceRect.Size.Y * 0.22f),
+            new Vector2(faceRect.Size.X * 0.56f, faceRect.Size.Y * 0.42f)
+        );
+        var glassColor = pieceKind.Contains("boarded", StringComparison.OrdinalIgnoreCase)
+            ? new Color(0.42f, 0.29f, 0.18f)
+            : new Color(0.46f, 0.66f, 0.72f, 0.84f);
+
+        DrawRect(inset, glassColor, true);
+        DrawRect(inset, new Color(0.12f, 0.16f, 0.16f), false, 1.0f);
+
+        if (pieceKind.Contains("broken", StringComparison.OrdinalIgnoreCase))
+        {
+            DrawLine(inset.Position, inset.End, new Color(0.85f, 0.9f, 0.88f), 1.0f);
+            DrawLine(
+                new Vector2(inset.End.X, inset.Position.Y),
+                new Vector2(inset.Position.X, inset.End.Y),
+                new Color(0.85f, 0.9f, 0.88f),
+                1.0f
+            );
+        }
+    }
+
     private void DrawNpc(NpcState npc, NpcDefinition? definition, SpriteRenderProfile render, Texture2D? sprite)
     {
         var center = GetRenderCenter(npc.Position, render);
@@ -301,6 +562,38 @@ public partial class MapEntityLayer : Node2D
         DrawSetTransform(Vector2.Zero, 0.0f, Vector2.One);
 
         return GetWorldObjectRenderBounds(placedObject, render, sprite);
+    }
+
+    private Rect2 GetStructureRenderBounds(StructureRenderInfo renderInfo)
+    {
+        var key = renderInfo.Edge.Key;
+        var origin = _viewport?.Origin ?? new GridPosition(0, 0);
+        var x = (key.X - origin.X) * _cellSize;
+        var y = (key.Y - origin.Y) * _cellSize;
+
+        if (renderInfo.Orientation == StructureVisualOrientation.Front)
+        {
+            return new Rect2(
+                x,
+                y - (_cellSize * 0.84f),
+                _cellSize,
+                _cellSize
+            );
+        }
+
+        return new Rect2(
+            x - (_cellSize * 0.22f),
+            y - (_cellSize * 0.14f),
+            _cellSize * 0.44f,
+            _cellSize * 1.28f
+        );
+    }
+
+    private static float GetStructureSortKey(StructureRenderInfo renderInfo)
+    {
+        return renderInfo.Edge.Key.Axis == StructureEdgeAxis.Horizontal
+            ? renderInfo.Edge.Key.Y - 0.05f
+            : renderInfo.Edge.Key.Y + 0.55f;
     }
 
     private Rect2 GetRenderRect(GridPosition mapPosition, SpriteRenderProfile render, Texture2D? sprite)

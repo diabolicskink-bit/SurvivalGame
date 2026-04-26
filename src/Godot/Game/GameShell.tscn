@@ -24,8 +24,11 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.045, 0.055, 0.065, 1)
 
-[node name="Board" type="Node2D" parent="."]
+[node name="Board" type="Control" parent="."]
+layout_mode = 0
 position = Vector2(56, 112)
+mouse_filter = 2
+clip_contents = true
 
 [node name="GridView" type="Node2D" parent="Board"]
 script = ExtResource("2_grid_view")

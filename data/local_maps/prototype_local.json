@@ -37,7 +37,7 @@
       "F": "fridge",
       "T": "table",
       "C": "chair",
-      "B": "bed",
+      "B": "single_bed",
       "S": "storage_crate",
       "R": "tree",
       "O": "boulder"
@@ -46,9 +46,9 @@
       "...................",
       "...................",
       "..########.......O.",
-      "..#.....FN..B......",
+      "..#......N..B......",
       "..#..T...#.........",
-      ".....C.........S...",
+      ".....C.............",
       "......D............",
       "...................",
       "...................",
@@ -58,6 +58,34 @@
       "..................."
     ]
   },
+  "objectPlacements": [
+    {
+      "instanceId": "prototype_fridge_01",
+      "objectId": "fridge",
+      "x": 8,
+      "y": 3,
+      "container": {
+        "fixedLoot": [
+          { "itemId": "canned_beans", "quantity": 2 },
+          { "itemId": "water_bottle", "quantity": 1 }
+        ],
+        "lootTables": ["fridge_basic"]
+      }
+    },
+    {
+      "instanceId": "prototype_storage_crate_01",
+      "objectId": "storage_crate",
+      "x": 15,
+      "y": 5,
+      "container": {
+        "fixedLoot": [
+          { "itemId": "stone", "quantity": 3 },
+          { "itemId": "branch", "quantity": 1 }
+        ],
+        "lootTables": ["crate_basic"]
+      }
+    }
+  ],
   "items": [
     { "itemId": "stone", "quantity": 2, "x": 4, "y": 4 },
     { "itemId": "branch", "quantity": 3, "x": 7, "y": 9 },

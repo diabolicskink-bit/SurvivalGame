@@ -88,7 +88,36 @@ internal sealed class FirearmStateOperations
             throw new InvalidOperationException($"{plan.WeaponName} lost its loaded ammunition before shooting.");
         }
 
-        var dealtDamage = plan.Target.TakeDamage(plan.Ammunition.Damage);
+        var dealtDamage = plan.Target.TakeDamage(plan.Damage);
         return new ShootNpcResult(dealtDamage, plan.Target.IsDisabled);
+    }
+
+    public void InstallWeaponMod(InstallWeaponModPlan plan, StatefulItemStore items)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(items);
+
+        var weaponState = plan.WeaponItem.Weapon
+            ?? throw new InvalidOperationException($"{plan.WeaponDefinition.Name} lost its weapon state before installing a mod.");
+
+        weaponState.InstallMod(plan.ModDefinition.Slot, plan.ModItem.Id);
+        items.MoveToInserted(plan.ModItem.Id, plan.WeaponItem.Id);
+    }
+
+    public void RemoveWeaponMod(RemoveWeaponModPlan plan, StatefulItemStore items)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(items);
+
+        var weaponState = plan.WeaponItem.Weapon
+            ?? throw new InvalidOperationException($"{plan.WeaponDefinition.Name} lost its weapon state before removing a mod.");
+
+        var removedModItemId = weaponState.RemoveMod(plan.SlotId);
+        if (removedModItemId is null)
+        {
+            throw new InvalidOperationException($"{plan.WeaponDefinition.Name} lost its {plan.SlotId} mod before removal.");
+        }
+
+        items.MoveToInventory(removedModItemId.Value);
     }
 }

@@ -24,10 +24,11 @@ public partial class GameShell : Control
     private FirearmCatalog _firearmCatalog = null!;
     private TileSurfaceCatalog _surfaceCatalog = null!;
     private WorldObjectCatalog _worldObjectCatalog = null!;
+    private StructureCatalog _structureCatalog = null!;
     private NpcCatalog _npcCatalog = null!;
     private GameActionPipeline _actionPipeline = null!;
     private PrototypeGameState _gameState = null!;
-    private Node2D _board = null!;
+    private Control _board = null!;
     private GridView _gridView = null!;
     private GroundItemLayer _groundItemLayer = null!;
     private MapEntityLayer _mapEntityLayer = null!;
@@ -40,6 +41,8 @@ public partial class GameShell : Control
     private EquipmentPanel _equipmentPanel = null!;
     private InventoryPanel _inventoryPanel = null!;
     private SelectedItemPanel _selectedItemPanel = null!;
+    private PanelContainer _itemInfoPopup = null!;
+    private SelectedItemPanel _itemInfoPanel = null!;
     private ItemTooltip _itemTooltip = null!;
     private MessageLog _messageLog = null!;
     private Label _timeLabel = null!;
@@ -49,6 +52,7 @@ public partial class GameShell : Control
     private Label _modeLabel = null!;
     private Button _returnToWorldMapButton = null!;
     private SelectedItemRef? _selectedItem;
+    private SelectedItemRef? _hoveredItem;
     private NpcId? _selectedTargetNpcId;
     private GridPosition? _visibleTooltipPosition;
     private GridBounds _mapBounds = new(1, 1);
@@ -68,7 +72,9 @@ public partial class GameShell : Control
 
     public override void _Ready()
     {
-        _board = GetNode<Node2D>("Board");
+        _board = GetNode<Control>("Board");
+        _board.ClipContents = true;
+        _board.MouseFilter = MouseFilterEnum.Ignore;
         _gridView = GetNode<GridView>("Board/GridView");
         _groundItemLayer = GetNode<GroundItemLayer>("Board/GroundItemLayer");
         _mapEntityLayer = GetNode<MapEntityLayer>("Board/MapEntityLayer");
@@ -80,6 +86,7 @@ public partial class GameShell : Control
         _firearmCatalog = session.FirearmCatalog;
         _surfaceCatalog = session.SurfaceCatalog;
         _worldObjectCatalog = session.WorldObjectCatalog;
+        _structureCatalog = session.StructureCatalog;
         _npcCatalog = session.NpcCatalog;
         _actionPipeline = session.ActionPipeline;
         _gameState = session.GameState;
@@ -97,6 +104,7 @@ public partial class GameShell : Control
 
     public override void _Process(double delta)
     {
+        UpdateItemInteractionPopups();
         UpdateItemTooltip();
     }
 
@@ -126,6 +134,12 @@ public partial class GameShell : Control
         if (keyEvent.Keycode == Key.Escape)
         {
             GetViewport().SetInputAsHandled();
+            if (_selectedItem is not null || IsPointerOverControl(_itemActionPopup, GetViewport().GetMousePosition()))
+            {
+                DismissSelectedItem();
+                return;
+            }
+
             ReturnFromLocalOrExit();
         }
     }
@@ -239,7 +253,9 @@ public partial class GameShell : Control
         {
             Name = "EquipmentPanel"
         };
-        _equipmentPanel.ItemSelected += OnItemSelected;
+        _equipmentPanel.ItemActionRequested += OnItemActionRequested;
+        _equipmentPanel.ItemHovered += OnItemHovered;
+        _equipmentPanel.ItemHoverEnded += OnItemHoverEnded;
         equipmentStack.AddChild(_equipmentPanel);
 
         var inventoryContainer = CreateSidebarPanel("InventoryPanelContainer");
@@ -269,7 +285,9 @@ public partial class GameShell : Control
             Name = "InventoryPanel",
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
-        _inventoryPanel.ItemSelected += OnItemSelected;
+        _inventoryPanel.ItemActionRequested += OnItemActionRequested;
+        _inventoryPanel.ItemHovered += OnItemHovered;
+        _inventoryPanel.ItemHoverEnded += OnItemHoverEnded;
         inventoryScroll.AddChild(_inventoryPanel);
 
         _itemActionPopup = new PanelContainer
@@ -300,6 +318,34 @@ public partial class GameShell : Control
         };
         _selectedItemPanel.ActionSelected += OnActionSelected;
         popupStack.AddChild(_selectedItemPanel);
+
+        _itemInfoPopup = new PanelContainer
+        {
+            Name = "ItemInfoPopup",
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(360, 0)
+        };
+        _itemInfoPopup.AddThemeStyleboxOverride("panel", CreatePanelStyle());
+        uiLayer.AddChild(_itemInfoPopup);
+
+        var infoMargin = CreatePanelMargin();
+        infoMargin.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _itemInfoPopup.AddChild(infoMargin);
+
+        var infoScroll = new ScrollContainer
+        {
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(330, 0)
+        };
+        infoMargin.AddChild(infoScroll);
+
+        _itemInfoPanel = new SelectedItemPanel
+        {
+            Name = "ItemInfoPanel",
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        infoScroll.AddChild(_itemInfoPanel);
 
         _logPanel = new PanelContainer
         {
@@ -420,26 +466,55 @@ public partial class GameShell : Control
         _statusPanel.Display(_gameState.Player.Vitals);
         _equipmentPanel.Display(_gameState.Player.Equipment, _itemCatalog, _gameState.StatefulItems, _selectedItem);
         _inventoryPanel.Display(_gameState.Player.Inventory, _itemCatalog, _gameState.StatefulItems, _selectedItem);
-        _selectedItemPanel.Display(
+        _selectedItemPanel.DisplayActions(
             _selectedItem,
             _gameState,
             _itemCatalog,
-            _firearmCatalog,
             GetContextualActions(availableActions, _selectedItem)
         );
     }
 
-    private void OnItemSelected(SelectedItemRef itemRef, Vector2 cursorPosition)
+    private void OnItemActionRequested(SelectedItemRef itemRef, Vector2 cursorPosition)
     {
         _selectedItem = itemRef;
+        HideItemInfoPopup();
         UpdateOverlay();
         ShowItemActionPopup(cursorPosition);
+    }
+
+    private void OnItemHovered(SelectedItemRef itemRef, Vector2 cursorPosition)
+    {
+        _hoveredItem = itemRef;
+
+        if (_itemActionPopup.Visible)
+        {
+            HideItemInfoPopup();
+            return;
+        }
+
+        _itemInfoPanel.DisplayDetails(itemRef, _gameState, _itemCatalog, _firearmCatalog);
+        ShowItemInfoPopup(cursorPosition);
+    }
+
+    private void OnItemHoverEnded(SelectedItemRef itemRef)
+    {
+        if (_hoveredItem != itemRef)
+        {
+            return;
+        }
+
+        _hoveredItem = null;
+        HideItemInfoPopup();
     }
 
     private IReadOnlyList<AvailableAction> GetGlobalActions(IReadOnlyList<AvailableAction> availableActions)
     {
         var actions = availableActions
-            .Where(action => action.Kind is GameActionKind.Wait or GameActionKind.Pickup or GameActionKind.RefuelVehicle)
+            .Where(action => action.Kind is GameActionKind.Wait
+                or GameActionKind.Pickup
+                or GameActionKind.RefuelVehicle
+                or GameActionKind.SearchContainer
+                or GameActionKind.TakeContainerItemStack)
             .ToList();
 
         if (GetSelectedTargetNpc() is { } target)
@@ -511,6 +586,9 @@ public partial class GameShell : Control
             ReloadStatefulWeaponActionRequest reloadStatefulWeapon => MatchesStatefulItem(selectedItem, reloadStatefulWeapon.WeaponItemId)
                 || MatchesStackItem(selectedItem, reloadStatefulWeapon.AmmunitionItemId),
             TestFireStatefulWeaponActionRequest testStatefulFire => MatchesStatefulItem(selectedItem, testStatefulFire.WeaponItemId),
+            InstallStatefulWeaponModActionRequest installWeaponMod => MatchesStatefulItem(selectedItem, installWeaponMod.WeaponItemId)
+                || MatchesStatefulItem(selectedItem, installWeaponMod.ModItemId),
+            RemoveStatefulWeaponModActionRequest removeWeaponMod => MatchesStatefulItem(selectedItem, removeWeaponMod.WeaponItemId),
             _ => false
         };
     }
@@ -566,19 +644,8 @@ public partial class GameShell : Control
     {
         var viewportSize = GetViewportRect().Size;
         var popupSize = new Vector2(380, Mathf.Min(520.0f, viewportSize.Y - (LayoutMargin * 2.0f)));
-        var position = cursorPosition + new Vector2(16, 12);
 
-        if (position.X + popupSize.X > viewportSize.X - LayoutMargin)
-        {
-            position.X = Mathf.Max(LayoutMargin, cursorPosition.X - popupSize.X - 16);
-        }
-
-        if (position.Y + popupSize.Y > viewportSize.Y - LayoutMargin)
-        {
-            position.Y = Mathf.Max(LayoutMargin, viewportSize.Y - popupSize.Y - LayoutMargin);
-        }
-
-        _itemActionPopup.Position = position;
+        _itemActionPopup.Position = GetClampedPopupPosition(cursorPosition, popupSize);
         _itemActionPopup.Size = popupSize;
         _itemActionPopup.Visible = true;
     }
@@ -591,6 +658,72 @@ public partial class GameShell : Control
         }
     }
 
+    private void ShowItemInfoPopup(Vector2 cursorPosition)
+    {
+        var viewportSize = GetViewportRect().Size;
+        var popupSize = new Vector2(380, Mathf.Min(420.0f, viewportSize.Y - (LayoutMargin * 2.0f)));
+        var desiredPosition = cursorPosition + new Vector2(18, 18);
+
+        _itemInfoPopup.Position = GetClampedPopupPosition(desiredPosition, popupSize);
+        _itemInfoPopup.Size = popupSize;
+        _itemInfoPopup.Visible = true;
+    }
+
+    private void HideItemInfoPopup()
+    {
+        if (_itemInfoPopup is not null)
+        {
+            _itemInfoPopup.Visible = false;
+        }
+    }
+
+    private void DismissSelectedItem()
+    {
+        if (_selectedItem is null)
+        {
+            HideItemActionPopup();
+            return;
+        }
+
+        _selectedItem = null;
+        HideItemActionPopup();
+        UpdateOverlay();
+    }
+
+    private void UpdateItemInteractionPopups()
+    {
+        var cursorPosition = GetViewport().GetMousePosition();
+
+        if (_hoveredItem is not null && !_itemActionPopup.Visible)
+        {
+            _itemInfoPopup.Position = GetClampedPopupPosition(cursorPosition + new Vector2(18, 18), _itemInfoPopup.Size);
+        }
+
+        if (_selectedItem is null || !_itemActionPopup.Visible)
+        {
+            return;
+        }
+
+        if (_hoveredItem == _selectedItem || IsPointerOverControl(_itemActionPopup, cursorPosition))
+        {
+            return;
+        }
+
+        DismissSelectedItem();
+    }
+
+    private Vector2 GetClampedPopupPosition(Vector2 desiredPosition, Vector2 popupSize)
+    {
+        var viewportSize = GetViewportRect().Size;
+        var maxX = Mathf.Max(LayoutMargin, viewportSize.X - popupSize.X - LayoutMargin);
+        var maxY = Mathf.Max(LayoutMargin, viewportSize.Y - popupSize.Y - LayoutMargin);
+
+        return new Vector2(
+            Mathf.Clamp(desiredPosition.X, LayoutMargin, maxX),
+            Mathf.Clamp(desiredPosition.Y, LayoutMargin, maxY)
+        );
+    }
+
     private bool TryHandleBoardClick()
     {
         var clickedPosition = GetHoveredGridPosition();
@@ -601,17 +734,30 @@ public partial class GameShell : Control
 
         if (!_gameState.LocalMap.Npcs.TryGetAt(clickedPosition.Value, out var npc))
         {
+            var shouldRefresh = false;
             if (_selectedTargetNpcId is not null)
             {
                 _selectedTargetNpcId = null;
-                UpdateOverlay();
+                shouldRefresh = true;
+            }
+
+            if (_selectedItem is not null)
+            {
+                _selectedItem = null;
+                shouldRefresh = true;
             }
 
             HideItemActionPopup();
+            if (shouldRefresh)
+            {
+                UpdateOverlay();
+            }
+
             return true;
         }
 
         _selectedTargetNpcId = npc.Id;
+        _selectedItem = null;
         HideItemActionPopup();
         UpdateOverlay();
         _messageLog.AddMessage($"Targeting {npc.Name}.");
@@ -652,6 +798,7 @@ public partial class GameShell : Control
         var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value, _gameState.SiteId);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
+        var structure = GetStructureAt(hoveredPosition.Value);
         var npc = GetNpcAt(hoveredPosition.Value);
 
         if (_visibleTooltipPosition == hoveredPosition)
@@ -665,6 +812,7 @@ public partial class GameShell : Control
             hoveredPosition.Value,
             surface,
             worldObject,
+            structure,
             npc,
             itemStacks,
             statefulItems,
@@ -685,6 +833,25 @@ public partial class GameShell : Control
         return _gameState.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId)
             ? _worldObjectCatalog.Get(objectId)
             : null;
+    }
+
+    private StructureDefinition? GetStructureAt(GridPosition position)
+    {
+        foreach (var direction in new[]
+        {
+            StructureEdgeDirection.North,
+            StructureEdgeDirection.East,
+            StructureEdgeDirection.South,
+            StructureEdgeDirection.West
+        })
+        {
+            if (_gameState.LocalMap.Structures.TryGetEdgeAt(position, direction, out var edge))
+            {
+                return _structureCatalog.Get(edge.StructureId);
+            }
+        }
+
+        return null;
     }
 
     private NpcState? GetNpcAt(GridPosition position)
@@ -752,6 +919,8 @@ public partial class GameShell : Control
         _mapEntityLayer.Configure(
             _gameState.LocalMap.WorldObjects,
             _worldObjectCatalog,
+            _gameState.LocalMap.Structures,
+            _structureCatalog,
             _gameState.LocalMap.Npcs,
             _npcCatalog,
             _gameState.Player,
@@ -786,9 +955,10 @@ public partial class GameShell : Control
             ConfigureLocalMapView();
         }
 
-        _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
-
         var boardPixelSize = new Vector2(LocalViewportWidthTiles * _cellSize, LocalViewportHeightTiles * _cellSize);
+        _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
+        _board.Size = boardPixelSize;
+
         var boardRight = _board.Position.X + boardPixelSize.X;
         var boardBottom = _board.Position.Y + boardPixelSize.Y;
         var logTop = boardBottom + 14.0f;
@@ -830,7 +1000,9 @@ public partial class GameShell : Control
 
         if (request is not null)
         {
+            _selectedItem = null;
             HideItemActionPopup();
+            HideItemInfoPopup();
             ExecuteAction(request);
         }
     }
@@ -845,6 +1017,7 @@ public partial class GameShell : Control
         _mapEntityLayer.QueueRedraw();
         UpdateOverlay();
         HideItemTooltip();
+        HideItemInfoPopup();
 
         foreach (var message in result.Messages)
         {

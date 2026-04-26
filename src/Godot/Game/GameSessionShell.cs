@@ -48,8 +48,9 @@ public partial class GameSessionShell : Control
 
     private void OnEnterSiteRequested(WorldMapPointOfInterest site)
     {
-        var siteId = site.Id == PrototypeLocalSites.GasStationSiteId.Value
-            ? PrototypeLocalSites.GasStationSiteId
+        var requestedSiteId = new SiteId(site.LocalSiteId ?? site.Id);
+        var siteId = _campaignSession.CampaignState.ContainsLocalSite(requestedSiteId)
+            ? requestedSiteId
             : PrototypeLocalSites.DefaultSiteId;
         var localSite = _campaignSession.CampaignState.EnterLocalSite(siteId);
         ShowLocalSite(localSite.Id);

@@ -60,7 +60,7 @@ public partial class WorldMapScreen : Control
         }
 
         var method = PrototypeTravelMethods.Get(_travelState.CurrentTravelMethod);
-        var result = _travelState.Advance(delta, _time, method);
+        var result = _travelState.Advance(delta, _time, method, PrototypeWorldMapSites.Definition);
         if (result.Moved || result.Messages.Count > 0)
         {
             foreach (var message in result.Messages)
@@ -172,7 +172,7 @@ public partial class WorldMapScreen : Control
             return;
         }
 
-        _mapView.Configure(_travelState, PrototypeWorldMapSites.All);
+        _mapView.Configure(_travelState, PrototypeWorldMapSites.Definition);
         UpdateOverlay();
     }
 

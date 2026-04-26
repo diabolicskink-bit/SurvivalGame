@@ -12,8 +12,11 @@ public partial class InventoryGridView : Control
     private const float CellGap = 1f;
 
     private readonly List<GridVisualItem> _items = new();
+    private SelectedItemRef? _hoveredItem;
 
-    public event Action<SelectedItemRef, Vector2>? ItemSelected;
+    public event Action<SelectedItemRef, Vector2>? ItemActionRequested;
+    public event Action<SelectedItemRef, Vector2>? ItemHovered;
+    public event Action<SelectedItemRef>? ItemHoverEnded;
 
     public override void _Ready()
     {
@@ -21,6 +24,7 @@ public partial class InventoryGridView : Control
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         SizeFlagsVertical = SizeFlags.ExpandFill;
         MouseFilter = MouseFilterEnum.Stop;
+        MouseExited += ClearHoveredItem;
     }
 
     public void Display(
@@ -131,22 +135,23 @@ public partial class InventoryGridView : Control
 
     public override void _GuiInput(InputEvent @event)
     {
+        if (@event is InputEventMouseMotion mouseMotion)
+        {
+            UpdateHoveredItem(mouseMotion.Position);
+            return;
+        }
+
         if (@event is not InputEventMouseButton mouseButton
             || !mouseButton.Pressed
-            || mouseButton.ButtonIndex != MouseButton.Left)
+            || mouseButton.ButtonIndex != MouseButton.Right)
         {
             return;
         }
 
-        var metrics = CalculateMetrics();
-        foreach (var item in _items.AsEnumerable().Reverse())
+        if (TryGetItemAt(mouseButton.Position, out var item))
         {
-            if (GetItemRect(item, metrics).HasPoint(mouseButton.Position))
-            {
-                ItemSelected?.Invoke(item.Ref, GetViewport().GetMousePosition());
-                AcceptEvent();
-                return;
-            }
+            ItemActionRequested?.Invoke(item.Ref, GetViewport().GetMousePosition());
+            AcceptEvent();
         }
     }
 
@@ -181,6 +186,51 @@ public partial class InventoryGridView : Control
             metrics.Origin + new Vector2(item.Position.X * metrics.CellSize, item.Position.Y * metrics.CellSize),
             new Vector2(item.Size.Width * metrics.CellSize, item.Size.Height * metrics.CellSize)
         );
+    }
+
+    private void UpdateHoveredItem(Vector2 localPosition)
+    {
+        if (TryGetItemAt(localPosition, out var item))
+        {
+            if (_hoveredItem != item.Ref)
+            {
+                ClearHoveredItem();
+                _hoveredItem = item.Ref;
+            }
+
+            ItemHovered?.Invoke(item.Ref, GetViewport().GetMousePosition());
+            return;
+        }
+
+        ClearHoveredItem();
+    }
+
+    private bool TryGetItemAt(Vector2 localPosition, out GridVisualItem item)
+    {
+        var metrics = CalculateMetrics();
+        foreach (var candidate in _items.AsEnumerable().Reverse())
+        {
+            if (GetItemRect(candidate, metrics).HasPoint(localPosition))
+            {
+                item = candidate;
+                return true;
+            }
+        }
+
+        item = null!;
+        return false;
+    }
+
+    private void ClearHoveredItem()
+    {
+        if (_hoveredItem is null)
+        {
+            return;
+        }
+
+        var previousItem = _hoveredItem;
+        _hoveredItem = null;
+        ItemHoverEnded?.Invoke(previousItem);
     }
 
     private GridMetrics CalculateMetrics()

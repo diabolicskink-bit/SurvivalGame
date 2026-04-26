@@ -17,11 +17,10 @@ public partial class SelectedItemPanel : VBoxContainer
         AddThemeConstantOverride("separation", 7);
     }
 
-    public void Display(
+    public void DisplayActions(
         SelectedItemRef? selectedItem,
         PrototypeGameState state,
         ItemCatalog itemCatalog,
-        FirearmCatalog firearmCatalog,
         IReadOnlyList<AvailableAction> contextualActions)
     {
         ClearRows();
@@ -35,7 +34,21 @@ public partial class SelectedItemPanel : VBoxContainer
 
         AddChild(CreateLabel("Item Actions", HeadingFontSize, new Color(0.86f, 0.9f, 0.82f)));
         AddContextualActions(contextualActions, selectedItem, state, itemCatalog);
-        AddChild(new HSeparator());
+    }
+
+    public void DisplayDetails(
+        SelectedItemRef? selectedItem,
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog)
+    {
+        ClearRows();
+
+        if (selectedItem is null)
+        {
+            return;
+        }
+
         AddSelectedItemDetails(selectedItem, state, itemCatalog, firearmCatalog);
     }
 
@@ -102,7 +115,7 @@ public partial class SelectedItemPanel : VBoxContainer
 
         if (item.Weapon is not null)
         {
-            AddWeaponStateDetails(item, state);
+            AddWeaponStateDetails(item, state, itemCatalog, firearmCatalog);
         }
 
         var contents = state.StatefulItems.ContainedIn(item.Id);
@@ -165,6 +178,13 @@ public partial class SelectedItemPanel : VBoxContainer
             AddChild(CreateLabel($"Range: {weapon.EffectiveRangeTiles} effective / {weapon.MaximumRangeTiles} max tiles", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Feed type: {weapon.FeedKind}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
         }
+
+        if (firearmCatalog.TryGetWeaponMod(itemId, out var weaponMod))
+        {
+            AddChild(CreateLabel($"Mod slot: {weaponMod.Slot}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            AddChild(CreateLabel($"Effects: {FormatModEffects(weaponMod)}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            AddChild(CreateLabel($"Fits: {string.Join(", ", weaponMod.CompatibleWeaponFamilies)}", BodyFontSize, new Color(0.6f, 0.68f, 0.64f)));
+        }
     }
 
     private void AddFeedDetails(FeedDeviceState feedDevice)
@@ -177,7 +197,11 @@ public partial class SelectedItemPanel : VBoxContainer
         AddChild(CreateLabel($"Accepts: {feedDevice.AmmoSize}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
     }
 
-    private void AddWeaponStateDetails(StatefulItem item, PrototypeGameState state)
+    private void AddWeaponStateDetails(
+        StatefulItem item,
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        FirearmCatalog firearmCatalog)
     {
         var activeFeed = item.Weapon?.BuiltInFeed;
         if (activeFeed is null && item.Weapon?.InsertedFeedDeviceItemId is not null)
@@ -195,10 +219,42 @@ public partial class SelectedItemPanel : VBoxContainer
         if (activeFeed is null)
         {
             AddChild(CreateLabel("Loaded: empty", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+        }
+        else
+        {
+            AddFeedDetails(activeFeed);
+        }
+
+        if (item.Weapon is null || !firearmCatalog.TryGetWeapon(item.ItemId, out var weapon))
+        {
             return;
         }
 
-        AddFeedDetails(activeFeed);
+        var modifiedStats = WeaponModState.GetModifiedStats(weapon, item.Weapon, state.StatefulItems, firearmCatalog);
+        AddChild(CreateLabel(
+            $"Modified range: {modifiedStats.EffectiveRangeTiles} effective / {modifiedStats.MaximumRangeTiles} max tiles",
+            BodyFontSize,
+            new Color(0.72f, 0.8f, 0.74f)
+        ));
+        AddChild(CreateLabel(
+            $"Damage bonus: {FormatSigned(modifiedStats.DamageBonus)}",
+            BodyFontSize,
+            new Color(0.72f, 0.8f, 0.74f)
+        ));
+
+        if (item.Weapon.InstalledMods.Count == 0)
+        {
+            AddChild(CreateLabel("Mods: none", BodyFontSize, new Color(0.6f, 0.68f, 0.64f)));
+            return;
+        }
+
+        foreach (var installedMod in item.Weapon.InstalledMods.OrderBy(mod => mod.Key.Value, StringComparer.OrdinalIgnoreCase))
+        {
+            var modName = state.StatefulItems.TryGet(installedMod.Value, out var modItem)
+                ? GetStatefulItemName(modItem.Id, state, itemCatalog)
+                : installedMod.Value.ToString();
+            AddChild(CreateLabel($"Mod {installedMod.Key}: {modName}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+        }
     }
 
     private void AddContextualActions(
@@ -273,6 +329,10 @@ public partial class SelectedItemPanel : VBoxContainer
                 ? $"Reload with {GetItemName(reloadStatefulWeapon.AmmunitionItemId, itemCatalog)}"
                 : $"Reload {GetStatefulItemName(reloadStatefulWeapon.WeaponItemId, state, itemCatalog)}",
             TestFireStatefulWeaponActionRequest => "Test fire",
+            InstallStatefulWeaponModActionRequest installWeaponMod => IsSelectedStatefulItem(selectedItem, installWeaponMod.WeaponItemId)
+                ? $"Install {GetStatefulItemName(installWeaponMod.ModItemId, state, itemCatalog)}"
+                : $"Install into {GetStatefulItemName(installWeaponMod.WeaponItemId, state, itemCatalog)}",
+            RemoveStatefulWeaponModActionRequest removeWeaponMod => $"Remove {removeWeaponMod.SlotId} mod",
 
             _ => action.Label
         };
@@ -336,12 +396,37 @@ public partial class SelectedItemPanel : VBoxContainer
         };
     }
 
+    private static string FormatModEffects(WeaponModDefinition mod)
+    {
+        var effects = new List<string>();
+        AddSignedEffect(effects, "effective range", mod.EffectiveRangeBonus);
+        AddSignedEffect(effects, "max range", mod.MaximumRangeBonus);
+        AddSignedEffect(effects, "damage", mod.DamageBonus);
+        return effects.Count == 0 ? "none" : string.Join(", ", effects);
+    }
+
+    private static void AddSignedEffect(List<string> effects, string label, int value)
+    {
+        if (value == 0)
+        {
+            return;
+        }
+
+        effects.Add($"{label} {FormatSigned(value)}");
+    }
+
+    private static string FormatSigned(int value)
+    {
+        return value > 0 ? $"+{value}" : value.ToString();
+    }
+
     private static Label CreateLabel(string text, int fontSize, Color color)
     {
         var label = new Label
         {
             Text = text,
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            MouseFilter = Control.MouseFilterEnum.Ignore
         };
         label.AddThemeFontSizeOverride("font_size", fontSize);
         label.AddThemeColorOverride("font_color", color);

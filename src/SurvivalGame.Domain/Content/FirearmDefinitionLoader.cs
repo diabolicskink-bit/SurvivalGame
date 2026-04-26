@@ -30,6 +30,7 @@ public sealed class FirearmDefinitionLoader
         LoadAmmunitionFileIfPresent(Path.Combine(directoryPath, "ammunition.json"), catalog);
         LoadFeedDeviceFileIfPresent(Path.Combine(directoryPath, "feed_devices.json"), catalog);
         LoadWeaponFileIfPresent(Path.Combine(directoryPath, "weapons.json"), catalog);
+        LoadWeaponModFileIfPresent(Path.Combine(directoryPath, "weapon_mods.json"), catalog);
 
         return catalog;
     }
@@ -73,6 +74,20 @@ public sealed class FirearmDefinitionLoader
         foreach (var row in rows)
         {
             catalog.AddWeapon(row.ToDefinition(filePath));
+        }
+    }
+
+    private static void LoadWeaponModFileIfPresent(string filePath, FirearmCatalog catalog)
+    {
+        if (!File.Exists(filePath))
+        {
+            return;
+        }
+
+        var rows = ReadRows<WeaponModDto>(filePath);
+        foreach (var row in rows)
+        {
+            catalog.AddWeaponMod(row.ToDefinition(filePath));
         }
     }
 
@@ -171,6 +186,41 @@ public sealed class FirearmDefinitionLoader
                 EffectiveRangeTiles,
                 MaximumRangeTiles,
                 CompatibleFeedDeviceIds?.Select(id => new ItemId(id))
+            );
+        }
+    }
+
+    private sealed class WeaponModDto
+    {
+        public string? ItemId { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? Slot { get; set; }
+
+        public string[]? CompatibleWeaponFamilies { get; set; }
+
+        public int EffectiveRangeBonus { get; set; }
+
+        public int MaximumRangeBonus { get; set; }
+
+        public int DamageBonus { get; set; }
+
+        public WeaponModDefinition ToDefinition(string sourcePath)
+        {
+            if (CompatibleWeaponFamilies is null || CompatibleWeaponFamilies.Length == 0)
+            {
+                throw new InvalidDataException($"Weapon mod '{ItemId}' in '{sourcePath}' is missing compatible weapon families.");
+            }
+
+            return new WeaponModDefinition(
+                RequiredItemId(ItemId, sourcePath, "weapon mod item id"),
+                RequiredString(Name, sourcePath, ItemId, "name"),
+                new WeaponModSlotId(RequiredString(Slot, sourcePath, ItemId, "slot")),
+                CompatibleWeaponFamilies,
+                EffectiveRangeBonus,
+                MaximumRangeBonus,
+                DamageBonus
             );
         }
     }

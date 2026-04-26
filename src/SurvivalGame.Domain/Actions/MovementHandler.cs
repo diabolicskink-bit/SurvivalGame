@@ -46,6 +46,11 @@ public sealed class MovementHandler : IActionHandler
             return GameActionResult.Failure("Cannot move there.");
         }
 
+        if (IsBlockedByStructure(context, state.Player.Position, nextPosition, out var structureName))
+        {
+            return GameActionResult.Failure($"Blocked by {structureName}.");
+        }
+
         if (IsBlockedByWorldObject(context, nextPosition, out var blockerName))
         {
             return GameActionResult.Failure($"Blocked by {blockerName}.");
@@ -81,6 +86,29 @@ public sealed class MovementHandler : IActionHandler
 
         blockerName = worldObject.Name;
         return worldObject.BlocksMovement;
+    }
+
+    private static bool IsBlockedByStructure(
+        GameActionContext context,
+        GridPosition from,
+        GridPosition to,
+        out string blockerName)
+    {
+        blockerName = "something";
+
+        if (!context.State.LocalMap.Structures.TryGetEdgeBetween(from, to, out var edge))
+        {
+            return false;
+        }
+
+        if (context.StructureCatalog is null || !context.StructureCatalog.TryGet(edge.StructureId, out var structure))
+        {
+            blockerName = edge.StructureId.ToString();
+            return true;
+        }
+
+        blockerName = structure.Name;
+        return structure.BlocksMovement;
     }
 
     private static bool IsBlockedByNpc(PrototypeGameState state, GridPosition position, out string npcName)

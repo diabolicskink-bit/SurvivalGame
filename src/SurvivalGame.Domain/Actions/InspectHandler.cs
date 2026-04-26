@@ -93,7 +93,7 @@ public sealed class InspectHandler : IActionHandler
         var item = context.State.StatefulItems.Get(itemId);
         var messages = new List<string>
         {
-            context.ItemDescriber.DescribeStatefulItem(item)
+            context.ItemDescriber.DescribeStatefulItem(item, context.State.StatefulItems)
         };
 
         if (item.Contents.Count == 0)

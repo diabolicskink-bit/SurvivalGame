@@ -1,0 +1,41 @@
+[
+  {
+    "itemId": "red_dot_sight",
+    "name": "red dot sight",
+    "slot": "optic",
+    "compatibleWeaponFamilies": [
+      "9mm_pistol",
+      "ak_rifle",
+      "hunting_rifle_308",
+      "pump_shotgun_12_gauge",
+      "rifle_22lr"
+    ],
+    "effectiveRangeBonus": 3
+  },
+  {
+    "itemId": "hunting_scope",
+    "name": "hunting scope",
+    "slot": "optic",
+    "compatibleWeaponFamilies": [
+      "ak_rifle",
+      "hunting_rifle_308",
+      "rifle_22lr"
+    ],
+    "effectiveRangeBonus": 8,
+    "maximumRangeBonus": 16
+  },
+  {
+    "itemId": "match_barrel",
+    "name": "match barrel",
+    "slot": "barrel",
+    "compatibleWeaponFamilies": [
+      "9mm_pistol",
+      "ak_rifle",
+      "hunting_rifle_308",
+      "rifle_22lr"
+    ],
+    "effectiveRangeBonus": 2,
+    "maximumRangeBonus": 4,
+    "damageBonus": 5
+  }
+]

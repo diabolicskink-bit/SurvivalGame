@@ -6,6 +6,7 @@ public sealed class GameActionContext
         PrototypeGameState state,
         ItemCatalog itemCatalog,
         WorldObjectCatalog? worldObjectCatalog,
+        StructureCatalog? structureCatalog,
         NpcCatalog? npcCatalog,
         FirearmActionService? firearmActions,
         VehicleFuelState? vehicleFuelState,
@@ -18,6 +19,7 @@ public sealed class GameActionContext
         State = state;
         ItemCatalog = itemCatalog;
         WorldObjectCatalog = worldObjectCatalog;
+        StructureCatalog = structureCatalog;
         NpcCatalog = npcCatalog;
         FirearmActions = firearmActions;
         VehicleFuelState = vehicleFuelState;
@@ -29,6 +31,8 @@ public sealed class GameActionContext
     public ItemCatalog ItemCatalog { get; }
 
     public WorldObjectCatalog? WorldObjectCatalog { get; }
+
+    public StructureCatalog? StructureCatalog { get; }
 
     public NpcCatalog? NpcCatalog { get; }
 

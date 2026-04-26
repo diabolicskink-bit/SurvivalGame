@@ -1,0 +1,38 @@
+[
+  {
+    "id": "red_dot_sight",
+    "name": "Red dot sight",
+    "description": "A compact reflex optic that helps acquire targets quickly at modest range.",
+    "category": "WeaponMod",
+    "tags": ["Attachment", "Optic"],
+    "maxStackSize": 1,
+    "inventorySize": { "width": 1, "height": 1 },
+    "weight": 0.18,
+    "iconId": "red_dot_sight",
+    "spriteId": "item_red_dot_sight"
+  },
+  {
+    "id": "hunting_scope",
+    "name": "Hunting scope",
+    "description": "A magnified optic suited to rifles and careful shots at longer distances.",
+    "category": "WeaponMod",
+    "tags": ["Attachment", "Optic", "Scope"],
+    "maxStackSize": 1,
+    "inventorySize": { "width": 2, "height": 1 },
+    "weight": 0.45,
+    "iconId": "hunting_scope",
+    "spriteId": "item_hunting_scope"
+  },
+  {
+    "id": "match_barrel",
+    "name": "Match barrel",
+    "description": "A carefully machined replacement barrel that improves consistency and striking power.",
+    "category": "WeaponMod",
+    "tags": ["Attachment", "Barrel"],
+    "maxStackSize": 1,
+    "inventorySize": { "width": 2, "height": 1 },
+    "weight": 0.7,
+    "iconId": "match_barrel",
+    "spriteId": "item_match_barrel"
+  }
+]

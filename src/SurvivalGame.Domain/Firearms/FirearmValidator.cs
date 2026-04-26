@@ -421,6 +421,74 @@ internal sealed class FirearmValidator
         return FirearmValidation<TestFirePlan>.Success(new TestFirePlan(_items.GetItemName(weaponItem.ItemId), activeFeed));
     }
 
+    public FirearmValidation<InstallWeaponModPlan> ValidateInstallStatefulWeaponMod(
+        PrototypeGameState state,
+        StatefulItemId weaponItemId,
+        StatefulItemId modItemId)
+    {
+        if (!state.StatefulItems.TryGet(weaponItemId, out var weaponItem)
+            || !IsOwnedStatefulWeapon(weaponItem)
+            || weaponItem.Weapon is null)
+        {
+            return FirearmValidation<InstallWeaponModPlan>.Failure("That weapon is not available.");
+        }
+
+        if (!state.StatefulItems.TryGet(modItemId, out var modItem)
+            || modItem.Location is not PlayerInventoryLocation)
+        {
+            return FirearmValidation<InstallWeaponModPlan>.Failure("That weapon mod is not freely available.");
+        }
+
+        if (!_catalog.TryGetWeapon(weaponItem.ItemId, out var weaponDefinition)
+            || !_catalog.TryGetWeaponMod(modItem.ItemId, out var modDefinition))
+        {
+            return FirearmValidation<InstallWeaponModPlan>.Failure("Those items cannot be combined that way.");
+        }
+
+        if (!modDefinition.IsCompatibleWith(weaponDefinition))
+        {
+            return FirearmValidation<InstallWeaponModPlan>.Failure($"{modDefinition.Name} does not fit {weaponDefinition.Name}.");
+        }
+
+        if (weaponItem.Weapon.HasInstalledMod(modDefinition.Slot))
+        {
+            return FirearmValidation<InstallWeaponModPlan>.Failure($"{weaponDefinition.Name} already has a mod installed in the {modDefinition.Slot} slot.");
+        }
+
+        return FirearmValidation<InstallWeaponModPlan>.Success(
+            new InstallWeaponModPlan(weaponItem, weaponDefinition, modItem, modDefinition)
+        );
+    }
+
+    public FirearmValidation<RemoveWeaponModPlan> ValidateRemoveStatefulWeaponMod(
+        PrototypeGameState state,
+        StatefulItemId weaponItemId,
+        WeaponModSlotId slotId)
+    {
+        if (!state.StatefulItems.TryGet(weaponItemId, out var weaponItem)
+            || !IsOwnedStatefulWeapon(weaponItem)
+            || weaponItem.Weapon is null)
+        {
+            return FirearmValidation<RemoveWeaponModPlan>.Failure("That weapon is not available.");
+        }
+
+        if (!_catalog.TryGetWeapon(weaponItem.ItemId, out var weaponDefinition))
+        {
+            return FirearmValidation<RemoveWeaponModPlan>.Failure("That item is not a firearm.");
+        }
+
+        if (!weaponItem.Weapon.TryGetInstalledMod(slotId, out var modItemId)
+            || !state.StatefulItems.TryGet(modItemId, out var modItem)
+            || !_catalog.TryGetWeaponMod(modItem.ItemId, out var modDefinition))
+        {
+            return FirearmValidation<RemoveWeaponModPlan>.Failure($"{weaponDefinition.Name} has no {slotId} mod installed.");
+        }
+
+        return FirearmValidation<RemoveWeaponModPlan>.Success(
+            new RemoveWeaponModPlan(weaponItem, weaponDefinition, slotId, modItem, modDefinition)
+        );
+    }
+
     public FirearmValidation<ShootNpcPlan> ValidateShootEquippedNpc(
         PrototypeGameState state,
         NpcId targetNpcId)
@@ -442,10 +510,10 @@ internal sealed class FirearmValidator
         }
 
         var distance = TileDistance(state.Player.Position, target.Position);
-        if (distance > equippedFirearm.Weapon.MaximumRangeTiles)
+        if (distance > equippedFirearm.Stats.MaximumRangeTiles)
         {
             return FirearmValidation<ShootNpcPlan>.Failure(
-                $"{target.Name} is out of range for {equippedFirearm.Weapon.Name} ({distance}/{equippedFirearm.Weapon.MaximumRangeTiles} tiles)."
+                $"{target.Name} is out of range for {equippedFirearm.Weapon.Name} ({distance}/{equippedFirearm.Stats.MaximumRangeTiles} tiles)."
             );
         }
 
@@ -460,8 +528,9 @@ internal sealed class FirearmValidator
             return FirearmValidation<ShootNpcPlan>.Failure($"Unknown ammunition: {ammunitionItemId}.");
         }
 
+        var damage = equippedFirearm.Stats.ModifyDamage(ammunition.Damage);
         return FirearmValidation<ShootNpcPlan>.Success(
-            new ShootNpcPlan(equippedFirearm.Weapon.Name, equippedFirearm.ActiveFeed, target, ammunition)
+            new ShootNpcPlan(equippedFirearm.Weapon.Name, equippedFirearm.ActiveFeed, target, ammunition, damage)
         );
     }
 
@@ -631,7 +700,8 @@ internal sealed class FirearmValidator
             return null;
         }
 
-        return new EquippedFirearm(weapon, GetActiveFeedForStatefulWeapon(state, weaponItem));
+        var stats = WeaponModState.GetModifiedStats(weapon, weaponItem.Weapon, state.StatefulItems, _catalog);
+        return new EquippedFirearm(weapon, stats, GetActiveFeedForStatefulWeapon(state, weaponItem));
     }
 
     private EquippedFirearm? FindEquippedStackFirearmInSlot(PrototypeGameState state, EquipmentSlotId slotId)
@@ -646,7 +716,11 @@ internal sealed class FirearmValidator
             ? state.Player.Firearms.GetActiveFeedForWeapon(weaponState)
             : null;
 
-        return new EquippedFirearm(weapon, activeFeed);
+        return new EquippedFirearm(
+            weapon,
+            ModifiedWeaponStats.From(weapon, Array.Empty<WeaponModDefinition>()),
+            activeFeed
+        );
     }
 
     private static int TileDistance(GridPosition from, GridPosition to)
@@ -654,5 +728,8 @@ internal sealed class FirearmValidator
         return Math.Max(Math.Abs(from.X - to.X), Math.Abs(from.Y - to.Y));
     }
 
-    private sealed record EquippedFirearm(WeaponDefinition Weapon, FeedDeviceState? ActiveFeed);
+    private sealed record EquippedFirearm(
+        WeaponDefinition Weapon,
+        ModifiedWeaponStats Stats,
+        FeedDeviceState? ActiveFeed);
 }

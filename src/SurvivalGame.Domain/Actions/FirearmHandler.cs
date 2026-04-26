@@ -18,6 +18,8 @@ public sealed class FirearmHandler : IActionHandler
         GameActionKind.LoadStatefulWeapon,
         GameActionKind.ReloadStatefulWeapon,
         GameActionKind.TestFireStatefulWeapon,
+        GameActionKind.InstallStatefulWeaponMod,
+        GameActionKind.RemoveStatefulWeaponMod,
         GameActionKind.ShootNpc
     };
 
@@ -92,6 +94,14 @@ public sealed class FirearmHandler : IActionHandler
             TestFireStatefulWeaponActionRequest testStatefulWeapon => ExecuteFirearmAction(
                 context,
                 service => service.TestFireStatefulWeapon(context.State, testStatefulWeapon.WeaponItemId)
+            ),
+            InstallStatefulWeaponModActionRequest installWeaponMod => ExecuteFirearmAction(
+                context,
+                service => service.InstallStatefulWeaponMod(context.State, installWeaponMod.WeaponItemId, installWeaponMod.ModItemId)
+            ),
+            RemoveStatefulWeaponModActionRequest removeWeaponMod => ExecuteFirearmAction(
+                context,
+                service => service.RemoveStatefulWeaponMod(context.State, removeWeaponMod.WeaponItemId, removeWeaponMod.SlotId)
             ),
             ShootNpcActionRequest shootNpc => ShootNpc(context, shootNpc.TargetNpcId),
             _ => GameActionResult.Failure("That action is not supported.")

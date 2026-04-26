@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://boj4pb1fg36b3"
-path="res://.godot/imported/world_object_bed.png-2dd251e1eedde3fa3b5af48f3f41290d.ctex"
+uid="uid://mvglwcolyj6r"
+path="res://.godot/imported/world_object_tractor_wreck.png-ae713e7fbafbe44b1abf318e981c3155.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://data/sprites/world_objects/world_object_bed.png"
-dest_files=["res://.godot/imported/world_object_bed.png-2dd251e1eedde3fa3b5af48f3f41290d.ctex"]
+source_file="res://data/sprites/world_objects/world_object_tractor_wreck.png"
+dest_files=["res://.godot/imported/world_object_tractor_wreck.png-ae713e7fbafbe44b1abf318e981c3155.ctex"]
 
 [params]
 

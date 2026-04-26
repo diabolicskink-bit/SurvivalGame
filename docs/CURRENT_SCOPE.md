@@ -4,35 +4,42 @@
 
 - Main menu with title, subtitle, New Run, and Quit actions.
 - New Run opens a prototype run session at the world map travel screen.
-- World Map travel screen with a simple drawn map/background.
-- World Map has a larger 2100w x 1300h full map while the visible view keeps the previous 1200w x 760h scale.
+- World Map travel screen with a data-backed drawn Colorado map/background.
+- World Map has a 10400w x 7600h scaled Colorado full map while the visible view is 1200w x 760h.
 - World Map camera follows the travel party and clamps at full-map edges.
 - World Map travel party marker shown on the map.
-- Twelve fixed world map points of interest, including Route 18 Gas Station near the starting region.
+- JSON-backed Colorado world map definition under `data/world_map/`.
+- Colorado World Map content includes a curated major city/town marker set, recognizable landmark POIs, generated Colorado GIS-derived major road geometry, broad terrain regions, and two local-site test POIs near the Front Range start point.
 - Clicking the world map sets or redirects a continuous travel destination.
 - World Map movement is smooth map-unit movement, not tile/grid movement.
 - Current world map travel method is displayed.
 - Prototype travel methods include walking, pushbike, and vehicle.
-- Travel speed depends on the selected travel method.
+- Travel speed depends on the selected travel method plus first-pass road/terrain cost modifiers.
 - World Map time is displayed using the shared elapsed world tick clock.
 - Travelling on the world map advances world time.
 - Vehicle travel displays and consumes prototype fuel.
+- Vehicle travel fuel use is modified by the current world-map road/terrain sample.
 - Walking and pushbike travel do not require or consume fuel.
 - If vehicle fuel reaches zero, vehicle travel stops and a clear message is shown.
 - After vehicle fuel reaches zero, the player can switch to walking or pushbike and continue travelling.
 - Enter Site becomes available when the travel party is near a point of interest.
 - Enter Site switches from the world map into a local gameplay scene.
 - Route 18 Gas Station enters a dedicated fixed gas station local site.
+- Abandoned Farmhouse enters a dedicated fixed farmstead local site.
 - Other current world map points of interest enter the default prototype local site.
 - The local gameplay scene can return to the world map.
 - Returning to the world map preserves world map position, time, travel method, and vehicle fuel.
 - Returning to the world map preserves player inventory, equipment, and firearm/ammunition/feed-device state because local site sessions share the same player and stateful item store.
 - Local site sessions preserve their own map bounds, surfaces, world objects, ground stacks, and NPC roster.
 - Local gameplay boards render a fixed 27w x 18h tile viewport over the active local site's full map.
+- Local gameplay boards clip map/entity rendering to the visible 27w x 18h tile viewport.
 - Larger local maps clamp the viewport near map edges; smaller local maps are centered inside the fixed viewport with dark padding.
 - Authored local site maps are loaded from JSON under `data/local_maps/`.
 - Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
+- Abandoned Farmhouse is a fixed authored 64x44 local map with a south-west dirt track entry, front yard, detailed farmhouse, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, and scrub/fence perimeter.
+- Abandoned Farmhouse uses edge-based structures for its farmhouse walls, doors, windows, shed walls/openings, paddock fencing, gates, and broken fence gaps.
 - The gas station local site spawns the player near the forecourt/store entrance.
+- The farmhouse local site spawns the player on the south-west dirt track.
 - Gameplay shell scene with a simple placeholder top-down grid.
 - Resizable gameplay layout that places the local map board in the top-left half-width, top two-thirds-height area and uses the available right-side space for gameplay panels.
 - Player marker placed near the centre of the local viewport except when the viewport is clamped at a map edge.
@@ -50,7 +57,7 @@
 - Turret fire triggers once for each crossed 75-tick interval and deals 10 direct health damage per shot.
 - Clickable Wait action button.
 - Clickable Pick Up action button when the player is standing on item stacks.
-- Global action panel now shows general or selected-target actions, such as Wait, Pick Up, and Shoot.
+- Global action panel now shows general, selected-target, and nearby-container actions, such as Wait, Pick Up, Shoot, Search, and Take.
 - Message log with startup and movement messages.
 - Escape key return from gameplay shell to main menu.
 - Domain-level player inventory tracking by item id and quantity.
@@ -63,14 +70,15 @@
 - Feed devices and magazines remain physical grid items, including stateful loaded magazines.
 - Stack-backed inventory items remain stacked for simple identical quantities.
 - Stack-backed non-ammunition inventory items occupy one grid rectangle per stack.
-- Stack-backed inventory items can be inspected, dropped one at a time, or dropped as a full stack from the contextual item popup.
+- Stack-backed inventory items can be inspected, dropped one at a time, or dropped as a full stack from the right-click item action menu.
 - Pickup and unequip actions fail clearly when there is not enough inventory grid space for grid-using items.
 - Loose ammunition pickup can succeed even when the physical inventory grid is full.
 - Inventory and equipment are visually separated.
 - Gameplay UI is split into three visible panels: player info/general actions, equipment, and inventory. On wide windows, player info and equipment sit side by side with inventory below them.
-- Clicking an inventory or equipment item opens a small popup with item details and contextual actions.
-- Item popup details include name, quantity, location, category/type, description, tags, and relevant prototype firearm/feed state when available.
-- Item-specific actions appear in the clicked item popup rather than in the global action list.
+- Hovering an inventory or equipment item opens a small read-only item info popup while the pointer remains over the item.
+- Item info details include name, quantity, location, category/type, description, tags, and relevant prototype firearm/feed state when available.
+- Right-clicking an inventory or equipment item opens a contextual item action menu, and the menu disappears when the pointer is no longer over the item or the menu.
+- Item-specific actions appear in the right-click item action menu rather than in the global action list.
 - JSON-backed prototype item definitions under `data/items/`.
 - Item definitions include id, name, description, category, tags, stack size, inventory size, weight, icon id, sprite id, and future action ids.
 - Nested type paths are derived from category and tags, such as `Weapon -> gun -> rifle -> ak47`.
@@ -80,7 +88,7 @@
 - JSON-backed prototype terrain/surface definitions under `data/surfaces/`.
 - Surface definitions include id, name, description, category, tags, movement cost, map color, and optional sprite id.
 - Surface tags are the current lightweight property mechanism, for example ice has a `slippery` tag.
-- Prototype map surface layouts using grass, carpet, concrete, tile, ice, and asphalt.
+- Prototype map surface layouts using grass, carpet, concrete, tile, ice, asphalt, dirt, gravel, weathered wood, linoleum, and scrub.
 - Local map data uses authored surface/object rows plus sparse item and NPC placements; recipe and chunked procedural source kinds are placeholders only.
 - Generated sprite assets for grass, carpet, concrete, ceramic tile, and ice surfaces.
 - Asphalt currently uses its fallback map color and has no generated sprite.
@@ -96,41 +104,56 @@
 - Legacy stack-backed equipped items can be inspected and unequipped back into inventory.
 - Read-only gameplay UI section showing every equipment slot, including empty slots.
 - Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
-- Domain-level firearm, ammunition, and feed-device definitions loaded from JSON under `data/firearms/`.
+- Domain-level firearm, ammunition, feed-device, and weapon-mod definitions loaded from JSON under `data/firearms/`.
 - Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
 - Firearm weapon definitions include prototype effective and maximum ranges measured in tiles.
 - Ammunition definitions include prototype damage values.
 - Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
 - Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, AK 30-round magazine, and AK damaged 20-round magazine.
+- Weapon mod definitions for red dot sight, hunting scope, and match barrel.
 - Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
+- Runtime installed state for stateful weapon mods, with one mod per weapon mod slot.
 - Clickable prototype actions for loading/unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round.
 - Clickable Reload action for detachable-feed weapons that already have an inserted magazine/feed device and compatible held ammunition.
+- Clickable prototype actions for installing/removing compatible stateful weapon mods.
 - Firearm handling time costs are currently: 10 ticks per round loaded, 25 ticks to remove a feed device, 25 ticks to insert a feed device, and reload as remove + loaded rounds + insert.
-- Selected item details show weapon/feed loaded state for selected firearm-related items.
-- Selected weapon details show prototype effective and maximum range.
-- Starting inventory includes firearm, ammunition, and feed-device examples for manual testing.
+- Weapon mod installation and removal each currently cost 50 ticks.
+- Item hover details show weapon/feed loaded state for firearm-related items.
+- Weapon hover details show prototype effective and maximum range, installed mods, modified range, and mod damage bonus where relevant.
+- Starting inventory includes firearm, ammunition, feed-device, and weapon-mod examples for manual testing.
 - First-pass stateful item model for specific items that need identity.
 - Stateful items have stable runtime ids, item definition ids, quantity, condition, location, optional contained items, and optional firearm/feed state.
 - Stateful item locations currently include player inventory, equipment, ground, inserted into another item, and contained inside another item.
 - Stateful item pickup, drop, inspect, equip, and unequip actions go through the domain action pipeline.
 - Stateful firearm/feed actions support loading ammunition into specific feed devices, unloading them, inserting/removing them from specific weapons, loading built-in feeds, and test firing one round.
+- Stateful weapon mod actions support installing/removing compatible mods from specific weapons while preserving the mod item identity.
 - Clicking an NPC selects it as the current target and reveals a Shoot action in the global action panel.
-- Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's maximum tile range.
-- Successful shooting consumes one round, applies ammunition damage to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
+- Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's modified maximum tile range.
+- Successful shooting consumes one round, applies ammunition damage plus installed weapon mod damage bonuses to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
 - Loaded state is preserved when a stateful magazine is inserted, removed, dropped, picked back up, or inspected.
-- The prototype starts with specific stateful weapons, magazines, and a backpack-with-contents example for manual testing.
+- Installed weapon mod state is preserved on the stateful weapon while the mod item is inserted and restored to inventory when removed.
+- The prototype starts with specific stateful weapons, magazines, weapon mods, and a backpack-with-contents example for manual testing.
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
-- Twenty prototype world objects: wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, boulder, fuel pump, gas station canopy post, gas station sign, glass door, checkout counter, store shelf, restroom fixture, trash bin, parking bollard, and abandoned vehicle.
+- JSON-backed prototype structure definitions under `data/structures/` for edge-based walls, doors, windows, fences, gates, and gaps.
+- JSON-backed prototype world objects include domestic furniture, gas station fixtures, workshop clutter, utility fixtures, water tanks, paddock objects, and rural machinery/vehicle wreckage. Older tile-based wall/door/fence object definitions remain available for compatibility.
+- Sparse authored structure edge placements can specify north/east/south/west tile edges; movement checks the crossed edge before tile-object collision.
 - World object definitions can include a rectangular simulation footprint, defaulting to `1 x 1`, plus visual-only `spriteRender` metadata.
 - Sparse authored world object placements can specify north/east/south/west facing; east/west placements rotate rectangular footprints by swapping width and height.
 - Prototype world object placement on local maps with simple rendering.
-- Generated sprite assets for fridge, bed, and storage crate.
-- Movement collision against every occupied tile of world objects marked as blocking movement.
-- Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and the multi-tile abandoned vehicle while allowing movement through `glass_door`.
-- Hover tooltip shows world object details when a tile contains one.
+- Generated sprite assets for fridge, single bed, and storage crate.
+- Movement collision against blocking edge structures and every occupied tile of world objects marked as blocking movement.
+- Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and the multi-tile abandoned vehicle's data-defined occupied tiles while allowing movement through `glass_door`.
+- Hover tooltip shows world object details when a tile contains one and structure details when the tile borders an authored structure edge.
 - Refuel Vehicle appears in the global action panel when the player is cardinally adjacent to a fuel pump, the run has vehicle fuel state, and vehicle fuel is below capacity.
 - Refuel Vehicle restores vehicle fuel to the prototype capacity of 15.0 and advances shared world time by 100 ticks.
+- Container-capable world object definitions can declare a container profile id and search tick cost.
+- Local map object placements have stable world-object instance ids. Authored sparse placements can also define fixed stack loot and future loot table ids.
+- Runtime world-object container state is realized lazily when a player searches a specific container, so unsearched containers remain placement/config data only.
+- Searching adjacent container-capable world objects reveals fixed stack loot, advances world time by 75 ticks by default, and persists the searched/remaining-items state on the local site.
+- Taking revealed container stack loot transfers it into player inventory, respects inventory grid rules, advances world time by 50 ticks, and leaves the loot in place when inventory is full.
+- Prototype fridge and storage crate placements in the default local site include fixed loot for manual testing. Gas station store shelves and trash bins are searchable through empty profiles until loot tables are implemented.
+- Farmhouse-specific pickup item definitions include rural tools, salvage materials, pantry food, small medical supplies, and clothing/equipment placed thematically through the farmhouse, shed, machinery yard, paddock, and front yard.
 - JSON-backed prototype NPC definitions under `data/npcs/`.
 - NPC definitions include id, name, description, species, tags, maximum health, movement blocking, map color, optional sprite id, optional visual-only sprite render footprint metadata, and a simple behavior profile.
 - Domain NPC runtime state now separates instance id from reusable definition id, plus grid position, health, and blocking state.
@@ -146,9 +169,10 @@
 
 ## Not Included Yet
 
-- Opening, closing, moving, destroying, building, using, searching, or looting world objects.
+- Opening, closing, moving, destroying, building, or generic using of world objects.
 - Per-part world object interactions such as vehicle hood, trunk, door, or wheel targeting.
-- Container contents for fridges, crates, or other objects.
+- Random loot table rolling for world-object containers.
+- Stateful item loot inside world-object containers.
 - Finite gas station fuel reserves, payment, fuel cans, pump power, ownership checks, or fuel theft rules.
 - Player healing, death, or health effects beyond direct turret health damage.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
@@ -161,6 +185,8 @@
 - Equipment replacement actions.
 - Equipment item effects or stat modifiers.
 - Accuracy, recoil, sound propagation, jamming, durability, weapon condition, armor, cover, line of sight, miss chances, hit locations, or ballistics.
+- Stack-backed weapon mod support; weapon mods are currently stateful item attachments only.
+- Weapon mod crafting, durability, tools, installation failure chance, suppressors, recoil effects, accuracy effects, or save/load persistence.
 - Mixed ammunition inside a single feed device; unload before switching ammunition variants.
 - Full migration of all inventory content to stateful items; simple identical content still uses stack counts.
 - Full container UI or transfer actions for placing items into/taking items out of containers.
@@ -179,8 +205,8 @@
 - Injuries or health systems.
 - Weather.
 - Broad world simulation beyond the fixed world map travel shell.
-- Roads, world map pathfinding, settlements, trading, camping, enemy parties, ambushes, world map weather, or new combat systems.
+- World map road pathfinding, settlements, trading, camping, enemy parties, ambushes, world map weather, or new combat systems.
 - Vehicle upgrades, repairs, storage, or detailed vehicle condition systems.
-- Additional site-specific local maps beyond Route 18 Gas Station; non-gas-station points of interest still enter the default prototype local gameplay scene.
+- Additional site-specific local maps beyond Route 18 Gas Station and Abandoned Farmhouse; other points of interest still enter the default prototype local gameplay scene.
 - Gas station loot, trading, non-turret NPCs, quests, procedural generation, or repair services.
 - Runtime content editing or mod loading.
