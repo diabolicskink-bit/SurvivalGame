@@ -40,8 +40,8 @@ public sealed class StatefulItemTests
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearms);
         magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 12);
 
-        var insertResult = pipeline.Execute(state, new InsertStatefulFeedDeviceActionRequest(pistol.Id, magazine.Id));
-        var removeResult = pipeline.Execute(state, new RemoveStatefulFeedDeviceActionRequest(pistol.Id));
+        var insertResult = pipeline.Execute(new InsertStatefulFeedDeviceActionRequest(pistol.Id, magazine.Id), state);
+        var removeResult = pipeline.Execute(new RemoveStatefulFeedDeviceActionRequest(pistol.Id), state);
 
         Assert.True(insertResult.Succeeded);
         Assert.True(removeResult.Succeeded);
@@ -59,8 +59,8 @@ public sealed class StatefulItemTests
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearms);
         magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmHollowPoint), 8);
 
-        var dropResult = pipeline.Execute(state, new DropStatefulItemActionRequest(magazine.Id));
-        var pickupResult = pipeline.Execute(state, new PickupStatefulItemActionRequest(magazine.Id));
+        var dropResult = pipeline.Execute(new DropStatefulItemActionRequest(magazine.Id), state);
+        var pickupResult = pipeline.Execute(new PickupStatefulItemActionRequest(magazine.Id), state);
 
         Assert.True(dropResult.Succeeded);
         Assert.Equal(0, dropResult.ElapsedTicks);
@@ -81,9 +81,9 @@ public sealed class StatefulItemTests
         var rifle = state.StatefulItems.Create(PrototypeItems.HuntingRifle, 1, StatefulItemLocation.PlayerInventory(), firearms);
         state.Player.Inventory.Add(PrototypeFirearms.Ammo308Standard, 10);
 
-        pipeline.Execute(state, new LoadStatefulWeaponActionRequest(rifle.Id, PrototypeFirearms.Ammo308Standard));
-        var equipResult = pipeline.Execute(state, new EquipStatefulItemActionRequest(rifle.Id, EquipmentSlotId.MainHand));
-        var unequipResult = pipeline.Execute(state, new UnequipStatefulItemActionRequest(rifle.Id));
+        pipeline.Execute(new LoadStatefulWeaponActionRequest(rifle.Id, PrototypeFirearms.Ammo308Standard), state);
+        var equipResult = pipeline.Execute(new EquipStatefulItemActionRequest(rifle.Id, EquipmentSlotId.MainHand), state);
+        var unequipResult = pipeline.Execute(new UnequipStatefulItemActionRequest(rifle.Id), state);
 
         Assert.True(equipResult.Succeeded);
         Assert.True(unequipResult.Succeeded);
@@ -102,9 +102,10 @@ public sealed class StatefulItemTests
         state.StatefulItems.MoveToGround(backpack.Id, new GridPosition(2, 2));
         state.StatefulItems.MoveToInventory(backpack.Id);
 
+        var containedLoc = Assert.IsType<ContainedLocation>(beans.Location);
         Assert.Contains(beans.Id, backpack.Contents);
         Assert.Equal(StatefulItemLocationKind.Contained, beans.Location.Kind);
-        Assert.Equal(backpack.Id, beans.Location.ParentItemId);
+        Assert.Equal(backpack.Id, containedLoc.ParentItemId);
     }
 
     [Fact]
@@ -116,13 +117,14 @@ public sealed class StatefulItemTests
         var pistol = state.StatefulItems.Create(PrototypeFirearms.Pistol9mm, 1, StatefulItemLocation.PlayerInventory(), firearms);
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearms);
 
-        pipeline.Execute(state, new InsertStatefulFeedDeviceActionRequest(pistol.Id, magazine.Id));
+        pipeline.Execute(new InsertStatefulFeedDeviceActionRequest(pistol.Id, magazine.Id), state);
 
-        var result = pipeline.Execute(state, new DropStatefulItemActionRequest(magazine.Id));
+        var result = pipeline.Execute(new DropStatefulItemActionRequest(magazine.Id), state);
 
+        var insertedLoc = Assert.IsType<InsertedLocation>(magazine.Location);
         Assert.False(result.Succeeded);
         Assert.Equal(StatefulItemLocationKind.Inserted, magazine.Location.Kind);
-        Assert.Equal(pistol.Id, magazine.Location.ParentItemId);
+        Assert.Equal(pistol.Id, insertedLoc.ParentItemId);
         Assert.True(pistol.Weapon!.HasInsertedFeedDevice);
     }
 
@@ -135,9 +137,7 @@ public sealed class StatefulItemTests
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearms);
         state.Player.Inventory.Add(PrototypeFirearms.Ammo12GaugeBuckshot, 5);
 
-        var result = pipeline.Execute(
-            state,
-            new LoadStatefulFeedDeviceActionRequest(magazine.Id, PrototypeFirearms.Ammo12GaugeBuckshot)
+        var result = pipeline.Execute(new LoadStatefulFeedDeviceActionRequest(magazine.Id, PrototypeFirearms.Ammo12GaugeBuckshot), state
         );
 
         Assert.False(result.Succeeded);
@@ -154,7 +154,7 @@ public sealed class StatefulItemTests
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.Ground(new GridPosition(1, 1)), firearms);
         magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 9);
 
-        var result = pipeline.Execute(state, new UnloadStatefulFeedDeviceActionRequest(magazine.Id));
+        var result = pipeline.Execute(new UnloadStatefulFeedDeviceActionRequest(magazine.Id), state);
         var actions = pipeline.GetAvailableActions(state);
 
         Assert.False(result.Succeeded);
@@ -172,7 +172,7 @@ public sealed class StatefulItemTests
         var magazine = state.StatefulItems.Create(PrototypeFirearms.Magazine9mmStandard, 1, StatefulItemLocation.PlayerInventory(), firearms);
         magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 9);
 
-        var result = pipeline.Execute(state, new InspectStatefulItemActionRequest(magazine.Id));
+        var result = pipeline.Execute(new InspectStatefulItemActionRequest(magazine.Id), state);
 
         Assert.True(result.Succeeded);
         Assert.Contains(result.Messages, message => message.Contains("9/15 standard"));

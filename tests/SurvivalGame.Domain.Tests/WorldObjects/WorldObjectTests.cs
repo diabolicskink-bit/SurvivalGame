@@ -35,6 +35,8 @@ public sealed class WorldObjectTests
         Assert.Equal("Fuel pump", catalog.Get(PrototypeWorldObjects.FuelPump).Name);
         Assert.Equal("Glass door", catalog.Get(PrototypeWorldObjects.GlassDoor).Name);
         Assert.Equal("world_object_fridge", catalog.Get(PrototypeWorldObjects.Fridge).SpriteId);
+        Assert.Equal(WorldObjectFootprint.SingleTile, catalog.Get(PrototypeWorldObjects.Wall).Footprint);
+        Assert.Equal(new WorldObjectFootprint(4, 6), catalog.Get(PrototypeWorldObjects.AbandonedVehicle).Footprint);
         Assert.NotNull(catalog.Get(PrototypeWorldObjects.Tree).SpriteRender);
         Assert.Equal(1.75f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.WidthTiles, precision: 3);
         Assert.Equal(-0.35f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.OffsetYTiles, precision: 3);
@@ -69,6 +71,72 @@ public sealed class WorldObjectTests
     }
 
     [Fact]
+    public void TileObjectMapIndexesEveryTileInFootprint()
+    {
+        var objectMap = new TileObjectMap();
+        var anchor = new GridPosition(2, 3);
+
+        objectMap.Place(
+            anchor,
+            PrototypeWorldObjects.AbandonedVehicle,
+            WorldObjectFacing.East,
+            new WorldObjectFootprint(4, 6),
+            new GridBounds(12, 12)
+        );
+
+        var placement = Assert.Single(objectMap.AllObjects);
+        Assert.Equal(anchor, placement.Position);
+        Assert.Equal(WorldObjectFacing.East, placement.Facing);
+        Assert.Equal(new WorldObjectFootprint(4, 6), placement.Footprint);
+        Assert.Equal(new WorldObjectFootprint(6, 4), placement.EffectiveFootprint);
+
+        Assert.True(objectMap.TryGetObjectAt(new GridPosition(2, 3), out var anchorObject));
+        Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, anchorObject);
+        Assert.True(objectMap.TryGetObjectAt(new GridPosition(7, 6), out var farCornerObject));
+        Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, farCornerObject);
+        Assert.False(objectMap.TryGetObjectAt(new GridPosition(8, 6), out _));
+    }
+
+    [Fact]
+    public void TileObjectMapRejectsOverlappingFootprints()
+    {
+        var objectMap = new TileObjectMap();
+        objectMap.Place(
+            new GridPosition(2, 3),
+            PrototypeWorldObjects.AbandonedVehicle,
+            WorldObjectFacing.East,
+            new WorldObjectFootprint(4, 6),
+            new GridBounds(12, 12)
+        );
+
+        var ex = Assert.Throws<InvalidOperationException>(() => objectMap.Place(
+            new GridPosition(7, 6),
+            PrototypeWorldObjects.Boulder,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile,
+            new GridBounds(12, 12)
+        ));
+
+        Assert.Contains("already has a world object", ex.Message);
+    }
+
+    [Fact]
+    public void TileObjectMapRejectsOutOfBoundsFootprints()
+    {
+        var objectMap = new TileObjectMap();
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => objectMap.Place(
+            new GridPosition(7, 7),
+            PrototypeWorldObjects.AbandonedVehicle,
+            WorldObjectFacing.North,
+            new WorldObjectFootprint(4, 6),
+            new GridBounds(10, 10)
+        ));
+
+        Assert.Contains("must stay inside map bounds", ex.Message);
+    }
+
+    [Fact]
     public void WorldObjectDefinitionSpriteRenderRejectsNonPositiveSize()
     {
         var directoryPath = CreateTemporaryDirectory();
@@ -82,6 +150,28 @@ public sealed class WorldObjectTests
             "spriteRender": {
               "widthTiles": 1,
               "heightTiles": 0
+            }
+          }
+        ]
+        """);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WorldObjectDefinitionLoader().LoadDirectory(directoryPath));
+    }
+
+    [Fact]
+    public void WorldObjectDefinitionFootprintRejectsNonPositiveSize()
+    {
+        var directoryPath = CreateTemporaryDirectory();
+        var filePath = Path.Combine(directoryPath, "objects.json");
+        File.WriteAllText(filePath, """
+        [
+          {
+            "id": "bad_footprint",
+            "name": "Bad Footprint",
+            "category": "Fixture",
+            "footprint": {
+              "width": 0,
+              "height": 1
             }
           }
         ]

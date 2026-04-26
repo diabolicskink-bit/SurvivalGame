@@ -9,64 +9,47 @@ public enum StatefulItemLocationKind
     Contained
 }
 
-public sealed record StatefulItemLocation
+public abstract record StatefulItemLocation
 {
-    private StatefulItemLocation(
-        StatefulItemLocationKind kind,
-        GridPosition? position = null,
-        string? siteId = null,
-        EquipmentSlotId? equipmentSlotId = null,
-        StatefulItemId? parentItemId = null)
-    {
-        Kind = kind;
-        Position = position;
-        SiteId = kind == StatefulItemLocationKind.Ground
-            ? NormalizeSiteId(siteId)
-            : null;
-        EquipmentSlotId = equipmentSlotId;
-        ParentItemId = parentItemId;
-    }
+    public abstract StatefulItemLocationKind Kind { get; }
 
-    public StatefulItemLocationKind Kind { get; }
+    public static PlayerInventoryLocation PlayerInventory() => new();
 
-    public GridPosition? Position { get; }
+    public static GroundLocation Ground(GridPosition position, SiteId? siteId = null) =>
+        new(position, siteId ?? SiteId.Default);
 
-    public string? SiteId { get; }
-
-    public EquipmentSlotId? EquipmentSlotId { get; }
-
-    public StatefulItemId? ParentItemId { get; }
-
-    public static StatefulItemLocation PlayerInventory()
-    {
-        return new StatefulItemLocation(StatefulItemLocationKind.PlayerInventory);
-    }
-
-    public static StatefulItemLocation Ground(GridPosition position, string? siteId = null)
-    {
-        return new StatefulItemLocation(StatefulItemLocationKind.Ground, position: position, siteId: siteId);
-    }
-
-    private static string NormalizeSiteId(string? siteId)
-    {
-        return string.IsNullOrWhiteSpace(siteId)
-            ? PrototypeGameState.DefaultSiteId
-            : siteId.Trim();
-    }
-
-    public static StatefulItemLocation Equipment(EquipmentSlotId slotId)
+    public static EquipmentLocation Equipment(EquipmentSlotId slotId)
     {
         ArgumentNullException.ThrowIfNull(slotId);
-        return new StatefulItemLocation(StatefulItemLocationKind.Equipment, equipmentSlotId: slotId);
+        return new EquipmentLocation(slotId);
     }
 
-    public static StatefulItemLocation Inserted(StatefulItemId parentItemId)
-    {
-        return new StatefulItemLocation(StatefulItemLocationKind.Inserted, parentItemId: parentItemId);
-    }
+    public static InsertedLocation Inserted(StatefulItemId parentItemId) => new(parentItemId);
 
-    public static StatefulItemLocation Contained(StatefulItemId parentItemId)
-    {
-        return new StatefulItemLocation(StatefulItemLocationKind.Contained, parentItemId: parentItemId);
-    }
+    public static ContainedLocation Contained(StatefulItemId parentItemId) => new(parentItemId);
+}
+
+public sealed record PlayerInventoryLocation : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.PlayerInventory;
+}
+
+public sealed record GroundLocation(GridPosition Position, SiteId SiteId) : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.Ground;
+}
+
+public sealed record EquipmentLocation(EquipmentSlotId SlotId) : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.Equipment;
+}
+
+public sealed record InsertedLocation(StatefulItemId ParentItemId) : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.Inserted;
+}
+
+public sealed record ContainedLocation(StatefulItemId ParentItemId) : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.Contained;
 }

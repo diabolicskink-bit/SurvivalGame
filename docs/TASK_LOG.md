@@ -1,5 +1,13 @@
 # Task Log
 
+## 2026-04-26 - Multi-Tile Static World Object Footprints
+
+- Added rectangular world-object footprints and cardinal placement facing to the domain model.
+- Updated `TileObjectMap` to store one anchor placement while indexing every occupied tile for movement, hover, and inspection lookups.
+- Extended authored local map object placements with optional `facing` data and moved the Route 18 Gas Station abandoned vehicle to a multi-tile east-facing placement.
+- Updated world-object rendering to draw each placement once and rotate object sprites from their facing.
+- Added domain and loader tests for footprint defaults, rotation, overlap/out-of-bounds validation, facing parsing, and gas-station vehicle collision coverage.
+
 ## 2026-04-24 - Initial Shell Creation
 
 - Created the Godot 4 .NET project shell.
@@ -454,3 +462,37 @@
 - Configured the tree to render larger than one tile and the automated turret to use a wider 48x32 sprite with its barrel extending into the next tile.
 - Kept collision, hover, targeting, turret hazards, and tile ownership tied to the original grid tile.
 - Added tests for sprite render metadata loading, default absence, and non-positive size rejection.
+
+## 2026-04-26 - Phase 4 Action Pipeline Handler Decomposition
+
+- Split the monolithic `GameActionPipeline` into a thin dispatcher plus movement, inventory, equipment, inspect, firearm, and interaction handlers.
+- Added `GameActionContext`, `ActionHandlerRegistry`, `IActionHandler`, `ItemDescriber`, and `NpcCombatService` to make action dependencies and follow-up NPC combat explicit.
+- Changed the action execution API to `Execute(request, state)` and updated Godot/test call sites.
+- Moved stateful inventory grid placement synchronization into `PlayerInventory`.
+- Passed the NPC catalog into prototype action pipeline creation so runtime automated hazard behavior uses NPC behavior tags.
+- Kept Phase 5 firearm internals out of scope; firearm handling still delegates to `FirearmActionService`.
+
+## 2026-04-26 - Refactoring And Test Discipline Guidance
+
+- Added project-wide AI guidance that tests should detect unexpected behavior changes, not force stale production code structure to remain.
+- Clarified that planned refactors should favor maintainable, scalable architecture and update tests when test expectations describe old APIs, helpers, or file layouts.
+- Tightened maintenance sweep wording so behavior preservation refers to player-facing gameplay and domain invariants, not unhelpful implementation shapes.
+
+## 2026-04-26 - Phase 5 Firearm Action Service Decomposition
+
+- Split `FirearmActionService` into a public facade plus `FirearmValidator`, `FirearmStateOperations`, `FirearmActionProvider`, firearm refs/adapters, and shared firearm support helpers.
+- Kept stack-backed and stateful firearm behavior aligned while moving validation, mutation, action-list generation, timing/message helpers, and inventory/item lookup out of the facade.
+- Removed the old service-only `GetAvailableRounds` and `IsLoaded` helpers and updated firearm tests to assert runtime firearm state directly.
+- Preserved current player-facing firearm behavior: load/unload, insert/remove, reload timing and messages, test-fire consumption, shooting range checks, NPC damage, and failed-action mutation safety.
+- Verified focused firearm, stateful item, and game action pipeline suites, then verified the full solution test suite.
+
+## 2026-04-26 - C# Brace Style EditorConfig
+
+- Added a root `.editorconfig` for C# files.
+- Set `csharp_new_line_before_open_brace = none` so C# opening braces stay on the same line.
+
+## 2026-04-26 - Stronger Test Compatibility Guidance
+
+- Reframed test guidance around all implementation work, not only refactors.
+- Clarified that production code should never preserve stale APIs, helpers, fixtures, file layouts, mocks, or expectations solely for test compatibility.
+- Directed future agents to update, rewrite, move, or delete tests when the best implementation changes structure while still preserving intended player-facing behavior and domain invariants.

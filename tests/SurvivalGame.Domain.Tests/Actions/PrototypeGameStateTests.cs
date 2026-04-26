@@ -28,9 +28,11 @@ public sealed class PrototypeGameStateTests
     [Fact]
     public void SetPlayerPositionValidatesAgainstLocalMap()
     {
+        var bounds = new GridBounds(5, 5);
         var state = new PrototypeGameState(
-            new GridBounds(5, 5),
+            bounds,
             new TileItemMap(),
+            new TileSurfaceMap(bounds, PrototypeSurfaces.Concrete),
             new GridPosition(2, 2)
         );
 

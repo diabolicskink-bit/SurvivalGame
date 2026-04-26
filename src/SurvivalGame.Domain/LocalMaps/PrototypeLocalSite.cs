@@ -1,7 +1,7 @@
 namespace SurvivalGame.Domain;
 
 public sealed record PrototypeLocalSite(
-    string Id,
+    SiteId Id,
     string DisplayName,
     GridBounds Bounds,
     GridPosition StartPosition,

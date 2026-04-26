@@ -23,6 +23,11 @@ public sealed class GasStationSiteTests
         Assert.Equal(PrototypeWorldObjects.StoreShelf, shelf);
         Assert.True(site.WorldObjects.TryGetObjectAt(new GridPosition(33, 21), out var vehicle));
         Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, vehicle);
+        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(37, 23), out var vehiclePlacement));
+        Assert.Equal(new GridPosition(32, 20), vehiclePlacement.Position);
+        Assert.Equal(WorldObjectFacing.East, vehiclePlacement.Facing);
+        Assert.Equal(new WorldObjectFootprint(6, 4), vehiclePlacement.EffectiveFootprint);
+        Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(38, 23), out _));
         Assert.False(site.WorldObjects.TryGetObjectAt(new GridPosition(30, 12), out _));
         Assert.True(site.Npcs.TryGetAt(new GridPosition(30, 12), out var turret));
         Assert.Equal(PrototypeNpcs.GasStationTurret, turret.Id);
@@ -47,16 +52,22 @@ public sealed class GasStationSiteTests
         var state = CreateState(site, new GridPosition(24, 9));
         var pipeline = new GameActionPipeline(new ItemCatalog(), LoadWorldObjectCatalog());
 
-        var blockedByPump = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+        var blockedByPump = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
 
         Assert.False(blockedByPump.Succeeded);
         Assert.Equal(new GridPosition(24, 9), state.Player.Position);
 
         state.SetPlayerPosition(new GridPosition(12, 14));
-        var throughDoor = pipeline.Execute(state, new MoveActionRequest(GridOffset.Up));
+        var throughDoor = pipeline.Execute(new MoveActionRequest(GridOffset.Up), state);
 
         Assert.True(throughDoor.Succeeded);
         Assert.Equal(new GridPosition(12, 13), state.Player.Position);
+
+        state.SetPlayerPosition(new GridPosition(31, 21));
+        var blockedByVehicleFootprint = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
+
+        Assert.False(blockedByVehicleFootprint.Succeeded);
+        Assert.Equal(new GridPosition(31, 21), state.Player.Position);
     }
 
     [Fact]
@@ -85,7 +96,7 @@ public sealed class GasStationSiteTests
         var state = CreateState(site, new GridPosition(24, 9));
         var pipeline = new GameActionPipeline(new ItemCatalog(), LoadWorldObjectCatalog(), vehicleFuelState: fuel);
 
-        var result = pipeline.Execute(state, new RefuelVehicleActionRequest());
+        var result = pipeline.Execute(new RefuelVehicleActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(PrototypeTravelMethods.VehicleFuelCapacity, fuel.CurrentFuel);
@@ -103,9 +114,10 @@ public sealed class GasStationSiteTests
             StatefulItemLocation.Ground(new GridPosition(11, 7), PrototypeGameState.DefaultSiteId)
         );
 
+        var groundLoc = Assert.IsType<GroundLocation>(item.Location);
         Assert.Single(store.OnGround(new GridPosition(11, 7), PrototypeGameState.DefaultSiteId));
         Assert.Empty(store.OnGround(new GridPosition(11, 7), gasStation.Id));
-        Assert.Equal(PrototypeGameState.DefaultSiteId, item.Location.SiteId);
+        Assert.Equal(PrototypeGameState.DefaultSiteId, groundLoc.SiteId);
     }
 
     private static PrototypeGameState CreateState(PrototypeLocalSite site, GridPosition playerPosition)
@@ -125,7 +137,7 @@ public sealed class GasStationSiteTests
         );
     }
 
-    private static PrototypeLocalSite LoadSite(string siteId)
+    private static PrototypeLocalSite LoadSite(SiteId siteId)
     {
         return new LocalSiteDefinitionLoader()
             .LoadDirectory(

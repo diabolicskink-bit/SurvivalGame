@@ -122,11 +122,12 @@
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
 - Twenty prototype world objects: wall, tree, fridge, wooden door, window, table, chair, bed, storage crate, boulder, fuel pump, gas station canopy post, gas station sign, glass door, checkout counter, store shelf, restroom fixture, trash bin, parking bollard, and abandoned vehicle.
-- World object definitions can include visual-only `spriteRender` metadata for oversized sprite footprints.
+- World object definitions can include a rectangular simulation footprint, defaulting to `1 x 1`, plus visual-only `spriteRender` metadata.
+- Sparse authored world object placements can specify north/east/south/west facing; east/west placements rotate rectangular footprints by swapping width and height.
 - Prototype world object placement on local maps with simple rendering.
 - Generated sprite assets for fridge, bed, and storage crate.
-- Movement collision against world objects marked as blocking movement.
-- Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and abandoned vehicles while allowing movement through `glass_door`.
+- Movement collision against every occupied tile of world objects marked as blocking movement.
+- Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and the multi-tile abandoned vehicle while allowing movement through `glass_door`.
 - Hover tooltip shows world object details when a tile contains one.
 - Refuel Vehicle appears in the global action panel when the player is cardinally adjacent to a fuel pump, the run has vehicle fuel state, and vehicle fuel is below capacity.
 - Refuel Vehicle restores vehicle fuel to the prototype capacity of 15.0 and advances shared world time by 100 ticks.
@@ -146,6 +147,7 @@
 ## Not Included Yet
 
 - Opening, closing, moving, destroying, building, using, searching, or looting world objects.
+- Per-part world object interactions such as vehicle hood, trunk, door, or wheel targeting.
 - Container contents for fridges, crates, or other objects.
 - Finite gas station fuel reserves, payment, fuel cans, pump power, ownership checks, or fuel theft rules.
 - Player healing, death, or health effects beyond direct turret health damage.

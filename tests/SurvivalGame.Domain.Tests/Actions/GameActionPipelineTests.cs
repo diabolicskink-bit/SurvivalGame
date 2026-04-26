@@ -126,7 +126,7 @@ public sealed class GameActionPipelineTests
         var pipeline = CreatePipeline();
         var state = CreateState();
 
-        var result = pipeline.Execute(state, new WaitActionRequest());
+        var result = pipeline.Execute(new WaitActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.WaitTickCost, result.ElapsedTicks);
@@ -140,7 +140,7 @@ public sealed class GameActionPipelineTests
         var pipeline = CreatePipeline();
         var state = CreateState(startPosition: new GridPosition(2, 2));
 
-        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+        var result = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.MoveTickCost, result.ElapsedTicks);
@@ -155,7 +155,7 @@ public sealed class GameActionPipelineTests
         var pipeline = CreatePipeline();
         var state = CreateState(startPosition: new GridPosition(0, 0));
 
-        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Left));
+        var result = pipeline.Execute(new MoveActionRequest(GridOffset.Left), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -171,7 +171,7 @@ public sealed class GameActionPipelineTests
         worldObjects.Place(new GridPosition(3, 2), PrototypeWorldObjects.Wall);
         var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
 
-        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+        var result = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -188,7 +188,7 @@ public sealed class GameActionPipelineTests
         npcs.Add(new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200));
         var state = CreateState(npcs: npcs, startPosition: new GridPosition(2, 2));
 
-        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+        var result = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -205,7 +205,7 @@ public sealed class GameActionPipelineTests
         worldObjects.Place(new GridPosition(3, 2), PrototypeWorldObjects.Chair);
         var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
 
-        var result = pipeline.Execute(state, new MoveActionRequest(GridOffset.Right));
+        var result = pipeline.Execute(new MoveActionRequest(GridOffset.Right), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(new GridPosition(3, 2), state.Player.Position);
@@ -222,7 +222,7 @@ public sealed class GameActionPipelineTests
             bounds: new GridBounds(10, 10)
         );
 
-        var result = pipeline.Execute(state, new WaitActionRequest());
+        var result = pipeline.Execute(new WaitActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(100, state.Time.ElapsedTicks);
@@ -239,7 +239,7 @@ public sealed class GameActionPipelineTests
             startPosition: new GridPosition(2, 2)
         );
 
-        var result = pipeline.Execute(state, new WaitActionRequest());
+        var result = pipeline.Execute(new WaitActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(100, state.Time.ElapsedTicks);
@@ -262,13 +262,13 @@ public sealed class GameActionPipelineTests
             startPosition: new GridPosition(2, 2)
         );
 
-        var pickupResult = pipeline.Execute(state, new PickupActionRequest());
+        var pickupResult = pipeline.Execute(new PickupActionRequest(), state);
 
         Assert.True(pickupResult.Succeeded);
         Assert.Equal(50, state.Time.ElapsedTicks);
         Assert.Equal(100, state.Player.Vitals.Health.Current);
 
-        var waitResult = pipeline.Execute(state, new WaitActionRequest());
+        var waitResult = pipeline.Execute(new WaitActionRequest(), state);
 
         Assert.True(waitResult.Succeeded);
         Assert.Equal(150, state.Time.ElapsedTicks);
@@ -292,8 +292,8 @@ public sealed class GameActionPipelineTests
         );
         state.Player.Inventory.Add(PrototypeItems.Stone);
 
-        var failedMove = pipeline.Execute(state, new MoveActionRequest(GridOffset.Left));
-        var inspect = pipeline.Execute(state, new InspectItemActionRequest(PrototypeItems.Stone));
+        var failedMove = pipeline.Execute(new MoveActionRequest(GridOffset.Left), state);
+        var inspect = pipeline.Execute(new InspectItemActionRequest(PrototypeItems.Stone), state);
 
         Assert.False(failedMove.Succeeded);
         Assert.True(inspect.Succeeded);
@@ -312,7 +312,7 @@ public sealed class GameActionPipelineTests
             startPosition: new GridPosition(2, 2)
         );
 
-        var result = pipeline.Execute(state, new WaitActionRequest());
+        var result = pipeline.Execute(new WaitActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(100, state.Time.ElapsedTicks);
@@ -330,7 +330,7 @@ public sealed class GameActionPipelineTests
         groundItems.Place(position, PrototypeItems.Branch);
         var state = CreateState(groundItems, startPosition: position);
 
-        var result = pipeline.Execute(state, new PickupActionRequest());
+        var result = pipeline.Execute(new PickupActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.PickupTickCost, result.ElapsedTicks);
@@ -347,7 +347,7 @@ public sealed class GameActionPipelineTests
         var pipeline = CreatePipeline();
         var state = CreateState();
 
-        var result = pipeline.Execute(state, new PickupActionRequest());
+        var result = pipeline.Execute(new PickupActionRequest(), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -368,7 +368,7 @@ public sealed class GameActionPipelineTests
             state.Player.Inventory.Add(new ItemId($"filler_{index}"));
         }
 
-        var result = pipeline.Execute(state, new PickupActionRequest());
+        var result = pipeline.Execute(new PickupActionRequest(), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -391,7 +391,7 @@ public sealed class GameActionPipelineTests
             state.Player.Inventory.Add(new ItemId($"filler_{index}"));
         }
 
-        var result = pipeline.Execute(state, new PickupActionRequest());
+        var result = pipeline.Execute(new PickupActionRequest(), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.PickupTickCost, result.ElapsedTicks);
@@ -407,9 +407,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState();
         state.Player.Inventory.Add(PrototypeItems.BaseballCap);
 
-        var result = pipeline.Execute(
-            state,
-            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        var result = pipeline.Execute(new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head), state
         );
 
         Assert.True(result.Succeeded);
@@ -427,9 +425,7 @@ public sealed class GameActionPipelineTests
         var pipeline = CreatePipeline();
         var state = CreateState();
 
-        var result = pipeline.Execute(
-            state,
-            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        var result = pipeline.Execute(new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head), state
         );
 
         Assert.False(result.Succeeded);
@@ -445,9 +441,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState();
         state.Player.Inventory.Add(PrototypeItems.RunningShoes);
 
-        var result = pipeline.Execute(
-            state,
-            new EquipItemActionRequest(PrototypeItems.RunningShoes, EquipmentSlotId.Head)
+        var result = pipeline.Execute(new EquipItemActionRequest(PrototypeItems.RunningShoes, EquipmentSlotId.Head), state
         );
 
         Assert.False(result.Succeeded);
@@ -464,9 +458,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState();
         state.Player.Inventory.Add(PrototypeItems.BaseballCap);
 
-        var result = pipeline.Execute(
-            state,
-            new EquipItemActionRequest(PrototypeItems.BaseballCap, new EquipmentSlotId("Tail"))
+        var result = pipeline.Execute(new EquipItemActionRequest(PrototypeItems.BaseballCap, new EquipmentSlotId("Tail")), state
         );
 
         Assert.False(result.Succeeded);
@@ -488,9 +480,7 @@ public sealed class GameActionPipelineTests
             new EquippedItemRef(new ItemId("motorcycle_helmet"), new ItemTypePath("Armor", "Head", "Helmet"))
         );
 
-        var result = pipeline.Execute(
-            state,
-            new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head)
+        var result = pipeline.Execute(new EquipItemActionRequest(PrototypeItems.BaseballCap, EquipmentSlotId.Head), state
         );
 
         Assert.False(result.Succeeded);
@@ -508,7 +498,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState();
         state.Player.Inventory.Add(PrototypeItems.Stone, 3);
 
-        var result = pipeline.Execute(state, new InspectItemActionRequest(PrototypeItems.Stone));
+        var result = pipeline.Execute(new InspectItemActionRequest(PrototypeItems.Stone), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.InspectItemTickCost, result.ElapsedTicks);
@@ -524,7 +514,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState(startPosition: new GridPosition(2, 2));
         state.Player.Inventory.Add(PrototypeItems.Stone, 3);
 
-        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 1));
+        var result = pipeline.Execute(new DropItemStackActionRequest(PrototypeItems.Stone, 1), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.DropItemTickCost, result.ElapsedTicks);
@@ -544,7 +534,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState(startPosition: new GridPosition(2, 2));
         state.Player.Inventory.Add(PrototypeItems.Stone, 3);
 
-        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 3));
+        var result = pipeline.Execute(new DropItemStackActionRequest(PrototypeItems.Stone, 3), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(0, state.Player.Inventory.CountOf(PrototypeItems.Stone));
@@ -562,7 +552,7 @@ public sealed class GameActionPipelineTests
         var state = CreateState();
         state.Player.Inventory.Add(PrototypeItems.Stone, 2);
 
-        var result = pipeline.Execute(state, new DropItemStackActionRequest(PrototypeItems.Stone, 3));
+        var result = pipeline.Execute(new DropItemStackActionRequest(PrototypeItems.Stone, 3), state);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, result.ElapsedTicks);
@@ -581,7 +571,7 @@ public sealed class GameActionPipelineTests
             new EquippedItemRef(PrototypeItems.BaseballCap, new ItemTypePath("Clothing", "Head", "Cap"))
         );
 
-        var result = pipeline.Execute(state, new UnequipItemActionRequest(EquipmentSlotId.Head));
+        var result = pipeline.Execute(new UnequipItemActionRequest(EquipmentSlotId.Head), state);
 
         Assert.True(result.Succeeded);
         Assert.Equal(GameActionPipeline.UnequipItemTickCost, result.ElapsedTicks);
@@ -627,7 +617,7 @@ public sealed class GameActionPipelineTests
             "Ammunition"
         ));
 
-        return new GameActionPipeline(catalog, worldObjectCatalog);
+        return new GameActionPipeline(catalog, worldObjectCatalog, npcCatalog: CreateNpcCatalog());
     }
 
     private static WorldObjectCatalog CreateWorldObjectCatalog()
@@ -635,6 +625,26 @@ public sealed class GameActionPipelineTests
         var catalog = new WorldObjectCatalog();
         catalog.Add(new WorldObjectDefinition(PrototypeWorldObjects.Wall, "Wall", "", "Structure", blocksMovement: true));
         catalog.Add(new WorldObjectDefinition(PrototypeWorldObjects.Chair, "Chair", "", "Furniture"));
+        return catalog;
+    }
+
+    private static NpcCatalog CreateNpcCatalog()
+    {
+        var catalog = new NpcCatalog();
+        catalog.Add(new NpcDefinition(
+            PrototypeNpcs.AutomatedTurretDefinition,
+            "Automated turret",
+            "",
+            "Machine",
+            maximumHealth: 120,
+            tags: new[] { "turret" },
+            behavior: new NpcBehaviorProfile(
+                NpcBehaviorKind.Inert,
+                GameActionPipeline.AutomatedTurretRangeTiles,
+                new[] { "automated_hazard" }
+            )
+        ));
+
         return catalog;
     }
 

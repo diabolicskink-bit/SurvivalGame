@@ -325,13 +325,13 @@ public partial class SelectedItemPanel : VBoxContainer
 
     private static string FormatLocation(StatefulItemLocation location)
     {
-        return location.Kind switch
+        return location switch
         {
-            StatefulItemLocationKind.PlayerInventory => "Inventory",
-            StatefulItemLocationKind.Ground => $"Ground {location.Position?.X}, {location.Position?.Y}",
-            StatefulItemLocationKind.Equipment => $"Equipped: {location.EquipmentSlotId}",
-            StatefulItemLocationKind.Inserted => $"Inserted in {location.ParentItemId}",
-            StatefulItemLocationKind.Contained => $"Inside {location.ParentItemId}",
+            PlayerInventoryLocation => "Inventory",
+            GroundLocation g => $"Ground {g.Position.X}, {g.Position.Y}",
+            EquipmentLocation e => $"Equipped: {e.SlotId}",
+            InsertedLocation i => $"Inserted in {i.ParentItemId}",
+            ContainedLocation c => $"Inside {c.ParentItemId}",
             _ => location.Kind.ToString()
         };
     }

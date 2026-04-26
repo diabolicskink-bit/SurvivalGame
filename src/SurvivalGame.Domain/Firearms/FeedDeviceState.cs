@@ -1,25 +1,21 @@
 namespace SurvivalGame.Domain;
 
-public sealed class FeedDeviceState
-{
+public sealed class FeedDeviceState {
     public FeedDeviceState(
         ItemId sourceItemId,
         string displayName,
         FeedDeviceKind kind,
         AmmoSizeId ammoSize,
         int capacity
-    )
-    {
+    ) {
         ArgumentNullException.ThrowIfNull(sourceItemId);
         ArgumentNullException.ThrowIfNull(ammoSize);
 
-        if (string.IsNullOrWhiteSpace(displayName))
-        {
+        if (string.IsNullOrWhiteSpace(displayName)) {
             throw new ArgumentException("Feed device display name cannot be empty.", nameof(displayName));
         }
 
-        if (capacity < 1)
-        {
+        if (capacity < 1) {
             throw new ArgumentOutOfRangeException(nameof(capacity), "Feed device capacity must be at least 1.");
         }
 
@@ -50,40 +46,33 @@ public sealed class FeedDeviceState
 
     public bool IsFull => LoadedCount >= Capacity;
 
-    public bool CanAccept(AmmunitionDefinition ammunition)
-    {
+    public bool CanAccept(AmmunitionDefinition ammunition) {
         ArgumentNullException.ThrowIfNull(ammunition);
 
-        if (ammunition.Size != AmmoSize || IsFull)
-        {
+        if (ammunition.Size != AmmoSize || IsFull) {
             return false;
         }
 
         return LoadedAmmunitionItemId is null || LoadedAmmunitionItemId == ammunition.ItemId;
     }
 
-    public int Load(AmmunitionDefinition ammunition, int availableQuantity)
-    {
+    public int Load(AmmunitionDefinition ammunition, int availableQuantity) {
         ArgumentNullException.ThrowIfNull(ammunition);
 
-        if (availableQuantity < 1)
-        {
+        if (availableQuantity < 1) {
             throw new ArgumentOutOfRangeException(nameof(availableQuantity), "Available quantity must be at least 1.");
         }
 
-        if (ammunition.Size != AmmoSize)
-        {
+        if (ammunition.Size != AmmoSize) {
             throw new InvalidOperationException($"Cannot load {ammunition.Name} into {DisplayName}.");
         }
 
-        if (LoadedAmmunitionItemId is not null && LoadedAmmunitionItemId != ammunition.ItemId)
-        {
+        if (LoadedAmmunitionItemId is not null && LoadedAmmunitionItemId != ammunition.ItemId) {
             throw new InvalidOperationException($"{DisplayName} already contains {LoadedAmmunitionVariant} ammunition.");
         }
 
         var loadedQuantity = Math.Min(availableQuantity, Capacity - LoadedCount);
-        if (loadedQuantity < 1)
-        {
+        if (loadedQuantity < 1) {
             throw new InvalidOperationException($"{DisplayName} is full.");
         }
 
@@ -94,10 +83,8 @@ public sealed class FeedDeviceState
         return loadedQuantity;
     }
 
-    public LoadedAmmunition? UnloadAll()
-    {
-        if (LoadedAmmunitionItemId is null || LoadedAmmunitionVariant is null || LoadedCount == 0)
-        {
+    public LoadedAmmunition? UnloadAll() {
+        if (LoadedAmmunitionItemId is null || LoadedAmmunitionVariant is null || LoadedCount == 0) {
             return null;
         }
 
@@ -115,10 +102,8 @@ public sealed class FeedDeviceState
         return unloaded;
     }
 
-    public LoadedAmmunition? ConsumeOne()
-    {
-        if (LoadedAmmunitionItemId is null || LoadedAmmunitionVariant is null || LoadedCount == 0)
-        {
+    public LoadedAmmunition? ConsumeOne() {
+        if (LoadedAmmunitionItemId is null || LoadedAmmunitionVariant is null || LoadedCount == 0) {
             return null;
         }
 
@@ -130,8 +115,7 @@ public sealed class FeedDeviceState
         );
 
         LoadedCount--;
-        if (LoadedCount == 0)
-        {
+        if (LoadedCount == 0) {
             LoadedAmmunitionItemId = null;
             LoadedAmmunitionVariant = null;
         }

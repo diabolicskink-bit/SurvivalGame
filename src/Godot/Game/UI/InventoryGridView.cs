@@ -40,7 +40,7 @@ public partial class InventoryGridView : Control
         var previewContainer = new ItemContainer(
             new ContainerId("inventory_panel_preview"),
             "Inventory Preview",
-            PrototypeItemContainers.PlayerInventorySize
+            PlayerInventory.InventorySize
         );
 
         foreach (var stack in inventory.Items.Where(stack => includeItem(stack.ItemId)))

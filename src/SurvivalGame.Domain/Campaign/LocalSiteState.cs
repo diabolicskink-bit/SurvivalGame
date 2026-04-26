@@ -22,7 +22,7 @@ public sealed class LocalSiteState
         LastPlayerPosition = entryPosition;
     }
 
-    public string Id => GameState.SiteId;
+    public SiteId Id => GameState.SiteId;
 
     public string DisplayName { get; }
 

@@ -120,6 +120,74 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Contains("already has a world object", ex.Message);
     }
 
+    [Fact]
+    public void AuthoredMapLoadsObjectPlacementFacing()
+    {
+        var site = LoadSingleFromJson(
+            """
+            {
+              "id": "facing_object",
+              "displayName": "Facing Object",
+              "sourceKind": "authored",
+              "size": { "width": 12, "height": 12 },
+              "startPosition": { "x": 0, "y": 0 },
+              "defaultSurface": "grass",
+              "objectPlacements": [
+                { "objectId": "abandoned_vehicle", "x": 2, "y": 3, "facing": "east" }
+              ]
+            }
+            """);
+
+        Assert.True(site.WorldObjects.TryGetPlacementAt(new GridPosition(7, 6), out var placement));
+        Assert.Equal(new GridPosition(2, 3), placement.Position);
+        Assert.Equal(PrototypeWorldObjects.AbandonedVehicle, placement.ObjectId);
+        Assert.Equal(WorldObjectFacing.East, placement.Facing);
+        Assert.Equal(new WorldObjectFootprint(4, 6), placement.Footprint);
+        Assert.Equal(new WorldObjectFootprint(6, 4), placement.EffectiveFootprint);
+    }
+
+    [Fact]
+    public void AuthoredMapRejectsInvalidObjectPlacementFacing()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
+            """
+            {
+              "id": "bad_facing",
+              "displayName": "Bad Facing",
+              "sourceKind": "authored",
+              "size": { "width": 12, "height": 12 },
+              "startPosition": { "x": 0, "y": 0 },
+              "defaultSurface": "grass",
+              "objectPlacements": [
+                { "objectId": "abandoned_vehicle", "x": 2, "y": 3, "facing": "diagonal" }
+              ]
+            }
+            """));
+
+        Assert.Contains("unsupported facing", ex.Message);
+    }
+
+    [Fact]
+    public void AuthoredMapRejectsOutOfBoundsObjectFootprints()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
+            """
+            {
+              "id": "bad_object_footprint",
+              "displayName": "Bad Object Footprint",
+              "sourceKind": "authored",
+              "size": { "width": 5, "height": 5 },
+              "startPosition": { "x": 0, "y": 0 },
+              "defaultSurface": "grass",
+              "objectPlacements": [
+                { "objectId": "abandoned_vehicle", "x": 2, "y": 2 }
+              ]
+            }
+            """));
+
+        Assert.Contains("must stay inside map bounds", ex.Message);
+    }
+
     [Theory]
     [InlineData("recipe", "Recipe map generation is not implemented yet.")]
     [InlineData("chunkedProcedural", "Chunked procedural map generation is not implemented yet.")]

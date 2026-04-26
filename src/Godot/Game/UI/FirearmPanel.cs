@@ -87,9 +87,9 @@ public partial class FirearmPanel : VBoxContainer
     private static string FormatStatefulFeedDevice(StatefulItem item)
     {
         var feedDevice = item.FeedDevice!;
-        var location = item.Location.Kind == StatefulItemLocationKind.Inserted
+        var location = item.Location is InsertedLocation
             ? "inserted"
-            : item.Location.Kind == StatefulItemLocationKind.Ground
+            : item.Location is GroundLocation
                 ? "ground"
                 : "carried";
         var loadedText = feedDevice.LoadedAmmunitionVariant is null

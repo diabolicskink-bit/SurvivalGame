@@ -211,6 +211,7 @@
     "blocksMovement": true,
     "blocksSight": true,
     "mapColor": "#59636f",
-    "spriteId": "world_object_abandoned_vehicle"
+    "spriteId": "world_object_abandoned_vehicle",
+    "footprint": { "width": 4, "height": 6 }
   }
 ]

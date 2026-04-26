@@ -84,7 +84,7 @@ public sealed class PrototypeCampaignSession
 
     public GameActionPipeline ActionPipeline { get; }
 
-    public PrototypeGameplaySession CreateGameplaySession(string siteId)
+    public PrototypeGameplaySession CreateGameplaySession(SiteId siteId)
     {
         return new PrototypeGameplaySession(
             CampaignState.GetLocalSite(siteId),
@@ -141,7 +141,7 @@ public static class PrototypeSessionFactory
 
         AddPrototypeStartingItems(defaultLocalSite.GameState, itemCatalog, firearmCatalog);
 
-        var actionPipeline = new GameActionPipeline(itemCatalog, worldObjectCatalog, firearmCatalog, vehicleFuel);
+        var actionPipeline = new GameActionPipeline(itemCatalog, worldObjectCatalog, firearmCatalog, vehicleFuel, npcCatalog);
 
         return new PrototypeCampaignSession(
             campaignState,
@@ -333,7 +333,7 @@ public static class PrototypeSessionFactory
         );
     }
 
-    private static PrototypeLocalSite GetLocalSite(IReadOnlyList<PrototypeLocalSite> localSites, string siteId)
+    private static PrototypeLocalSite GetLocalSite(IReadOnlyList<PrototypeLocalSite> localSites, SiteId siteId)
     {
         return localSites.SingleOrDefault(site => site.Id == siteId)
             ?? throw new InvalidOperationException($"Required local site '{siteId}' was not loaded.");

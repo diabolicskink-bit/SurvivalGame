@@ -45,26 +45,31 @@ public sealed class StatefulItemStore
     public IReadOnlyList<StatefulItem> InPlayerInventory()
     {
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.PlayerInventory)
+            .Where(item => item.Location is PlayerInventoryLocation)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
 
-    public IReadOnlyList<StatefulItem> OnGround(GridPosition position, string? siteId = null)
+    public IReadOnlyList<StatefulItem> OnGround(GridPosition position, SiteId? siteId = null)
     {
+        var resolvedSiteId = siteId ?? SiteId.Default;
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.Ground
-                && item.Location.Position == position
-                && string.Equals(item.Location.SiteId, NormalizeSiteId(siteId), StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.Location is GroundLocation g
+                && g.Position == position
+                && g.SiteId == resolvedSiteId)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
 
-    public IReadOnlyList<StatefulItem> OnGroundInSite(string? siteId)
+    public IReadOnlyList<StatefulItem> OnGroundInSite(SiteId? siteId)
     {
+        if (siteId is null)
+        {
+            return Array.Empty<StatefulItem>();
+        }
+
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.Ground
-                && string.Equals(item.Location.SiteId, NormalizeSiteId(siteId), StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.Location is GroundLocation g && g.SiteId == siteId)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
@@ -72,7 +77,7 @@ public sealed class StatefulItemStore
     public IReadOnlyList<StatefulItem> Equipped()
     {
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.Equipment)
+            .Where(item => item.Location is EquipmentLocation)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
@@ -80,17 +85,14 @@ public sealed class StatefulItemStore
     public StatefulItem? EquippedIn(EquipmentSlotId slotId)
     {
         ArgumentNullException.ThrowIfNull(slotId);
-
         return Items.FirstOrDefault(item =>
-            item.Location.Kind == StatefulItemLocationKind.Equipment
-            && item.Location.EquipmentSlotId == slotId
-        );
+            item.Location is EquipmentLocation e && e.SlotId == slotId);
     }
 
     public IReadOnlyList<StatefulItem> ContainedIn(StatefulItemId parentItemId)
     {
         return Items
-            .Where(item => item.Location.Kind == StatefulItemLocationKind.Contained && item.Location.ParentItemId == parentItemId)
+            .Where(item => item.Location is ContainedLocation c && c.ParentItemId == parentItemId)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
@@ -98,15 +100,13 @@ public sealed class StatefulItemStore
     public StatefulItem? InsertedIn(StatefulItemId parentItemId)
     {
         return Items.FirstOrDefault(item =>
-            item.Location.Kind == StatefulItemLocationKind.Inserted
-            && item.Location.ParentItemId == parentItemId
-        );
+            item.Location is InsertedLocation i && i.ParentItemId == parentItemId);
     }
 
     public bool IsFreelyCarried(StatefulItemId itemId)
     {
         return TryGet(itemId, out var item)
-            && item.Location.Kind == StatefulItemLocationKind.PlayerInventory;
+            && item.Location is PlayerInventoryLocation;
     }
 
     public void MoveToInventory(StatefulItemId itemId)
@@ -114,7 +114,12 @@ public sealed class StatefulItemStore
         MoveItem(itemId, StatefulItemLocation.PlayerInventory());
     }
 
-    public void MoveToGround(StatefulItemId itemId, GridPosition position, string? siteId = null)
+    public void MoveToGround(StatefulItemId itemId, GridPosition position)
+    {
+        MoveItem(itemId, StatefulItemLocation.Ground(position));
+    }
+
+    public void MoveToGround(StatefulItemId itemId, GridPosition position, SiteId siteId)
     {
         MoveItem(itemId, StatefulItemLocation.Ground(position, siteId));
     }
@@ -132,8 +137,8 @@ public sealed class StatefulItemStore
     public void MoveToContained(StatefulItemId itemId, StatefulItemId parentItemId)
     {
         var item = Get(itemId);
-        var previousParent = item.Location.ParentItemId;
-        if (previousParent is not null && TryGet(previousParent.Value, out var previousParentItem))
+        if (item.Location is ContainedLocation prevContained
+            && TryGet(prevContained.ParentItemId, out var previousParentItem))
         {
             previousParentItem.RemoveContent(itemId);
         }
@@ -145,22 +150,13 @@ public sealed class StatefulItemStore
     private void MoveItem(StatefulItemId itemId, StatefulItemLocation location)
     {
         var item = Get(itemId);
-        var previousParent = item.Location.ParentItemId;
-        if (item.Location.Kind == StatefulItemLocationKind.Contained
-            && previousParent is not null
-            && TryGet(previousParent.Value, out var previousParentItem))
+        if (item.Location is ContainedLocation prevContained
+            && TryGet(prevContained.ParentItemId, out var previousParentItem))
         {
             previousParentItem.RemoveContent(itemId);
         }
 
         item.MoveTo(location);
-    }
-
-    private static string NormalizeSiteId(string? siteId)
-    {
-        return string.IsNullOrWhiteSpace(siteId)
-            ? PrototypeGameState.DefaultSiteId
-            : siteId.Trim();
     }
 
     private static void AttachKnownState(StatefulItem item, FirearmCatalog? firearmCatalog)

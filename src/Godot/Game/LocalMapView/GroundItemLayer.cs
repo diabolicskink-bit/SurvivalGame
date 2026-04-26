@@ -14,14 +14,14 @@ public partial class GroundItemLayer : Node2D
     private TileItemMap? _itemMap;
     private StatefulItemStore? _statefulItems;
     private ItemCatalog? _itemCatalog;
-    private string? _siteId;
+    private SiteId? _siteId;
 
     public void Configure(
         TileItemMap itemMap,
         ItemCatalog itemCatalog,
         int cellSize,
         StatefulItemStore? statefulItems = null,
-        string? siteId = null,
+        SiteId? siteId = null,
         GridViewport? viewport = null)
     {
         _itemMap = itemMap;
@@ -55,12 +55,10 @@ public partial class GroundItemLayer : Node2D
 
         foreach (var item in _statefulItems.OnGroundInSite(_siteId))
         {
-            if (item.Location.Position is not null)
+            if (item.Location is GroundLocation groundLoc
+                && TryMapToViewport(groundLoc.Position, out var viewportPosition))
             {
-                if (TryMapToViewport(item.Location.Position.Value, out var viewportPosition))
-                {
-                    DrawItemMarker(new GroundItemStack(item.ItemId, item.Quantity), viewportPosition);
-                }
+                DrawItemMarker(new GroundItemStack(item.ItemId, item.Quantity), viewportPosition);
             }
         }
     }

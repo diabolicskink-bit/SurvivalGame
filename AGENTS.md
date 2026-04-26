@@ -137,6 +137,16 @@ Movement, wait, interaction, and future actions should eventually go through the
 - Prefer small, testable vertical changes.
 - Update docs when architecture or scope changes.
 
+## Implementation And Test Discipline
+
+The best implementation, architecture, code structure, and responsibility boundaries are the only production-code design constraints. Tests are verification artifacts and safety nets; their existing shape, helper APIs, fixture layout, mocks, call sites, file layout, or interface expectations are never compatibility requirements.
+
+Never contort, preserve, or choose production code solely to keep existing tests compiling or green. This applies to every task, not only refactors. If the best implementation changes APIs, helpers, data shapes, or ownership boundaries, update, rewrite, move, or delete tests so they verify the new intended behavior and domain invariants.
+
+When tests fail, first decide whether the failure reveals a real regression against intended player-facing behavior or important domain invariants. Fix production code for real regressions. Update tests for stale expectations about structure, APIs, helpers, fixtures, mocks, file layouts, or other implementation details.
+
+Preserve player-facing behavior and important domain invariants unless the user explicitly asks for a behavior change.
+
 ## Maintenance Sweeps
 
 When the user says `Do a sweep`, treat it as permission to perform one focused codebase improvement without changing the game from a player-facing perspective.
@@ -148,14 +158,15 @@ Before choosing the sweep target:
 - Inspect the relevant code, tests, docs, and current git state.
 - Prefer issues that improve correctness, maintainability, testability, clarity, or alignment with the Godot/domain boundary.
 - Prefer domain-layer improvements and tests when the issue involves simulation rules.
-- Preserve existing gameplay behavior unless the user explicitly asks for a behavior change.
+- Preserve existing gameplay behavior and domain invariants unless the user explicitly asks for a behavior change.
 
 During a sweep:
 
 - Do not add new gameplay systems, mechanics, content, screens, rules, or scope.
 - Do not invent crafting, combat expansion, AI, survival simulation, procedural generation, saving, weather, quests, or similar features.
 - Keep edits as narrow as practical while still completing the improvement properly.
-- If a larger refactor is warranted, keep it behavior-preserving and verify it with focused tests.
+- If a larger refactor is warranted, keep it gameplay/domain behavior-preserving and verify it with focused tests.
+- Do not treat existing test shape, helper APIs, fixtures, or expectations as compatibility boundaries; update tests to match the chosen implementation.
 - Work with existing architecture and naming patterns instead of introducing new abstractions by default.
 - Update `docs/TASK_LOG.md` after the sweep. Update architecture or scope docs only when the sweep changes documented structure or guidance.
 

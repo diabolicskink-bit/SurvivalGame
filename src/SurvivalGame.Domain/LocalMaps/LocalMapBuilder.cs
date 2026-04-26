@@ -12,7 +12,7 @@ public sealed class LocalMapBuilder
     private readonly NpcRoster _npcs = new();
 
     public LocalMapBuilder(
-        string id,
+        SiteId id,
         string displayName,
         GridBounds bounds,
         GridPosition startPosition,
@@ -22,10 +22,7 @@ public sealed class LocalMapBuilder
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            throw new ArgumentException("Local site id cannot be empty.", nameof(id));
-        }
+        ArgumentNullException.ThrowIfNull(id);
 
         if (string.IsNullOrWhiteSpace(displayName))
         {
@@ -48,7 +45,7 @@ public sealed class LocalMapBuilder
         _itemCatalog = itemCatalog;
         _npcCatalog = npcCatalog;
 
-        Id = id.Trim();
+        Id = id;
         DisplayName = displayName.Trim();
         Bounds = bounds;
         StartPosition = startPosition;
@@ -57,7 +54,7 @@ public sealed class LocalMapBuilder
         _surfaces = new TileSurfaceMap(bounds, defaultSurfaceId);
     }
 
-    public string Id { get; }
+    public SiteId Id { get; }
 
     public string DisplayName { get; }
 
@@ -73,12 +70,15 @@ public sealed class LocalMapBuilder
         _surfaces.SetSurface(position, surfaceId);
     }
 
-    public void PlaceWorldObject(GridPosition position, WorldObjectId objectId)
+    public void PlaceWorldObject(
+        GridPosition position,
+        WorldObjectId objectId,
+        WorldObjectFacing facing = WorldObjectFacing.North)
     {
         EnsureInsideBounds(position, "World object position");
-        EnsureWorldObjectDefined(objectId);
+        var definition = GetWorldObjectDefinition(objectId);
 
-        _worldObjects.Place(position, objectId);
+        _worldObjects.Place(position, objectId, facing, definition.Footprint, Bounds);
     }
 
     public void PlaceGroundItem(GridPosition position, ItemId itemId, int quantity = 1)
@@ -125,9 +125,9 @@ public sealed class LocalMapBuilder
         _surfaceCatalog.Get(surfaceId);
     }
 
-    private void EnsureWorldObjectDefined(WorldObjectId objectId)
+    private WorldObjectDefinition GetWorldObjectDefinition(WorldObjectId objectId)
     {
-        _worldObjectCatalog.Get(objectId);
+        return _worldObjectCatalog.Get(objectId);
     }
 
     private void EnsureItemDefined(ItemId itemId)

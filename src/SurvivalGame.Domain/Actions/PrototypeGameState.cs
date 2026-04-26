@@ -2,16 +2,7 @@ namespace SurvivalGame.Domain;
 
 public sealed class PrototypeGameState
 {
-    public const string DefaultSiteId = "prototype_local";
-
-    public PrototypeGameState(GridBounds mapBounds, TileItemMap groundItems, GridPosition startPosition)
-        : this(
-            CreateLocalMapState(mapBounds, groundItems, new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete), new TileObjectMap()),
-            startPosition,
-            DefaultSiteId
-        )
-    {
-    }
+    public static readonly SiteId DefaultSiteId = SiteId.Default;
 
     public PrototypeGameState(
         GridBounds mapBounds,
@@ -51,7 +42,7 @@ public sealed class PrototypeGameState
     {
     }
 
-    public PrototypeGameState(LocalMapState localMap, GridPosition startPosition, string siteId)
+    public PrototypeGameState(LocalMapState localMap, GridPosition startPosition, SiteId siteId)
         : this(
             localMap,
             startPosition,
@@ -69,28 +60,24 @@ public sealed class PrototypeGameState
         PlayerState player,
         WorldTime time,
         StatefulItemStore statefulItems,
-        string siteId
+        SiteId siteId
     )
     {
         ArgumentNullException.ThrowIfNull(localMap);
         ArgumentNullException.ThrowIfNull(player);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(statefulItems);
-
-        if (string.IsNullOrWhiteSpace(siteId))
-        {
-            throw new ArgumentException("Site id cannot be empty.", nameof(siteId));
-        }
+        ArgumentNullException.ThrowIfNull(siteId);
 
         LocalMap = localMap;
         Player = player;
         Time = time;
         StatefulItems = statefulItems;
-        SiteId = siteId.Trim();
+        SiteId = siteId;
         Player.SetPosition(localMap.Map.Clamp(startPosition));
     }
 
-    public string SiteId { get; }
+    public SiteId SiteId { get; }
 
     public WorldTime Time { get; }
 

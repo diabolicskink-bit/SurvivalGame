@@ -30,7 +30,7 @@ public static class PrototypeWorldMapSites
             enterRadius: 42.0
         ),
         new WorldMapPointOfInterest(
-            PrototypeLocalSites.GasStationSiteId,
+            PrototypeLocalSites.GasStationSiteId.Value,
             "Route 18 Gas Station",
             new WorldMapPosition(420.0, 560.0),
             enterRadius: 46.0

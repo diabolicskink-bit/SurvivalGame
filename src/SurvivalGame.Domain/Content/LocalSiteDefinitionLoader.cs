@@ -115,7 +115,7 @@ public sealed class LocalSiteDefinitionLoader
                 var start = Required(StartPosition, nameof(StartPosition), sourcePath);
                 var bounds = new GridBounds(size.Width, size.Height);
                 var builder = new LocalMapBuilder(
-                    RequiredString(Id, nameof(Id), sourcePath),
+                    new SiteId(RequiredString(Id, nameof(Id), sourcePath)),
                     RequiredString(DisplayName, nameof(DisplayName), sourcePath),
                     bounds,
                     start.ToGridPosition(),
@@ -128,7 +128,7 @@ public sealed class LocalSiteDefinitionLoader
 
                 ApplySurfaceLayer(builder, SurfaceLayer, sourcePath);
                 ApplyObjectLayer(builder, ObjectLayer, sourcePath);
-                ApplyObjectPlacements(builder, ObjectPlacements);
+                ApplyObjectPlacements(builder, ObjectPlacements, sourcePath);
                 ApplyGroundItems(builder, Items);
                 ApplyNpcs(builder, Npcs);
 
@@ -179,6 +179,8 @@ public sealed class LocalSiteDefinitionLoader
         public int X { get; set; }
 
         public int Y { get; set; }
+
+        public string? Facing { get; set; }
     }
 
     private sealed class GroundItemPlacementDto
@@ -318,13 +320,17 @@ public sealed class LocalSiteDefinitionLoader
         return emptySymbol[0];
     }
 
-    private static void ApplyObjectPlacements(LocalMapBuilder builder, ObjectPlacementDto[]? placements)
+    private static void ApplyObjectPlacements(
+        LocalMapBuilder builder,
+        ObjectPlacementDto[]? placements,
+        string sourcePath)
     {
         foreach (var placement in placements ?? Array.Empty<ObjectPlacementDto>())
         {
             builder.PlaceWorldObject(
                 new GridPosition(placement.X, placement.Y),
-                new WorldObjectId(RequiredString(placement.ObjectId, nameof(placement.ObjectId), "object placement"))
+                new WorldObjectId(RequiredString(placement.ObjectId, nameof(placement.ObjectId), sourcePath)),
+                ParseWorldObjectFacing(placement.Facing, sourcePath)
             );
         }
     }
@@ -366,6 +372,25 @@ public sealed class LocalSiteDefinitionLoader
             "recipe" => LocalMapSourceKind.Recipe,
             "chunkedprocedural" => LocalMapSourceKind.ChunkedProcedural,
             _ => throw new InvalidDataException($"Unsupported local map source kind '{rawSourceKind}' in '{sourcePath}'.")
+        };
+    }
+
+    private static WorldObjectFacing ParseWorldObjectFacing(string? rawFacing, string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(rawFacing))
+        {
+            return WorldObjectFacing.North;
+        }
+
+        return rawFacing.Trim().ToLowerInvariant() switch
+        {
+            "north" => WorldObjectFacing.North,
+            "east" => WorldObjectFacing.East,
+            "south" => WorldObjectFacing.South,
+            "west" => WorldObjectFacing.West,
+            _ => throw new InvalidDataException(
+                $"World object placement in '{sourcePath}' has unsupported facing '{rawFacing}'."
+            )
         };
     }
 

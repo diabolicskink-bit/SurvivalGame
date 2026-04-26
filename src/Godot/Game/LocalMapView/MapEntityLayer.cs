@@ -5,7 +5,6 @@ using SurvivalGame.Domain;
 
 public partial class MapEntityLayer : Node2D
 {
-    private static readonly SpriteRenderProfile DefaultObjectSpriteRender = new(0.84f, 0.84f);
     private static readonly SpriteRenderProfile DefaultNpcSpriteRender = new(0.9f, 0.9f);
 
     private readonly Dictionary<string, Texture2D?> _objectSpriteCache = new();
@@ -68,23 +67,24 @@ public partial class MapEntityLayer : Node2D
         foreach (var placedObject in _objectMap.AllObjects)
         {
             var definition = TryGetWorldObjectDefinition(placedObject.ObjectId);
-            var render = definition?.SpriteRender ?? DefaultObjectSpriteRender;
-            if (!TryGetObjectSprite(definition, out var sprite))
-            {
-                render = new SpriteRenderProfile(1f, 1f);
-            }
-
-            var rect = GetRenderRect(placedObject.Position, render, sprite);
+            var render = GetObjectRenderProfile(placedObject, definition);
+            var hasSprite = TryGetObjectSprite(definition, out var sprite);
+            var rect = hasSprite
+                ? GetWorldObjectRenderBounds(placedObject, render, sprite)
+                : GetWorldObjectFootprintRect(placedObject);
             if (!IntersectsViewport(rect))
             {
                 continue;
             }
 
-            var objectId = placedObject.ObjectId;
+            var sortKey = placedObject.Position.Y
+                + placedObject.EffectiveFootprint.Height
+                - 1
+                + render.SortOffsetYTiles;
             commands.Add(new EntityDrawCommand(
-                placedObject.Position.Y + render.SortOffsetYTiles,
+                sortKey,
                 Priority: 0,
-                () => DrawWorldObject(objectId, definition, placedObject.Position, render, sprite)
+                () => DrawWorldObject(placedObject, definition, render, hasSprite ? sprite : null)
             ));
         }
     }
@@ -209,26 +209,22 @@ public partial class MapEntityLayer : Node2D
     }
 
     private void DrawWorldObject(
-        WorldObjectId objectId,
+        PlacedWorldObject placedObject,
         WorldObjectDefinition? definition,
-        GridPosition mapPosition,
         SpriteRenderProfile render,
         Texture2D? sprite)
     {
         if (sprite is not null)
         {
-            DrawSprite(mapPosition, render, sprite);
+            DrawWorldObjectSprite(placedObject, render, sprite);
             return;
         }
 
-        var viewportPosition = MapToViewportUnchecked(mapPosition);
-        var rect = new Rect2(
-            viewportPosition.X * _cellSize,
-            viewportPosition.Y * _cellSize,
-            _cellSize,
-            _cellSize
+        var rect = GetWorldObjectFootprintRect(placedObject);
+        var inset = Mathf.Min(
+            Mathf.Max(3.0f, _cellSize * 0.12f),
+            Mathf.Min(rect.Size.X, rect.Size.Y) * 0.18f
         );
-        var inset = Mathf.Max(3.0f, _cellSize * 0.12f);
         var objectRect = rect.Grow(-inset);
         var color = definition is null
             ? new Color(0.55f, 0.58f, 0.52f)
@@ -294,6 +290,19 @@ public partial class MapEntityLayer : Node2D
         return rect;
     }
 
+    private Rect2 DrawWorldObjectSprite(PlacedWorldObject placedObject, SpriteRenderProfile render, Texture2D sprite)
+    {
+        var center = GetWorldObjectRenderCenter(placedObject, render);
+        var size = GetSpriteRenderSize(render, sprite);
+        var rect = new Rect2(-(size / 2.0f), size);
+
+        DrawSetTransform(center, GetFacingRotation(placedObject.Facing), Vector2.One);
+        DrawTextureRect(sprite, rect, false);
+        DrawSetTransform(Vector2.Zero, 0.0f, Vector2.One);
+
+        return GetWorldObjectRenderBounds(placedObject, render, sprite);
+    }
+
     private Rect2 GetRenderRect(GridPosition mapPosition, SpriteRenderProfile render, Texture2D? sprite)
     {
         var center = GetRenderCenter(mapPosition, render);
@@ -303,6 +312,59 @@ public partial class MapEntityLayer : Node2D
             : GetAspectFitSize(sprite.GetSize(), maxSize);
 
         return new Rect2(center - (size / 2.0f), size);
+    }
+
+    private static SpriteRenderProfile GetObjectRenderProfile(
+        PlacedWorldObject placedObject,
+        WorldObjectDefinition? definition)
+    {
+        if (definition?.SpriteRender is { } render)
+        {
+            return render;
+        }
+
+        return new SpriteRenderProfile(placedObject.Footprint.Width, placedObject.Footprint.Height);
+    }
+
+    private Rect2 GetWorldObjectFootprintRect(PlacedWorldObject placedObject)
+    {
+        var viewportPosition = MapToViewportUnchecked(placedObject.Position);
+        var footprint = placedObject.EffectiveFootprint;
+        return new Rect2(
+            viewportPosition.X * _cellSize,
+            viewportPosition.Y * _cellSize,
+            footprint.Width * _cellSize,
+            footprint.Height * _cellSize
+        );
+    }
+
+    private Rect2 GetWorldObjectRenderBounds(
+        PlacedWorldObject placedObject,
+        SpriteRenderProfile render,
+        Texture2D sprite)
+    {
+        var center = GetWorldObjectRenderCenter(placedObject, render);
+        var size = GetSpriteRenderSize(render, sprite);
+        var screenSize = IsSideways(placedObject.Facing)
+            ? new Vector2(size.Y, size.X)
+            : size;
+
+        return new Rect2(center - (screenSize / 2.0f), screenSize);
+    }
+
+    private Vector2 GetWorldObjectRenderCenter(PlacedWorldObject placedObject, SpriteRenderProfile render)
+    {
+        var rect = GetWorldObjectFootprintRect(placedObject);
+        var center = rect.Position + (rect.Size / 2.0f);
+        var offset = RotateOffset(new Vector2(render.OffsetXTiles, render.OffsetYTiles), placedObject.Facing);
+
+        return center + (offset * _cellSize);
+    }
+
+    private Vector2 GetSpriteRenderSize(SpriteRenderProfile render, Texture2D sprite)
+    {
+        var maxSize = new Vector2(render.WidthTiles * _cellSize, render.HeightTiles * _cellSize);
+        return GetAspectFitSize(sprite.GetSize(), maxSize);
     }
 
     private Vector2 GetRenderCenter(GridPosition mapPosition, SpriteRenderProfile render)
@@ -318,6 +380,35 @@ public partial class MapEntityLayer : Node2D
     {
         var scale = Mathf.Min(maxSize.X / textureSize.X, maxSize.Y / textureSize.Y);
         return textureSize * scale;
+    }
+
+    private static bool IsSideways(WorldObjectFacing facing)
+    {
+        return facing is WorldObjectFacing.East or WorldObjectFacing.West;
+    }
+
+    private static float GetFacingRotation(WorldObjectFacing facing)
+    {
+        return facing switch
+        {
+            WorldObjectFacing.North => 0.0f,
+            WorldObjectFacing.East => Mathf.Pi / 2.0f,
+            WorldObjectFacing.South => Mathf.Pi,
+            WorldObjectFacing.West => -Mathf.Pi / 2.0f,
+            _ => 0.0f
+        };
+    }
+
+    private static Vector2 RotateOffset(Vector2 offset, WorldObjectFacing facing)
+    {
+        return facing switch
+        {
+            WorldObjectFacing.North => offset,
+            WorldObjectFacing.East => new Vector2(-offset.Y, offset.X),
+            WorldObjectFacing.South => -offset,
+            WorldObjectFacing.West => new Vector2(offset.Y, -offset.X),
+            _ => offset
+        };
     }
 
     private bool IntersectsViewport(Rect2 rect)

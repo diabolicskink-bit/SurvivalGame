@@ -48,14 +48,14 @@ public partial class GameSessionShell : Control
 
     private void OnEnterSiteRequested(WorldMapPointOfInterest site)
     {
-        var siteId = site.Id == PrototypeLocalSites.GasStationSiteId
+        var siteId = site.Id == PrototypeLocalSites.GasStationSiteId.Value
             ? PrototypeLocalSites.GasStationSiteId
             : PrototypeLocalSites.DefaultSiteId;
         var localSite = _campaignSession.CampaignState.EnterLocalSite(siteId);
         ShowLocalSite(localSite.Id);
     }
 
-    private void ShowLocalSite(string siteId)
+    private void ShowLocalSite(SiteId siteId)
     {
         ClearCurrentScreen();
 

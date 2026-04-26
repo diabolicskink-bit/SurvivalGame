@@ -2,7 +2,7 @@ namespace SurvivalGame.Domain;
 
 public static class PrototypeTravelMethods
 {
-    public const double VehicleFuelCapacity = 15.0;
+    public const double VehicleFuelCapacity = WorldMapTravelState.DefaultVehicleFuelCapacity;
 
     public const double VehicleStartingFuel = 15.0;
 

@@ -837,7 +837,7 @@ public partial class GameShell : Control
 
     private void ExecuteAction(GameActionRequest request)
     {
-        var result = _actionPipeline.Execute(_gameState, request);
+        var result = _actionPipeline.Execute(request, _gameState);
 
         RefreshViewport();
         ConfigureLocalMapView();

@@ -2,7 +2,7 @@ namespace SurvivalGame.Domain;
 
 public sealed class CampaignState
 {
-    private readonly Dictionary<string, LocalSiteState> _localSites = new(StringComparer.Ordinal);
+    private readonly Dictionary<SiteId, LocalSiteState> _localSites = new();
 
     public CampaignState(
         WorldTime time,
@@ -42,9 +42,9 @@ public sealed class CampaignState
 
     public CampaignMode Mode { get; private set; }
 
-    public string? ActiveLocalSiteId { get; private set; }
+    public SiteId? ActiveLocalSiteId { get; private set; }
 
-    public IReadOnlyDictionary<string, LocalSiteState> LocalSites => _localSites;
+    public IReadOnlyDictionary<SiteId, LocalSiteState> LocalSites => _localSites;
 
     public LocalSiteState AddLocalSite(LocalSiteState localSite)
     {
@@ -59,23 +59,24 @@ public sealed class CampaignState
         return localSite;
     }
 
-    public bool ContainsLocalSite(string siteId)
+    public bool ContainsLocalSite(SiteId siteId)
     {
-        return _localSites.ContainsKey(NormalizeSiteId(siteId));
+        ArgumentNullException.ThrowIfNull(siteId);
+        return _localSites.ContainsKey(siteId);
     }
 
-    public LocalSiteState GetLocalSite(string siteId)
+    public LocalSiteState GetLocalSite(SiteId siteId)
     {
-        var normalizedSiteId = NormalizeSiteId(siteId);
-        if (_localSites.TryGetValue(normalizedSiteId, out var localSite))
+        ArgumentNullException.ThrowIfNull(siteId);
+        if (_localSites.TryGetValue(siteId, out var localSite))
         {
             return localSite;
         }
 
-        throw new KeyNotFoundException($"Local site '{normalizedSiteId}' is not registered in this campaign.");
+        throw new KeyNotFoundException($"Local site '{siteId}' is not registered in this campaign.");
     }
 
-    public LocalSiteState EnterLocalSite(string siteId)
+    public LocalSiteState EnterLocalSite(SiteId siteId)
     {
         StoreActiveLocalSitePlayerPosition();
 
@@ -122,15 +123,5 @@ public sealed class CampaignState
         {
             throw new ArgumentException("Local site must share the campaign stateful item store.", nameof(localSite));
         }
-    }
-
-    private static string NormalizeSiteId(string siteId)
-    {
-        if (string.IsNullOrWhiteSpace(siteId))
-        {
-            throw new ArgumentException("Site id cannot be empty.", nameof(siteId));
-        }
-
-        return siteId.Trim();
     }
 }

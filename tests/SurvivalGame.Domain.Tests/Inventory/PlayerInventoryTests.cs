@@ -25,7 +25,7 @@ public sealed class PlayerInventoryTests
         Assert.False(inventory.IsEmpty);
         Assert.Equal(3, inventory.CountOf(itemId));
         Assert.Equal(new InventoryItemStack(itemId, 3), Assert.Single(inventory.Items));
-        Assert.Equal(PrototypeItemContainers.PlayerInventory, inventory.Container.Id);
+        Assert.Equal(PlayerInventory.ContainerId, inventory.Container.Id);
         Assert.True(inventory.Container.TryGetPlacement(ContainerItemRef.Stack(itemId), out var placement));
         Assert.Equal(InventoryItemSize.Default, placement.Size);
     }

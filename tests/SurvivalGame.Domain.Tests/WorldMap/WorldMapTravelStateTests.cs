@@ -27,7 +27,7 @@ public sealed class WorldMapTravelStateTests
     {
         var gasStation = Assert.Single(
             PrototypeWorldMapSites.All,
-            site => site.Id == PrototypeLocalSites.GasStationSiteId);
+            site => site.Id == PrototypeLocalSites.GasStationSiteId.Value);
 
         Assert.Equal("Route 18 Gas Station", gasStation.DisplayName);
         Assert.Equal(new WorldMapPosition(420.0, 560.0), gasStation.Position);

@@ -150,7 +150,7 @@ public sealed class CampaignStateTests
     }
 
     private static LocalSiteState CreateLocalSite(
-        string siteId,
+        SiteId siteId,
         string displayName,
         GridBounds bounds,
         GridPosition entryPosition,

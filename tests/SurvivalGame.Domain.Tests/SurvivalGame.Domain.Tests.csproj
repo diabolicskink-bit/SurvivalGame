@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SurvivalGame.Domain\SurvivalGame.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SurvivalGame.Prototype\SurvivalGame.Prototype.csproj" />
   </ItemGroup>
 </Project>

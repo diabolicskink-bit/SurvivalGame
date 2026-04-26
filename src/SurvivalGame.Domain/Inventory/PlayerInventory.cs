@@ -2,11 +2,14 @@ namespace SurvivalGame.Domain;
 
 public sealed class PlayerInventory
 {
+    public static readonly ContainerId ContainerId = new("player_inventory");
+    public static readonly InventoryItemSize InventorySize = new(20, 10);
+
     private readonly Dictionary<ItemId, int> _items = new();
     private readonly ItemContainer _container = new(
-        PrototypeItemContainers.PlayerInventory,
+        ContainerId,
         "Inventory",
-        PrototypeItemContainers.PlayerInventorySize
+        InventorySize
     );
 
     public bool IsEmpty => _items.Count == 0;
@@ -97,6 +100,42 @@ public sealed class PlayerInventory
 
         _items[itemId] = CountOf(itemId) + quantity;
         return true;
+    }
+
+    public bool TryPlaceStatefulItem(StatefulItem item, InventoryItemSize size)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var itemRef = ContainerItemRef.Stateful(item.Id);
+        return _container.Contains(itemRef)
+            || _container.TryAutoPlace(itemRef, size);
+    }
+
+    public void SynchronizeStatefulInventoryPlacements(
+        IEnumerable<StatefulItem> freelyCarriedItems,
+        Func<ItemId, InventoryItemSize> getInventorySize)
+    {
+        ArgumentNullException.ThrowIfNull(freelyCarriedItems);
+        ArgumentNullException.ThrowIfNull(getInventorySize);
+
+        var carriedItems = freelyCarriedItems.ToArray();
+        var carriedIds = carriedItems
+            .Select(item => item.Id)
+            .ToHashSet();
+
+        foreach (var placement in _container.Placements
+            .Where(placement => placement.Item.Kind == ContainerItemRefKind.Stateful
+                && placement.Item.StatefulItemId is not null
+                && !carriedIds.Contains(placement.Item.StatefulItemId.Value))
+            .ToArray())
+        {
+            _container.Remove(placement.Item);
+        }
+
+        foreach (var item in carriedItems)
+        {
+            TryPlaceStatefulItem(item, getInventorySize(item.ItemId));
+        }
     }
 
     public bool TryRemove(ItemId itemId, int quantity = 1)

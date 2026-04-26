@@ -3,6 +3,7 @@ namespace SurvivalGame.Domain;
 public sealed class WorldMapTravelState
 {
     public const int TravelTicksPerSecond = 100;
+    public const double DefaultVehicleFuelCapacity = 15.0;
     private const double ArrivalEpsilon = 0.01;
 
     private double _pendingTravelTicks;
@@ -20,7 +21,7 @@ public sealed class WorldMapTravelState
             mapHeight,
             startPosition,
             currentTravelMethod,
-            new VehicleFuelState(PrototypeTravelMethods.VehicleFuelCapacity, vehicleFuel)
+            new VehicleFuelState(DefaultVehicleFuelCapacity, vehicleFuel)
         )
     {
     }
