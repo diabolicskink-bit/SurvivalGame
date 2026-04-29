@@ -73,6 +73,8 @@ public sealed class ItemDefinitionLoader
 
         public ItemSizeDto? InventorySize { get; set; }
 
+        public FuelContainerDto? FuelContainer { get; set; }
+
         public int? InventoryWidth { get; set; }
 
         public int? InventoryHeight { get; set; }
@@ -84,18 +86,20 @@ public sealed class ItemDefinitionLoader
                 throw new InvalidDataException($"Item definition in '{sourcePath}' is missing an id.");
             }
 
+            var itemId = Id;
+
             if (string.IsNullOrWhiteSpace(Name))
             {
-                throw new InvalidDataException($"Item '{Id}' in '{sourcePath}' is missing a name.");
+                throw new InvalidDataException($"Item '{itemId}' in '{sourcePath}' is missing a name.");
             }
 
             if (string.IsNullOrWhiteSpace(Category))
             {
-                throw new InvalidDataException($"Item '{Id}' in '{sourcePath}' is missing a category.");
+                throw new InvalidDataException($"Item '{itemId}' in '{sourcePath}' is missing a category.");
             }
 
             return new ItemDefinition(
-                new ItemId(Id),
+                new ItemId(itemId),
                 Name,
                 Description ?? string.Empty,
                 Category,
@@ -105,15 +109,16 @@ public sealed class ItemDefinitionLoader
                 IconId,
                 SpriteId,
                 Actions,
-                ReadInventorySize(sourcePath)
+                ReadInventorySize(itemId, sourcePath),
+                FuelContainer?.ToFuelContainer(itemId, sourcePath)
             );
         }
 
-        private InventoryItemSize ReadInventorySize(string sourcePath)
+        private InventoryItemSize ReadInventorySize(string itemId, string sourcePath)
         {
             if (InventorySize is not null)
             {
-                return InventorySize.ToInventoryItemSize(Id!, sourcePath);
+                return InventorySize.ToInventoryItemSize(itemId, sourcePath);
             }
 
             if (InventoryWidth is not null || InventoryHeight is not null)
@@ -121,7 +126,7 @@ public sealed class ItemDefinitionLoader
                 if (InventoryWidth is null || InventoryHeight is null)
                 {
                     throw new InvalidDataException(
-                        $"Item '{Id}' in '{sourcePath}' must define both inventoryWidth and inventoryHeight."
+                        $"Item '{itemId}' in '{sourcePath}' must define both inventoryWidth and inventoryHeight."
                     );
                 }
 
@@ -148,6 +153,26 @@ public sealed class ItemDefinitionLoader
             {
                 throw new InvalidDataException(
                     $"Item '{itemId}' in '{sourcePath}' has an invalid inventory size.",
+                    exception
+                );
+            }
+        }
+    }
+
+    private sealed class FuelContainerDto
+    {
+        public double Capacity { get; set; }
+
+        public FuelContainerDefinition ToFuelContainer(string itemId, string sourcePath)
+        {
+            try
+            {
+                return new FuelContainerDefinition(Capacity);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                throw new InvalidDataException(
+                    $"Item '{itemId}' in '{sourcePath}' has an invalid fuel container definition.",
                     exception
                 );
             }

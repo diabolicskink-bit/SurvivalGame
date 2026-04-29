@@ -12,6 +12,7 @@ public sealed class LocalMapBuilder
     private readonly TileObjectMap _worldObjects = new();
     private readonly StructureEdgeMap _structures;
     private readonly NpcRoster _npcs = new();
+    private readonly Dictionary<TravelMethodId, TravelAnchorPlacement> _arrivalAnchors = new();
 
     public LocalMapBuilder(
         SiteId id,
@@ -126,6 +127,49 @@ public sealed class LocalMapBuilder
         _npcs.Add(definition.CreateState(instanceId, position));
     }
 
+    public void SetArrivalAnchor(
+        TravelMethodId travelMethod,
+        GridPosition position,
+        WorldObjectFacing facing = WorldObjectFacing.North)
+    {
+        if (!TravelAnchorRules.TryGetObjectId(travelMethod, out var objectId))
+        {
+            throw new ArgumentException($"Travel method '{travelMethod}' does not support a local arrival anchor.", nameof(travelMethod));
+        }
+
+        EnsureInsideBounds(position, "Arrival anchor position");
+        var definition = GetWorldObjectDefinition(objectId);
+        var effectiveFootprint = definition.Footprint.Rotated(facing);
+        var occupiedPositions = effectiveFootprint.PositionsFrom(position).ToHashSet();
+        foreach (var occupiedPosition in effectiveFootprint.PositionsFrom(position))
+        {
+            EnsureInsideBounds(occupiedPosition, "Arrival anchor footprint");
+            if (_worldObjects.TryGetPlacementAt(occupiedPosition, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Arrival anchor for '{travelMethod}' overlaps an existing world object at {occupiedPosition.X}, {occupiedPosition.Y}."
+                );
+            }
+        }
+
+        foreach (var existingAnchor in _arrivalAnchors.Values)
+        {
+            if (existingAnchor.TravelMethod == travelMethod)
+            {
+                continue;
+            }
+
+            if (ArrivalAnchorOccupiedPositions(existingAnchor).Any(occupiedPositions.Contains))
+            {
+                throw new InvalidOperationException(
+                    $"Arrival anchor for '{travelMethod}' overlaps the '{existingAnchor.TravelMethod}' arrival anchor."
+                );
+            }
+        }
+
+        _arrivalAnchors[travelMethod] = new TravelAnchorPlacement(travelMethod, position, facing);
+    }
+
     public PrototypeLocalSite Build()
     {
         return new PrototypeLocalSite(
@@ -137,7 +181,8 @@ public sealed class LocalMapBuilder
             _surfaces,
             _worldObjects,
             _structures,
-            _npcs
+            _npcs,
+            new Dictionary<TravelMethodId, TravelAnchorPlacement>(_arrivalAnchors)
         );
     }
 
@@ -157,6 +202,17 @@ public sealed class LocalMapBuilder
     private WorldObjectDefinition GetWorldObjectDefinition(WorldObjectId objectId)
     {
         return _worldObjectCatalog.Get(objectId);
+    }
+
+    private IEnumerable<GridPosition> ArrivalAnchorOccupiedPositions(TravelAnchorPlacement anchor)
+    {
+        if (!TravelAnchorRules.TryGetObjectId(anchor.TravelMethod, out var objectId))
+        {
+            return Array.Empty<GridPosition>();
+        }
+
+        var definition = GetWorldObjectDefinition(objectId);
+        return definition.Footprint.Rotated(anchor.Facing).PositionsFrom(anchor.Position);
     }
 
     private void EnsureStructureDefined(StructureId structureId)

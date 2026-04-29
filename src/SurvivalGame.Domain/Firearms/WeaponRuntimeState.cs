@@ -10,15 +10,25 @@ public sealed class WeaponRuntimeState
         BuiltInFeed = definition.UsesBuiltInFeed
             ? definition.CreateBuiltInFeedState()
             : null;
+        CurrentFireMode = WeaponFireMode.SingleShot;
     }
 
     public ItemId WeaponItemId { get; }
+
+    public WeaponFireMode CurrentFireMode { get; private set; }
 
     public ItemId? InsertedFeedDeviceItemId { get; private set; }
 
     public FeedDeviceState? BuiltInFeed { get; }
 
     public bool HasInsertedFeedDevice => InsertedFeedDeviceItemId is not null;
+
+    public WeaponFireMode ToggleFireMode(WeaponDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        CurrentFireMode = definition.GetNextFireMode(CurrentFireMode);
+        return CurrentFireMode;
+    }
 
     public void InsertFeedDevice(ItemId feedDeviceItemId)
     {

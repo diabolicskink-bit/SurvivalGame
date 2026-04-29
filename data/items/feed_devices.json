@@ -50,5 +50,17 @@
     "iconId": "magazine_ak_damaged_20_round",
     "spriteId": "item_magazine_ak_damaged_20_round",
     "actions": []
+  },
+  {
+    "id": "magazine_556_30_round",
+    "name": "5.56 30-round magazine",
+    "description": "A 30-round detachable magazine for compatible 5.56 carbines.",
+    "category": "FeedDevice",
+    "tags": ["DetachableMagazine", "5.56x45mm", "Carbine"],
+    "maxStackSize": 1,
+    "inventorySize": { "width": 1, "height": 3 },
+    "weight": 0.32,
+    "iconId": "magazine_556_30_round",
+    "actions": []
   }
 ]

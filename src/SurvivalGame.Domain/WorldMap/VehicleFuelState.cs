@@ -48,6 +48,18 @@ public sealed class VehicleFuelState
         return consumed;
     }
 
+    public double AddFuel(double amount)
+    {
+        if (amount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount), "Fuel amount cannot be negative.");
+        }
+
+        var accepted = Math.Min(Capacity - CurrentFuel, amount);
+        CurrentFuel += accepted;
+        return accepted;
+    }
+
     public void Refill()
     {
         CurrentFuel = Capacity;

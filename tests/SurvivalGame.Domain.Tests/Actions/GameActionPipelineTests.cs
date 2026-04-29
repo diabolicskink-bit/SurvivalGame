@@ -581,6 +581,157 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void StackCargoCanBeStowedAndTakenNearActiveTravelAnchor()
+    {
+        var cargo = new TravelCargoStore();
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2), bounds: new GridBounds(6, 6));
+        state.SetActiveTravelAnchor(anchorId);
+        state.Player.Inventory.Add(PrototypeItems.Stone, 3);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), travelCargo: cargo);
+
+        var stow = pipeline.Execute(new StowItemStackInTravelCargoActionRequest(PrototypeItems.Stone, 2), state);
+        var take = pipeline.Execute(new TakeTravelCargoItemStackActionRequest(PrototypeItems.Stone, 1), state);
+
+        Assert.True(stow.Succeeded);
+        Assert.True(take.Succeeded);
+        Assert.Equal(2, state.Player.Inventory.CountOf(PrototypeItems.Stone));
+        Assert.Equal(1, cargo.CountOf(PrototypeItems.Stone));
+    }
+
+    [Fact]
+    public void StatefulCargoCanBeStowedAndTakenNearActiveTravelAnchor()
+    {
+        var cargo = new TravelCargoStore();
+        var itemCatalog = CreateItemCatalog();
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2), bounds: new GridBounds(6, 6));
+        state.SetActiveTravelAnchor(anchorId);
+        var fuelCan = AddCarriedFuelCan(state, itemCatalog);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), travelCargo: cargo, itemCatalog: itemCatalog);
+
+        var stow = pipeline.Execute(new StowStatefulItemInTravelCargoActionRequest(fuelCan.Id), state);
+        var take = pipeline.Execute(new TakeTravelCargoStatefulItemActionRequest(fuelCan.Id), state);
+
+        Assert.True(stow.Succeeded);
+        Assert.True(take.Succeeded);
+        Assert.True(cargo.IsEmpty);
+        Assert.IsType<PlayerInventoryLocation>(fuelCan.Location);
+        Assert.True(state.Player.Inventory.Container.Contains(ContainerItemRef.Stateful(fuelCan.Id)));
+    }
+
+    [Fact]
+    public void CargoActionsAreUnavailableAwayFromActiveTravelAnchor()
+    {
+        var cargo = new TravelCargoStore();
+        cargo.StowStack(PrototypeItems.Stone, 1);
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(5, 5), bounds: new GridBounds(8, 8));
+        state.SetActiveTravelAnchor(anchorId);
+        state.Player.Inventory.Add(PrototypeItems.Branch, 1);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), travelCargo: cargo);
+
+        var actions = pipeline.GetAvailableActions(state);
+        var result = pipeline.Execute(new TakeTravelCargoItemStackActionRequest(PrototypeItems.Stone, 1), state);
+
+        Assert.DoesNotContain(actions, action => action.Kind == GameActionKind.StowItemStackInTravelCargo);
+        Assert.DoesNotContain(actions, action => action.Kind == GameActionKind.TakeTravelCargoItemStack);
+        Assert.False(result.Succeeded);
+        Assert.Equal(1, cargo.CountOf(PrototypeItems.Stone));
+    }
+
+    [Fact]
+    public void TakingStatefulCargoFailsSafelyWhenInventoryGridIsFull()
+    {
+        var cargo = new TravelCargoStore();
+        var itemCatalog = CreateItemCatalog();
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2), bounds: new GridBounds(6, 6));
+        state.SetActiveTravelAnchor(anchorId);
+        var fuelCan = state.StatefulItems.Create(
+            PrototypeItems.FuelCan,
+            1,
+            StatefulItemLocation.TravelCargo(),
+            itemCatalog: itemCatalog
+        );
+        cargo.StowStatefulItem(fuelCan.Id);
+        for (var index = 0; index < 200; index++)
+        {
+            state.Player.Inventory.Add(new ItemId($"filler_{index}"));
+        }
+
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), travelCargo: cargo, itemCatalog: itemCatalog);
+
+        var result = pipeline.Execute(new TakeTravelCargoStatefulItemActionRequest(fuelCan.Id), state);
+
+        Assert.False(result.Succeeded);
+        Assert.True(cargo.ContainsStatefulItem(fuelCan.Id));
+        Assert.IsType<TravelCargoLocation>(fuelCan.Location);
+        Assert.Contains("Not enough inventory grid space.", result.Messages);
+    }
+
+    [Fact]
+    public void FuelCanFillsFromNearbyFuelSource()
+    {
+        var itemCatalog = CreateItemCatalog();
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(2, 1),
+            PrototypeWorldObjects.FuelPump,
+            WorldObjectFacing.North,
+            WorldObjectFootprint.SingleTile
+        );
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2));
+        var fuelCan = AddCarriedFuelCan(state, itemCatalog);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), itemCatalog: itemCatalog);
+
+        var result = pipeline.Execute(new FillFuelCanActionRequest(fuelCan.Id), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(5.0, fuelCan.FuelContainer!.CurrentFuel);
+        Assert.Equal(GameActionPipeline.RefuelVehicleTickCost, state.Time.ElapsedTicks);
+    }
+
+    [Fact]
+    public void FuelCanPoursIntoVehicleOnlyNearActiveVehicleAnchor()
+    {
+        var itemCatalog = CreateItemCatalog();
+        var vehicleFuel = new VehicleFuelState(PrototypeTravelMethods.VehicleFuelCapacity, 10);
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(5, 5), bounds: new GridBounds(8, 8));
+        state.SetActiveTravelAnchor(anchorId);
+        var fuelCan = AddCarriedFuelCan(state, itemCatalog, 5.0);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), vehicleFuelState: vehicleFuel, itemCatalog: itemCatalog);
+
+        var away = pipeline.Execute(new PourFuelCanIntoVehicleActionRequest(fuelCan.Id), state);
+        state.SetPlayerPosition(new GridPosition(2, 2));
+        var near = pipeline.Execute(new PourFuelCanIntoVehicleActionRequest(fuelCan.Id), state);
+
+        Assert.False(away.Succeeded);
+        Assert.True(near.Succeeded);
+        Assert.Equal(15.0, vehicleFuel.CurrentFuel);
+        Assert.Equal(0.0, fuelCan.FuelContainer!.CurrentFuel);
+    }
+
+    [Fact]
+    public void FuelCanPartialPourLeavesRemainingFuelInCan()
+    {
+        var itemCatalog = CreateItemCatalog();
+        var vehicleFuel = new VehicleFuelState(PrototypeTravelMethods.VehicleFuelCapacity, 13);
+        var worldObjects = CreateWorldObjectsWithVehicleAnchor(out var anchorId);
+        var state = CreateState(worldObjects: worldObjects, startPosition: new GridPosition(2, 2), bounds: new GridBounds(6, 6));
+        state.SetActiveTravelAnchor(anchorId);
+        var fuelCan = AddCarriedFuelCan(state, itemCatalog, 5.0);
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), vehicleFuelState: vehicleFuel, itemCatalog: itemCatalog);
+
+        var result = pipeline.Execute(new PourFuelCanIntoVehicleActionRequest(fuelCan.Id), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(15.0, vehicleFuel.CurrentFuel);
+        Assert.Equal(3.0, fuelCan.FuelContainer!.CurrentFuel);
+    }
+
+    [Fact]
     public void EquipMovesItemFromInventoryToSlotWithoutAdvancingTime()
     {
         var pipeline = CreatePipeline();
@@ -761,7 +912,23 @@ public sealed class GameActionPipelineTests
         Assert.Contains("Unequipped Baseball cap from Head.", result.Messages);
     }
 
-    private static GameActionPipeline CreatePipeline(WorldObjectCatalog? worldObjectCatalog = null)
+    private static GameActionPipeline CreatePipeline(
+        WorldObjectCatalog? worldObjectCatalog = null,
+        TravelCargoStore? travelCargo = null,
+        VehicleFuelState? vehicleFuelState = null,
+        ItemCatalog? itemCatalog = null)
+    {
+        var catalog = itemCatalog ?? CreateItemCatalog();
+        return new GameActionPipeline(
+            catalog,
+            worldObjectCatalog,
+            vehicleFuelState: vehicleFuelState,
+            npcCatalog: CreateNpcCatalog(),
+            travelCargo: travelCargo
+        );
+    }
+
+    private static ItemCatalog CreateItemCatalog()
     {
         var catalog = new ItemCatalog();
         catalog.Add(new ItemDefinition(PrototypeItems.Stone, "Stone", "", "Material"));
@@ -804,8 +971,17 @@ public sealed class GameActionPipelineTests
             "",
             "Ammunition"
         ));
+        catalog.Add(new ItemDefinition(
+            PrototypeItems.FuelCan,
+            "Fuel can",
+            "",
+            "Tool",
+            new[] { "fuel_can" },
+            inventorySize: new InventoryItemSize(2, 3),
+            fuelContainer: new FuelContainerDefinition(5.0)
+        ));
 
-        return new GameActionPipeline(catalog, worldObjectCatalog, npcCatalog: CreateNpcCatalog());
+        return catalog;
     }
 
     private static WorldObjectCatalog CreateWorldObjectCatalog()
@@ -821,7 +997,66 @@ public sealed class GameActionPipelineTests
             blocksMovement: true,
             container: new WorldObjectContainerDefinition("fridge_basic")
         ));
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.FuelPump,
+            "Fuel pump",
+            "",
+            "Service Station",
+            new[] { "refuel_source" },
+            blocksMovement: true
+        ));
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.PlayerVehicle,
+            "Your vehicle",
+            "",
+            "Vehicle",
+            new[] { "cargo_anchor", "fuel_receiver" },
+            blocksMovement: true,
+            footprint: new WorldObjectFootprint(2, 4)
+        ));
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.PlayerPushbike,
+            "Your pushbike",
+            "",
+            "Vehicle",
+            new[] { "cargo_anchor" },
+            footprint: new WorldObjectFootprint(1, 2)
+        ));
         return catalog;
+    }
+
+    private static TileObjectMap CreateWorldObjectsWithVehicleAnchor(out WorldObjectInstanceId anchorId)
+    {
+        anchorId = TravelAnchorRules.CreateInstanceId(TravelMethodId.Vehicle);
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(0, 1),
+            PrototypeWorldObjects.PlayerVehicle,
+            WorldObjectFacing.North,
+            new WorldObjectFootprint(2, 4),
+            new GridBounds(8, 8),
+            anchorId
+        );
+        return worldObjects;
+    }
+
+    private static StatefulItem AddCarriedFuelCan(
+        PrototypeGameState state,
+        ItemCatalog itemCatalog,
+        double fuel = 0)
+    {
+        var fuelCan = state.StatefulItems.Create(
+            PrototypeItems.FuelCan,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            itemCatalog: itemCatalog
+        );
+        fuelCan.FuelContainer!.AddFuel(fuel);
+        Assert.True(state.Player.Inventory.Container.TryAutoPlace(
+            ContainerItemRef.Stateful(fuelCan.Id),
+            itemCatalog.Get(PrototypeItems.FuelCan).InventorySize
+        ));
+        return fuelCan;
     }
 
     private static NpcCatalog CreateNpcCatalog()

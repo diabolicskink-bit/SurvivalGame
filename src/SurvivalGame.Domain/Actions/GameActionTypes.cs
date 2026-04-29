@@ -16,6 +16,7 @@ public enum GameActionKind
     LoadWeapon,
     ReloadWeapon,
     TestFire,
+    ToggleFireMode,
     PickupStatefulItem,
     DropStatefulItem,
     InspectStatefulItem,
@@ -28,12 +29,19 @@ public enum GameActionKind
     LoadStatefulWeapon,
     ReloadStatefulWeapon,
     TestFireStatefulWeapon,
+    ToggleStatefulFireMode,
     InstallStatefulWeaponMod,
     RemoveStatefulWeaponMod,
     ShootNpc,
     RefuelVehicle,
     SearchContainer,
-    TakeContainerItemStack
+    TakeContainerItemStack,
+    StowItemStackInTravelCargo,
+    TakeTravelCargoItemStack,
+    StowStatefulItemInTravelCargo,
+    TakeTravelCargoStatefulItem,
+    FillFuelCan,
+    PourFuelCanIntoVehicle
 }
 
 public abstract record GameActionRequest(GameActionKind Kind);
@@ -77,6 +85,9 @@ public sealed record ReloadWeaponActionRequest(ItemId WeaponItemId, ItemId Ammun
 public sealed record TestFireActionRequest(ItemId WeaponItemId)
     : GameActionRequest(GameActionKind.TestFire);
 
+public sealed record ToggleFireModeActionRequest(ItemId WeaponItemId)
+    : GameActionRequest(GameActionKind.ToggleFireMode);
+
 public sealed record PickupStatefulItemActionRequest(StatefulItemId ItemId)
     : GameActionRequest(GameActionKind.PickupStatefulItem);
 
@@ -113,6 +124,9 @@ public sealed record ReloadStatefulWeaponActionRequest(StatefulItemId WeaponItem
 public sealed record TestFireStatefulWeaponActionRequest(StatefulItemId WeaponItemId)
     : GameActionRequest(GameActionKind.TestFireStatefulWeapon);
 
+public sealed record ToggleStatefulFireModeActionRequest(StatefulItemId WeaponItemId)
+    : GameActionRequest(GameActionKind.ToggleStatefulFireMode);
+
 public sealed record InstallStatefulWeaponModActionRequest(StatefulItemId WeaponItemId, StatefulItemId ModItemId)
     : GameActionRequest(GameActionKind.InstallStatefulWeaponMod);
 
@@ -129,6 +143,24 @@ public sealed record SearchContainerActionRequest(WorldObjectInstanceId Containe
 
 public sealed record TakeContainerItemStackActionRequest(WorldObjectInstanceId ContainerId, ItemId ItemId, int Quantity)
     : GameActionRequest(GameActionKind.TakeContainerItemStack);
+
+public sealed record StowItemStackInTravelCargoActionRequest(ItemId ItemId, int Quantity)
+    : GameActionRequest(GameActionKind.StowItemStackInTravelCargo);
+
+public sealed record TakeTravelCargoItemStackActionRequest(ItemId ItemId, int Quantity)
+    : GameActionRequest(GameActionKind.TakeTravelCargoItemStack);
+
+public sealed record StowStatefulItemInTravelCargoActionRequest(StatefulItemId ItemId)
+    : GameActionRequest(GameActionKind.StowStatefulItemInTravelCargo);
+
+public sealed record TakeTravelCargoStatefulItemActionRequest(StatefulItemId ItemId)
+    : GameActionRequest(GameActionKind.TakeTravelCargoStatefulItem);
+
+public sealed record FillFuelCanActionRequest(StatefulItemId FuelCanId)
+    : GameActionRequest(GameActionKind.FillFuelCan);
+
+public sealed record PourFuelCanIntoVehicleActionRequest(StatefulItemId FuelCanId)
+    : GameActionRequest(GameActionKind.PourFuelCanIntoVehicle);
 
 public sealed record AvailableAction(GameActionKind Kind, string Label, GameActionRequest? Request = null);
 

@@ -79,35 +79,38 @@ public sealed class GasStationSiteTests
     }
 
     [Fact]
-    public void RefuelActionIsAvailableOnlyNextToFuelPump()
+    public void FuelCanFillActionIsAvailableOnlyNextToFuelPump()
     {
         var site = LoadSite(PrototypeLocalSites.GasStationSiteId);
-        var fuel = new VehicleFuelState(PrototypeTravelMethods.VehicleFuelCapacity, 4);
         var state = CreateState(site, new GridPosition(24, 9));
-        var pipeline = new GameActionPipeline(new ItemCatalog(), LoadWorldObjectCatalog(), vehicleFuelState: fuel);
+        var itemCatalog = LoadItemCatalog();
+        AddCarriedFuelCan(state, itemCatalog);
+        var pipeline = new GameActionPipeline(itemCatalog, LoadWorldObjectCatalog());
 
         var nearPumpActions = pipeline.GetAvailableActions(state);
 
-        Assert.Contains(nearPumpActions, action => action.Kind == GameActionKind.RefuelVehicle);
+        Assert.Contains(nearPumpActions, action => action.Kind == GameActionKind.FillFuelCan);
+        Assert.DoesNotContain(nearPumpActions, action => action.Kind == GameActionKind.RefuelVehicle);
 
         state.SetPlayerPosition(site.StartPosition);
         var awayFromPumpActions = pipeline.GetAvailableActions(state);
 
-        Assert.DoesNotContain(awayFromPumpActions, action => action.Kind == GameActionKind.RefuelVehicle);
+        Assert.DoesNotContain(awayFromPumpActions, action => action.Kind == GameActionKind.FillFuelCan);
     }
 
     [Fact]
-    public void RefuelActionRestoresFuelAndAdvancesTime()
+    public void FuelCanFillActionFillsCanAndAdvancesTime()
     {
         var site = LoadSite(PrototypeLocalSites.GasStationSiteId);
-        var fuel = new VehicleFuelState(PrototypeTravelMethods.VehicleFuelCapacity, 4);
         var state = CreateState(site, new GridPosition(24, 9));
-        var pipeline = new GameActionPipeline(new ItemCatalog(), LoadWorldObjectCatalog(), vehicleFuelState: fuel);
+        var itemCatalog = LoadItemCatalog();
+        var fuelCan = AddCarriedFuelCan(state, itemCatalog);
+        var pipeline = new GameActionPipeline(itemCatalog, LoadWorldObjectCatalog());
 
-        var result = pipeline.Execute(new RefuelVehicleActionRequest(), state);
+        var result = pipeline.Execute(new FillFuelCanActionRequest(fuelCan.Id), state);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(PrototypeTravelMethods.VehicleFuelCapacity, fuel.CurrentFuel);
+        Assert.Equal(5.0, fuelCan.FuelContainer!.CurrentFuel);
         Assert.Equal(GameActionPipeline.RefuelVehicleTickCost, state.Time.ElapsedTicks);
     }
 
@@ -143,6 +146,21 @@ public sealed class GasStationSiteTests
             new StatefulItemStore(),
             site.Id
         );
+    }
+
+    private static StatefulItem AddCarriedFuelCan(PrototypeGameState state, ItemCatalog itemCatalog)
+    {
+        var fuelCan = state.StatefulItems.Create(
+            PrototypeItems.FuelCan,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            itemCatalog: itemCatalog
+        );
+        Assert.True(state.Player.Inventory.Container.TryAutoPlace(
+            ContainerItemRef.Stateful(fuelCan.Id),
+            itemCatalog.Get(PrototypeItems.FuelCan).InventorySize
+        ));
+        return fuelCan;
     }
 
     private static PrototypeLocalSite LoadSite(SiteId siteId)

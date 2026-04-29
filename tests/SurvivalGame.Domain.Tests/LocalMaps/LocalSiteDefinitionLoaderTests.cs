@@ -31,6 +31,8 @@ public sealed class LocalSiteDefinitionLoaderTests
             stack => stack.ItemId == PrototypeItems.Stone && stack.Quantity == 2);
         Assert.True(defaultSite.Npcs.TryGetAt(new GridPosition(14, 8), out var testDummy));
         Assert.Equal(PrototypeNpcs.TestDummy, testDummy.Id);
+        AssertArrivalAnchor(defaultSite, TravelMethodId.Vehicle, new GridPosition(10, 10), WorldObjectFacing.East);
+        AssertArrivalAnchor(defaultSite, TravelMethodId.Pushbike, new GridPosition(9, 7), WorldObjectFacing.North);
 
         var gasStation = Assert.Single(sites, site => site.Id == PrototypeLocalSites.GasStationSiteId);
         Assert.Equal(PrototypeLocalSites.GasStationBounds, gasStation.Bounds);
@@ -41,6 +43,8 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Equal(new WorldObjectInstanceId("store_shelf@7,6"), shelfPlacement.InstanceId);
         Assert.True(gasStation.Npcs.TryGetAt(new GridPosition(30, 12), out var turret));
         Assert.Equal(PrototypeNpcs.GasStationTurret, turret.Id);
+        AssertArrivalAnchor(gasStation, TravelMethodId.Vehicle, new GridPosition(17, 14), WorldObjectFacing.East);
+        AssertArrivalAnchor(gasStation, TravelMethodId.Pushbike, new GridPosition(21, 16), WorldObjectFacing.North);
 
         var farmstead = Assert.Single(sites, site => site.Id == PrototypeLocalSites.FarmsteadSiteId);
         Assert.Equal(PrototypeLocalSites.FarmsteadBounds, farmstead.Bounds);
@@ -56,6 +60,8 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Contains(
             farmstead.GroundItems.ItemsAt(new GridPosition(49, 17)),
             stack => stack.ItemId == new ItemId("hammer") && stack.Quantity == 1);
+        AssertArrivalAnchor(farmstead, TravelMethodId.Vehicle, new GridPosition(1, 39), WorldObjectFacing.East);
+        AssertArrivalAnchor(farmstead, TravelMethodId.Pushbike, new GridPosition(5, 40), WorldObjectFacing.North);
     }
 
     [Fact]
@@ -261,6 +267,72 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Contains("must stay inside map bounds", ex.Message);
     }
 
+    [Fact]
+    public void AuthoredMapLoadsArrivalAnchors()
+    {
+        var site = LoadSingleFromJson(
+            """
+            {
+              "id": "arrival_anchor_site",
+              "displayName": "Arrival Anchor Site",
+              "sourceKind": "authored",
+              "size": { "width": 12, "height": 12 },
+              "startPosition": { "x": 0, "y": 0 },
+              "arrivalAnchors": {
+                "vehicle": { "x": 2, "y": 3, "facing": "east" },
+                "pushbike": { "x": 8, "y": 8 }
+              },
+              "defaultSurface": "grass"
+            }
+            """);
+
+        AssertArrivalAnchor(site, TravelMethodId.Vehicle, new GridPosition(2, 3), WorldObjectFacing.East);
+        AssertArrivalAnchor(site, TravelMethodId.Pushbike, new GridPosition(8, 8), WorldObjectFacing.North);
+    }
+
+    [Fact]
+    public void AuthoredMapRejectsOutOfBoundsArrivalAnchorFootprints()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
+            """
+            {
+              "id": "bad_arrival_anchor",
+              "displayName": "Bad Arrival Anchor",
+              "sourceKind": "authored",
+              "size": { "width": 5, "height": 5 },
+              "startPosition": { "x": 0, "y": 0 },
+              "arrivalAnchors": {
+                "vehicle": { "x": 3, "y": 3 }
+              },
+              "defaultSurface": "grass"
+            }
+            """));
+
+        Assert.Contains("inside map bounds", ex.Message);
+    }
+
+    [Fact]
+    public void AuthoredMapRejectsOverlappingArrivalAnchors()
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
+            """
+            {
+              "id": "overlapping_arrival_anchors",
+              "displayName": "Overlapping Arrival Anchors",
+              "sourceKind": "authored",
+              "size": { "width": 12, "height": 12 },
+              "startPosition": { "x": 0, "y": 0 },
+              "arrivalAnchors": {
+                "vehicle": { "x": 2, "y": 3, "facing": "east" },
+                "pushbike": { "x": 5, "y": 4 }
+              },
+              "defaultSurface": "grass"
+            }
+            """));
+
+        Assert.Contains("overlaps", ex.Message);
+    }
+
     [Theory]
     [InlineData("recipe", "Recipe map generation is not implemented yet.")]
     [InlineData("chunkedProcedural", "Chunked procedural map generation is not implemented yet.")]
@@ -286,6 +358,20 @@ public sealed class LocalSiteDefinitionLoaderTests
             LoadItemCatalog(),
             LoadNpcCatalog()
         );
+    }
+
+    private static void AssertArrivalAnchor(
+        PrototypeLocalSite site,
+        TravelMethodId method,
+        GridPosition position,
+        WorldObjectFacing facing)
+    {
+        Assert.NotNull(site.ArrivalAnchors);
+        Assert.True(site.ArrivalAnchors!.TryGetValue(method, out var anchor));
+        Assert.Equal(method, anchor.TravelMethod);
+        Assert.Equal(position, anchor.Position);
+        Assert.Equal(facing, anchor.Facing);
+        Assert.True(site.Bounds.Contains(anchor.Position));
     }
 
     private static PrototypeLocalSite LoadSingleFromJson(string json, StructureCatalog? structureCatalog = null)

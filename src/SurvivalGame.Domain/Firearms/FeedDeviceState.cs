@@ -103,7 +103,19 @@ public sealed class FeedDeviceState {
     }
 
     public LoadedAmmunition? ConsumeOne() {
+        return Consume(1);
+    }
+
+    public LoadedAmmunition? Consume(int quantity) {
+        if (quantity < 1) {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Consumed quantity must be at least 1.");
+        }
+
         if (LoadedAmmunitionItemId is null || LoadedAmmunitionVariant is null || LoadedCount == 0) {
+            return null;
+        }
+
+        if (LoadedCount < quantity) {
             return null;
         }
 
@@ -111,10 +123,10 @@ public sealed class FeedDeviceState {
             LoadedAmmunitionItemId,
             AmmoSize,
             LoadedAmmunitionVariant,
-            1
+            quantity
         );
 
-        LoadedCount--;
+        LoadedCount -= quantity;
         if (LoadedCount == 0) {
             LoadedAmmunitionItemId = null;
             LoadedAmmunitionVariant = null;

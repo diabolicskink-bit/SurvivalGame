@@ -102,11 +102,17 @@ public sealed class WorldMapTravelStateTests
 
         Assert.InRange(roads.Count, 18, 24);
         Assert.All(requiredRoutes, route => Assert.True(roads.ContainsKey(route), $"Missing required road '{route}'."));
+        Assert.InRange(
+            roads.Values.Sum(road => road.Segments.Sum(segment => segment.Points.Count)),
+            300,
+            500
+        );
         Assert.All(roads.Values, road =>
         {
             Assert.NotEmpty(road.Segments);
             Assert.All(road.Segments, segment => Assert.True(segment.Points.Count >= 2));
             Assert.True(road.LaneCount > 0);
+            Assert.InRange(road.MapLanesPerDirection, 1, 3);
             Assert.True(road.SurfaceWidthFeet > 0);
             Assert.True(road.TravelInfluenceRadius > 0);
         });
@@ -114,6 +120,8 @@ public sealed class WorldMapTravelStateTests
         Assert.Equal(WorldMapRoadKind.UsHighway, roads["us_50"].Kind);
         Assert.True(roads["us_36"].Segments.Count > 1);
         Assert.True(roads["i_25"].LaneCount >= roads["co_14"].LaneCount);
+        Assert.Contains(roads.Values, road => road.MapLanesPerDirection == 1);
+        Assert.Contains(roads.Values, road => road.MapLanesPerDirection == 2);
     }
 
     [Fact]

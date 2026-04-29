@@ -30,6 +30,8 @@ internal interface IFirearmWeaponRef
 {
     WeaponDefinition Definition { get; }
 
+    WeaponFireMode CurrentFireMode { get; }
+
     bool HasInsertedFeedDevice { get; }
 
     FeedDeviceState? ActiveFeed { get; }
@@ -41,6 +43,8 @@ internal interface IFirearmWeaponRef
     void InsertFeedDevice(IFirearmDetachableFeedRef feed);
 
     IFirearmDetachableFeedRef? RemoveFeedDevice();
+
+    WeaponFireMode ToggleFireMode();
 }
 
 internal sealed class StackFeedRef : IFirearmDetachableFeedRef
@@ -242,6 +246,11 @@ internal sealed class StackWeaponRef : IFirearmWeaponRef
 
     public WeaponDefinition Definition { get; }
 
+    public WeaponFireMode CurrentFireMode =>
+        _player.Firearms.TryGetWeapon(Definition.ItemId, out var weaponState)
+            ? weaponState.CurrentFireMode
+            : WeaponFireMode.SingleShot;
+
     public bool HasInsertedFeedDevice =>
         _player.Firearms.TryGetWeapon(Definition.ItemId, out var weaponState)
         && weaponState.HasInsertedFeedDevice;
@@ -298,6 +307,12 @@ internal sealed class StackWeaponRef : IFirearmWeaponRef
         feed.MoveToInventory();
         return feed;
     }
+
+    public WeaponFireMode ToggleFireMode()
+    {
+        var weaponState = _player.Firearms.EnsureWeapon(Definition);
+        return weaponState.ToggleFireMode(Definition);
+    }
 }
 
 internal sealed class StatefulWeaponRef : IFirearmWeaponRef
@@ -317,6 +332,8 @@ internal sealed class StatefulWeaponRef : IFirearmWeaponRef
     public StatefulItem Item { get; }
 
     public WeaponDefinition Definition { get; }
+
+    public WeaponFireMode CurrentFireMode => Item.Weapon?.CurrentFireMode ?? WeaponFireMode.SingleShot;
 
     public bool HasInsertedFeedDevice => Item.Weapon?.HasInsertedFeedDevice == true;
 
@@ -383,6 +400,12 @@ internal sealed class StatefulWeaponRef : IFirearmWeaponRef
         var feed = new StatefulFeedRef(_items, feedDeviceItem);
         feed.MoveToInventory();
         return feed;
+    }
+
+    public WeaponFireMode ToggleFireMode()
+    {
+        return Item.Weapon?.ToggleFireMode(Definition)
+            ?? throw new InvalidOperationException($"Stateful weapon '{Item.Id}' is missing weapon state.");
     }
 }
 

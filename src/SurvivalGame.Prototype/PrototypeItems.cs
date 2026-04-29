@@ -15,6 +15,7 @@ public static class PrototypeItems
     public static readonly ItemId Stone = new("stone");
     public static readonly ItemId Branch = new("branch");
     public static readonly ItemId WaterBottle = new("water_bottle");
+    public static readonly ItemId FuelCan = new("fuel_can");
     public static readonly ItemId Ak47 = new("ak47");
     public static readonly ItemId HuntingRifle = new("hunting_rifle");
     public static readonly ItemId BaseballCap = new("baseball_cap");

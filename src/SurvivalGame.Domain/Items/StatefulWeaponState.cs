@@ -9,9 +9,12 @@ public sealed class StatefulWeaponState
         ArgumentNullException.ThrowIfNull(weaponItemId);
         WeaponItemId = weaponItemId;
         BuiltInFeed = builtInFeed;
+        CurrentFireMode = WeaponFireMode.SingleShot;
     }
 
     public ItemId WeaponItemId { get; }
+
+    public WeaponFireMode CurrentFireMode { get; private set; }
 
     public StatefulItemId? InsertedFeedDeviceItemId { get; private set; }
 
@@ -20,6 +23,13 @@ public sealed class StatefulWeaponState
     public IReadOnlyDictionary<WeaponModSlotId, StatefulItemId> InstalledMods => _installedMods;
 
     public bool HasInsertedFeedDevice => InsertedFeedDeviceItemId is not null;
+
+    public WeaponFireMode ToggleFireMode(WeaponDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        CurrentFireMode = definition.GetNextFireMode(CurrentFireMode);
+        return CurrentFireMode;
+    }
 
     public bool HasInstalledMod(WeaponModSlotId slot)
     {

@@ -127,6 +127,9 @@ public sealed class WorldMapDefinitionLoader
             segments,
             dto.Priority > 0 ? dto.Priority : DefaultRoadPriority(kind),
             laneCount,
+            dto.MapLanesPerDirection > 0
+                ? dto.MapLanesPerDirection
+                : MapLanesPerDirectionFromLaneCount(laneCount),
             dto.SurfaceWidthFeet > 0 ? dto.SurfaceWidthFeet : laneCount * 12.0,
             dto.TravelInfluenceRadius <= 0 ? DefaultRoadTravelRadius(kind, laneCount) : dto.TravelInfluenceRadius
         );
@@ -260,6 +263,21 @@ public sealed class WorldMapDefinitionLoader
         return baseRadius + (Math.Max(0, laneCount - 2) * 6.0);
     }
 
+    private static int MapLanesPerDirectionFromLaneCount(int laneCount)
+    {
+        if (laneCount <= 2)
+        {
+            return 1;
+        }
+
+        if (laneCount <= 4)
+        {
+            return 2;
+        }
+
+        return 3;
+    }
+
     private static WorldMapTerrainRegion ToTerrainRegion(
         TerrainRegionDto dto,
         CoordinateProjector projector,
@@ -388,6 +406,7 @@ public sealed class WorldMapDefinitionLoader
         public string? Kind { get; set; }
         public int Priority { get; set; } = 2;
         public int LaneCount { get; set; }
+        public int MapLanesPerDirection { get; set; }
         public double SurfaceWidthFeet { get; set; }
         public double TravelInfluenceRadius { get; set; }
         public CoordinateDto[]? Points { get; set; }

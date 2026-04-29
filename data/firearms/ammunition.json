@@ -47,5 +47,12 @@
     "size": ".22 LR",
     "variant": "standard",
     "damage": 15
+  },
+  {
+    "itemId": "ammo_556_standard",
+    "name": "5.56x45mm standard rounds",
+    "size": "5.56x45mm",
+    "variant": "standard",
+    "damage": 40
   }
 ]

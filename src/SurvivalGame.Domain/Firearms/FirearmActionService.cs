@@ -13,13 +13,17 @@ public sealed class FirearmActionService
     private readonly FirearmStateOperations _operations;
     private readonly FirearmActionProvider _actions;
 
-    public FirearmActionService(FirearmCatalog catalog, ItemCatalog? itemCatalog = null)
+    public FirearmActionService(
+        FirearmCatalog catalog,
+        ItemCatalog? itemCatalog = null,
+        WorldObjectCatalog? worldObjectCatalog = null,
+        StructureCatalog? structureCatalog = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
         _items = new FirearmItemServices(catalog, itemCatalog);
         var refs = new FirearmRefFactory(catalog, _items);
-        _validator = new FirearmValidator(catalog, _items, refs);
+        _validator = new FirearmValidator(catalog, _items, refs, new LineOfFireResolver(worldObjectCatalog, structureCatalog));
         _operations = new FirearmStateOperations(_items);
         _actions = new FirearmActionProvider(catalog, _items);
     }
@@ -106,6 +110,14 @@ public sealed class FirearmActionService
         return TestFire(_validator.ValidateTestFire(state, weaponItemId));
     }
 
+    public GameActionResult ToggleFireMode(PrototypeGameState state, ItemId weaponItemId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(weaponItemId);
+
+        return ToggleFireMode(_validator.ValidateToggleFireMode(state, weaponItemId));
+    }
+
     public GameActionResult LoadStatefulFeedDevice(PrototypeGameState state, StatefulItemId feedDeviceItemId, ItemId ammunitionItemId)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -170,6 +182,13 @@ public sealed class FirearmActionService
         return TestFire(_validator.ValidateTestFireStatefulWeapon(state, weaponItemId));
     }
 
+    public GameActionResult ToggleStatefulFireMode(PrototypeGameState state, StatefulItemId weaponItemId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return ToggleFireMode(_validator.ValidateToggleStatefulFireMode(state, weaponItemId));
+    }
+
     public GameActionResult InstallStatefulWeaponMod(
         PrototypeGameState state,
         StatefulItemId weaponItemId,
@@ -207,10 +226,13 @@ public sealed class FirearmActionService
         var status = result.TargetDisabled
             ? $"{plan.Target.Name} is disabled."
             : $"{plan.Target.Name} health: {plan.Target.Health.Current}/{plan.Target.Health.Maximum}.";
+        var shotText = plan.FireMode == WeaponFireMode.Burst
+            ? $"{result.ConsumedRounds}-round burst"
+            : "single shot";
 
         return GameActionResult.Success(
-            0,
-            $"Shot {plan.Target.Name} with {plan.WeaponName} using {plan.Ammunition.Name} for {result.DealtDamage} damage.",
+            GetShootTickCost(plan.FireMode),
+            $"Fired {shotText} at {plan.Target.Name} with {plan.WeaponName} using {plan.Ammunition.Name} for {result.DealtDamage} damage.",
             status
         );
     }
@@ -317,6 +339,20 @@ public sealed class FirearmActionService
         );
     }
 
+    private GameActionResult ToggleFireMode(FirearmValidation<ToggleFireModePlan> validation)
+    {
+        if (!validation.Succeeded)
+        {
+            return validation.ToFailureResult();
+        }
+
+        var result = _operations.ToggleFireMode(RequirePlan(validation));
+        return GameActionResult.Success(
+            0,
+            $"Set {result.WeaponName} to {WeaponFireModeNames.Format(result.CurrentFireMode)}."
+        );
+    }
+
     private GameActionResult InstallWeaponMod(
         FirearmValidation<InstallWeaponModPlan> validation,
         StatefulItemStore statefulItems)
@@ -358,5 +394,12 @@ public sealed class FirearmActionService
     {
         return validation.Plan
             ?? throw new InvalidOperationException("Firearm validation succeeded without a plan.");
+    }
+
+    private static int GetShootTickCost(WeaponFireMode mode)
+    {
+        return mode == WeaponFireMode.Burst
+            ? GameActionPipeline.BurstShootTickCost
+            : GameActionPipeline.ShootTickCost;
     }
 }

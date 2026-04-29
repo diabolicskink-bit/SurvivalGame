@@ -103,6 +103,8 @@ public sealed class LocalSiteDefinitionLoader
 
         public GridPositionDto? StartPosition { get; set; }
 
+        public Dictionary<string, ArrivalAnchorDto>? ArrivalAnchors { get; set; }
+
         public string? DefaultSurface { get; set; }
 
         public MapLayerDto? SurfaceLayer { get; set; }
@@ -171,6 +173,7 @@ public sealed class LocalSiteDefinitionLoader
                 ApplySurfaceLayer(builder, SurfaceLayer, sourcePath);
                 ApplyObjectLayer(builder, ObjectLayer, sourcePath);
                 ApplyObjectPlacements(builder, ObjectPlacements, sourcePath);
+                ApplyArrivalAnchors(builder, ArrivalAnchors, sourcePath);
                 ApplyStructureEdges(builder, StructureEdges, sourcePath);
                 ApplyGroundItems(builder, Items);
                 ApplyNpcs(builder, Npcs);
@@ -228,6 +231,15 @@ public sealed class LocalSiteDefinitionLoader
         public string? Facing { get; set; }
 
         public ContainerPlacementDto? Container { get; set; }
+    }
+
+    private sealed class ArrivalAnchorDto
+    {
+        public int X { get; set; }
+
+        public int Y { get; set; }
+
+        public string? Facing { get; set; }
     }
 
     private sealed class StructureEdgePlacementDto
@@ -416,6 +428,21 @@ public sealed class LocalSiteDefinitionLoader
         }
     }
 
+    private static void ApplyArrivalAnchors(
+        LocalMapBuilder builder,
+        Dictionary<string, ArrivalAnchorDto>? anchors,
+        string sourcePath)
+    {
+        foreach (var (rawMethod, anchor) in anchors ?? new Dictionary<string, ArrivalAnchorDto>())
+        {
+            builder.SetArrivalAnchor(
+                ParseArrivalAnchorMethod(rawMethod, sourcePath),
+                new GridPosition(anchor.X, anchor.Y),
+                ParseWorldObjectFacing(anchor.Facing, sourcePath)
+            );
+        }
+    }
+
     private static void ApplyStructureEdges(
         LocalMapBuilder builder,
         StructureEdgePlacementDto[]? placements,
@@ -513,6 +540,23 @@ public sealed class LocalSiteDefinitionLoader
             "west" => WorldObjectFacing.West,
             _ => throw new InvalidDataException(
                 $"World object placement in '{sourcePath}' has unsupported facing '{rawFacing}'."
+            )
+        };
+    }
+
+    private static TravelMethodId ParseArrivalAnchorMethod(string rawMethod, string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(rawMethod))
+        {
+            throw new InvalidDataException($"Arrival anchor in '{sourcePath}' has an empty travel method.");
+        }
+
+        return rawMethod.Trim().ToLowerInvariant() switch
+        {
+            "vehicle" => TravelMethodId.Vehicle,
+            "pushbike" => TravelMethodId.Pushbike,
+            _ => throw new InvalidDataException(
+                $"Arrival anchor in '{sourcePath}' has unsupported travel method '{rawMethod}'."
             )
         };
     }

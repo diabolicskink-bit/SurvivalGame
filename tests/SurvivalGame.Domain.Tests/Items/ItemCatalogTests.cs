@@ -59,6 +59,21 @@ public sealed class ItemCatalogTests
         Assert.True(bandage.AllowsAction("apply_to_wound"));
     }
 
+    [Fact]
+    public void ItemDataLoadsFuelCanDefinition()
+    {
+        var catalog = LoadItemCatalog();
+
+        var fuelCan = catalog.Get(PrototypeItems.FuelCan);
+
+        Assert.Equal("Fuel can", fuelCan.Name);
+        Assert.Equal("Tool", fuelCan.Category);
+        Assert.True(fuelCan.HasTag("fuel_can"));
+        Assert.Equal(new InventoryItemSize(2, 3), fuelCan.InventorySize);
+        Assert.NotNull(fuelCan.FuelContainer);
+        Assert.Equal(5.0, fuelCan.FuelContainer!.Capacity);
+    }
+
     [Theory]
     [InlineData("kitchen_knife", "Kitchen knife", "Weapon", "Weapon|Melee|Blade|Knife")]
     [InlineData("hunting_rifle", "Hunting rifle", "Weapon", "Weapon|Gun|Rifle|HuntingRifle")]

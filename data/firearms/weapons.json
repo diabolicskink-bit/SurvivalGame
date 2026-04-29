@@ -48,5 +48,18 @@
     "effectiveRangeTiles": 18,
     "maximumRangeTiles": 45,
     "builtInCapacity": 10
+  },
+  {
+    "itemId": "carbine_556",
+    "name": "5.56 burst carbine",
+    "weaponFamily": "carbine_556",
+    "acceptedAmmoSizes": ["5.56x45mm"],
+    "feedKind": "DetachableMagazine",
+    "effectiveRangeTiles": 22,
+    "maximumRangeTiles": 55,
+    "compatibleFeedDeviceIds": ["magazine_556_30_round"],
+    "supportedFireModes": ["SingleShot", "Burst"],
+    "burstRoundCount": 3,
+    "burstDamageMultiplier": 2
   }
 ]

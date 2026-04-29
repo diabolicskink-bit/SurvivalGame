@@ -6,6 +6,7 @@
     "compatibleWeaponFamilies": [
       "9mm_pistol",
       "ak_rifle",
+      "carbine_556",
       "hunting_rifle_308",
       "pump_shotgun_12_gauge",
       "rifle_22lr"
@@ -18,6 +19,7 @@
     "slot": "optic",
     "compatibleWeaponFamilies": [
       "ak_rifle",
+      "carbine_556",
       "hunting_rifle_308",
       "rifle_22lr"
     ],
@@ -31,6 +33,7 @@
     "compatibleWeaponFamilies": [
       "9mm_pistol",
       "ak_rifle",
+      "carbine_556",
       "hunting_rifle_308",
       "rifle_22lr"
     ],

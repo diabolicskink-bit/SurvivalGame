@@ -32,11 +32,19 @@
 - The local gameplay scene can return to the world map.
 - Returning to the world map preserves world map position, time, travel method, and vehicle fuel.
 - Returning to the world map preserves player inventory, equipment, and firearm/ammunition/feed-device state because local site sessions share the same player and stateful item store.
+- Returning to the world map from a vehicle or pushbike local entry requires standing next to that active local travel anchor.
+- Walking local entry does not place a travel anchor.
+- Vehicle local entry places or reuses a physical `player_vehicle` world object anchor at the authored site arrival point.
+- Pushbike local entry places or reuses a physical `player_pushbike` world object anchor at the authored site arrival point.
+- Vehicle and pushbike anchors provide access to a shared persistent campaign travel cargo stash.
+- Travel cargo can hold stack items and stateful items without capacity or grid limits in this prototype pass.
+- Taking stack or stateful items from travel cargo still respects the player's inventory grid capacity.
 - Local site sessions preserve their own map bounds, surfaces, world objects, ground stacks, and NPC roster.
 - Local gameplay boards render a fixed 27w x 18h tile viewport over the active local site's full map.
 - Local gameplay boards clip map/entity rendering to the visible 27w x 18h tile viewport.
 - Larger local maps clamp the viewport near map edges; smaller local maps are centered inside the fixed viewport with dark padding.
 - Authored local site maps are loaded from JSON under `data/local_maps/`.
+- Authored local site maps can define optional vehicle and pushbike `arrivalAnchors`.
 - Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
 - Abandoned Farmhouse is a fixed authored 64x44 local map with a south-west dirt track entry, front yard, detailed farmhouse, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, and scrub/fence perimeter.
 - Abandoned Farmhouse uses edge-based structures for its farmhouse walls, doors, windows, shed walls/openings, paddock fencing, gates, and broken fence gaps.
@@ -107,31 +115,37 @@
 - Read-only gameplay UI section showing every equipment slot, including empty slots.
 - Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
 - Domain-level firearm, ammunition, feed-device, and weapon-mod definitions loaded from JSON under `data/firearms/`.
-- Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, and .22 rifle.
-- Firearm weapon definitions include prototype effective and maximum ranges measured in tiles.
+- Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, .22 rifle, and 5.56 burst carbine.
+- Firearm weapon definitions include prototype effective and maximum ranges measured in tiles, supported fire modes, and first-pass burst metadata where relevant.
 - Ammunition definitions include prototype damage values.
-- Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
-- Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, AK 30-round magazine, and AK damaged 20-round magazine.
+- Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, 5.56x45mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
+- Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, 5.56 30-round magazine, AK 30-round magazine, and AK damaged 20-round magazine.
 - Weapon mod definitions for red dot sight, hunting scope, and match barrel.
 - Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
+- Runtime current fire mode for stack-backed and stateful weapons, defaulting to single shot.
 - Runtime installed state for stateful weapon mods, with one mod per weapon mod slot.
 - Clickable prototype actions for loading/unloading feed devices, inserting/removing compatible feed devices, loading built-in weapon feeds, and test firing one round.
+- Clickable prototype fire-mode toggle actions for weapons that support more than one fire mode.
 - Clickable Reload action for detachable-feed weapons that already have an inserted magazine/feed device and compatible held ammunition.
 - Clickable prototype actions for installing/removing compatible stateful weapon mods.
 - Firearm handling time costs are currently: 10 ticks per round loaded, 25 ticks to remove a feed device, 25 ticks to insert a feed device, and reload as remove + loaded rounds + insert.
+- Fire-mode toggling currently costs 0 ticks; successful single shots cost 100 ticks; successful 3-round bursts cost 150 ticks.
 - Weapon mod installation and removal each currently cost 50 ticks.
 - Item hover details show weapon/feed loaded state for firearm-related items.
-- Weapon hover details show prototype effective and maximum range, installed mods, modified range, and mod damage bonus where relevant.
+- Weapon hover details show prototype effective and maximum range, supported/current fire mode, installed mods, modified range, and mod damage bonus where relevant.
 - Starting inventory includes firearm, ammunition, feed-device, and weapon-mod examples for manual testing.
 - First-pass stateful item model for specific items that need identity.
 - Stateful items have stable runtime ids, item definition ids, quantity, condition, location, optional contained items, and optional firearm/feed state.
-- Stateful item locations currently include player inventory, equipment, ground, inserted into another item, and contained inside another item.
+- Stateful items can also carry optional fuel-container state, currently used by `fuel_can`.
+- Stateful item locations currently include player inventory, equipment, ground, inserted into another item, contained inside another item, and travel cargo.
 - Stateful item pickup, drop, inspect, equip, and unequip actions go through the domain action pipeline.
-- Stateful firearm/feed actions support loading ammunition into specific feed devices, unloading them, inserting/removing them from specific weapons, loading built-in feeds, and test firing one round.
+- Stateful firearm/feed actions support loading ammunition into specific feed devices, unloading them, inserting/removing them from specific weapons, loading built-in feeds, toggling supported weapon fire modes, and test firing one round.
 - Stateful weapon mod actions support installing/removing compatible mods from specific weapons while preserving the mod item identity.
 - Clicking an NPC selects it as the current target and reveals a Shoot action in the global action panel.
 - Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's modified maximum tile range.
-- Successful shooting consumes one round, applies ammunition damage plus installed weapon mod damage bonuses to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
+- Targeted shooting performs a first-pass line-of-fire check against sight-blocking structure edges and intermediate occupied world-object tiles before consuming ammunition or advancing time.
+- Successful single-shot shooting consumes one round, applies ammunition damage plus installed weapon mod damage bonuses to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
+- Successful burst shooting currently requires and consumes 3 loaded rounds from a burst-mode weapon, applies a deterministic 2x modified single-shot damage packet to the target NPC, advances world time by 150 ticks, and updates the NPC health bar.
 - Loaded state is preserved when a stateful magazine is inserted, removed, dropped, picked back up, or inspected.
 - Installed weapon mod state is preserved on the stateful weapon while the mod item is inserted and restored to inventory when removed.
 - The prototype starts with specific stateful weapons, magazines, weapon mods, and a backpack-with-contents example for manual testing.
@@ -147,8 +161,13 @@
 - Movement collision against blocking edge structures and every occupied tile of world objects marked as blocking movement.
 - Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and the multi-tile abandoned vehicle's data-defined occupied tiles while allowing movement through `glass_door`.
 - Hover tooltip shows world object details when a tile contains one and structure details when the tile borders an authored structure edge.
-- Refuel Vehicle appears in the global action panel when the player is cardinally adjacent to a fuel pump, the run has vehicle fuel state, and vehicle fuel is below capacity.
-- Refuel Vehicle restores vehicle fuel to the prototype capacity of 15.0 and advances shared world time by 100 ticks.
+- Fuel can item definitions can declare `fuelContainer` metadata.
+- A stateful `fuel_can` holds 5.0 fuel units.
+- Fuel can filling appears when the player carries a non-full fuel can and stands next to a `refuel_source` world object such as a fuel pump or fuel drum.
+- Fuel can filling advances shared world time by 100 ticks.
+- Pouring fuel into the vehicle appears when the player carries a non-empty fuel can and stands next to the active vehicle anchor.
+- Pouring fuel into the vehicle advances shared world time by 100 ticks and supports partial pours when the vehicle tank has less free space than the can contains.
+- Fuel pumps and fuel drums are non-depleting fuel sources in this prototype pass.
 - Container-capable world object definitions can declare a container profile id and search tick cost.
 - Local map object placements have stable world-object instance ids. Authored sparse placements can also define fixed stack loot and future loot table ids.
 - Runtime world-object container state is realized lazily when a player searches a specific container, so unsearched containers remain placement/config data only.
@@ -173,9 +192,10 @@
 
 - Opening, closing, moving, destroying, building, or generic using of world objects.
 - Per-part world object interactions such as vehicle hood, trunk, door, or wheel targeting.
+- Travel cargo capacity, vehicle cargo grids, repairs, towing, vehicle upgrades, siphoning, and fuel source depletion.
 - Random loot table rolling for world-object containers.
 - Stateful item loot inside world-object containers.
-- Finite gas station fuel reserves, payment, fuel cans, pump power, ownership checks, or fuel theft rules.
+- Finite gas station fuel reserves, payment, pump power, ownership checks, or fuel theft rules.
 - Player healing, death, or health effects beyond direct turret health damage.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
 - Local-map terrain-based time modifiers or surface-driven action costs.
@@ -186,7 +206,7 @@
 - Generic item use actions.
 - Equipment replacement actions.
 - Equipment item effects or stat modifiers.
-- Accuracy, recoil, sound propagation, jamming, durability, weapon condition, armor, cover, line of sight, miss chances, hit locations, or ballistics.
+- Accuracy, recoil, sound propagation, jamming, durability, weapon condition, armor, cover bonuses, miss chances, hit locations, penetration, ricochet, or advanced ballistics beyond the current line-of-fire blocker check.
 - Stack-backed weapon mod support; weapon mods are currently stateful item attachments only.
 - Weapon mod crafting, durability, tools, installation failure chance, suppressors, recoil effects, accuracy effects, or save/load persistence.
 - Mixed ammunition inside a single feed device; unload before switching ammunition variants.

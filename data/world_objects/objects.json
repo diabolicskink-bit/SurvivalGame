@@ -122,7 +122,7 @@
   {
     "id": "fuel_pump",
     "name": "Fuel pump",
-    "description": "A battered pump with enough working fuel for the prototype refuel action.",
+    "description": "A battered pump with enough working fuel to fill portable cans in this prototype.",
     "category": "Service Station",
     "tags": ["fuel", "pump", "refuel_source"],
     "blocksMovement": true,
@@ -230,6 +230,29 @@
     "mapColor": "#59636f",
     "spriteId": "world_object_abandoned_vehicle",
     "footprint": { "width": 2, "height": 4 }
+  },
+  {
+    "id": "player_vehicle",
+    "name": "Your vehicle",
+    "description": "The vehicle you arrived in. It marks your route back to the world map and gives access to travel cargo.",
+    "category": "Vehicle",
+    "tags": ["vehicle", "travel_anchor", "cargo_anchor", "fuel_receiver", "player_vehicle"],
+    "blocksMovement": true,
+    "blocksSight": true,
+    "mapColor": "#4d6473",
+    "spriteId": "world_object_abandoned_vehicle",
+    "footprint": { "width": 2, "height": 4 }
+  },
+  {
+    "id": "player_pushbike",
+    "name": "Your pushbike",
+    "description": "The pushbike you arrived on. It marks your route back to the world map and gives access to travel cargo.",
+    "category": "Vehicle",
+    "tags": ["pushbike", "travel_anchor", "cargo_anchor", "player_pushbike"],
+    "blocksMovement": false,
+    "blocksSight": false,
+    "mapColor": "#7ea7b1",
+    "footprint": { "width": 1, "height": 2 }
   },
   {
     "id": "verandah_post",
@@ -634,9 +657,9 @@
   {
     "id": "fuel_drum",
     "name": "Fuel drum",
-    "description": "A capped fuel drum. Fuel transfer is not implemented.",
+    "description": "A capped fuel drum that can fill a portable fuel can in this prototype.",
     "category": "Container",
-    "tags": ["container_candidate", "fuel", "drum"],
+    "tags": ["container_candidate", "fuel", "drum", "refuel_source"],
     "blocksMovement": true,
     "blocksSight": false,
     "mapColor": "#a44d35"

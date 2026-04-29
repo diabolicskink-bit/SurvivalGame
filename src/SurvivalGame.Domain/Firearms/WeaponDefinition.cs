@@ -2,6 +2,9 @@ namespace SurvivalGame.Domain;
 
 public sealed record WeaponDefinition
 {
+    public const int DefaultBurstRoundCount = 3;
+    public const int DefaultBurstDamageMultiplier = 2;
+
     public WeaponDefinition(
         ItemId itemId,
         string name,
@@ -11,7 +14,10 @@ public sealed record WeaponDefinition
         int builtInCapacity = 0,
         int effectiveRangeTiles = 1,
         int maximumRangeTiles = 1,
-        IEnumerable<ItemId>? compatibleFeedDeviceIds = null
+        IEnumerable<ItemId>? compatibleFeedDeviceIds = null,
+        IEnumerable<WeaponFireMode>? supportedFireModes = null,
+        int burstRoundCount = DefaultBurstRoundCount,
+        int burstDamageMultiplier = DefaultBurstDamageMultiplier
     )
     {
         ArgumentNullException.ThrowIfNull(itemId);
@@ -55,6 +61,30 @@ public sealed record WeaponDefinition
             throw new ArgumentOutOfRangeException(nameof(maximumRangeTiles), "Maximum range must be at least the effective range.");
         }
 
+        var fireModes = (supportedFireModes ?? new[] { WeaponFireMode.SingleShot })
+            .Distinct()
+            .ToArray();
+
+        if (fireModes.Length == 0)
+        {
+            throw new ArgumentException("Weapon must support at least one fire mode.", nameof(supportedFireModes));
+        }
+
+        if (!fireModes.Contains(WeaponFireMode.SingleShot))
+        {
+            throw new ArgumentException("Weapons must support single-shot mode.", nameof(supportedFireModes));
+        }
+
+        if (burstRoundCount < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(burstRoundCount), "Burst round count must be at least 1.");
+        }
+
+        if (burstDamageMultiplier < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(burstDamageMultiplier), "Burst damage multiplier must be at least 1.");
+        }
+
         ItemId = itemId;
         Name = name.Trim();
         WeaponFamily = weaponFamily.Trim();
@@ -64,6 +94,9 @@ public sealed record WeaponDefinition
         EffectiveRangeTiles = effectiveRangeTiles;
         MaximumRangeTiles = maximumRangeTiles;
         CompatibleFeedDeviceIds = (compatibleFeedDeviceIds ?? Array.Empty<ItemId>()).Distinct().ToArray();
+        SupportedFireModes = fireModes;
+        BurstRoundCount = burstRoundCount;
+        BurstDamageMultiplier = burstDamageMultiplier;
     }
 
     public ItemId ItemId { get; }
@@ -84,9 +117,17 @@ public sealed record WeaponDefinition
 
     public IReadOnlyList<ItemId> CompatibleFeedDeviceIds { get; }
 
+    public IReadOnlyList<WeaponFireMode> SupportedFireModes { get; }
+
+    public int BurstRoundCount { get; }
+
+    public int BurstDamageMultiplier { get; }
+
     public bool UsesDetachableFeedDevice => FeedKind is FeedDeviceKind.DetachableMagazine or FeedDeviceKind.Belt;
 
     public bool UsesBuiltInFeed => !UsesDetachableFeedDevice;
+
+    public bool HasMultipleFireModes => SupportedFireModes.Count > 1;
 
     public bool AcceptsAmmunition(AmmunitionDefinition ammunition)
     {
@@ -98,6 +139,32 @@ public sealed record WeaponDefinition
     {
         ArgumentNullException.ThrowIfNull(size);
         return AcceptedAmmoSizes.Contains(size);
+    }
+
+    public bool SupportsFireMode(WeaponFireMode mode)
+    {
+        return SupportedFireModes.Contains(mode);
+    }
+
+    public WeaponFireMode GetNextFireMode(WeaponFireMode currentMode)
+    {
+        var currentIndex = Array.IndexOf(SupportedFireModes.ToArray(), currentMode);
+        if (currentIndex < 0)
+        {
+            return WeaponFireMode.SingleShot;
+        }
+
+        return SupportedFireModes[(currentIndex + 1) % SupportedFireModes.Count];
+    }
+
+    public int GetRoundCount(WeaponFireMode mode)
+    {
+        return mode == WeaponFireMode.Burst ? BurstRoundCount : 1;
+    }
+
+    public int GetDamageMultiplier(WeaponFireMode mode)
+    {
+        return mode == WeaponFireMode.Burst ? BurstDamageMultiplier : 1;
     }
 
     public bool CanUseFeedDevice(FeedDeviceDefinition feedDevice)

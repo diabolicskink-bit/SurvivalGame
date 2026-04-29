@@ -17,7 +17,7 @@ US_HIGHWAY_LAYER = 37
 STATE_HIGHWAY_LAYER = 38
 HIGHWAY_SEGMENT_LAYER = 39
 OUTPUT_RELATIVE_PATH = pathlib.Path("data/world_map/colorado_roads.generated.json")
-SIMPLIFY_TOLERANCE_DEGREES = 0.003
+SIMPLIFY_TOLERANCE_DEGREES = 0.025
 PAGE_SIZE = 2000
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT_PATH = REPO_ROOT / OUTPUT_RELATIVE_PATH
@@ -151,6 +151,7 @@ def build_road(target: dict, geometry_features: list[dict], stat_features: list[
         raise RuntimeError(f"No usable geometry returned for {target['displayName']}")
 
     lane_count = choose_lane_count(stat_features, target["defaultLaneCount"])
+    typical_lane_count = choose_typical_lane_count(stat_features, target["defaultLaneCount"])
     surface_width_feet = choose_surface_width(stat_features, target["defaultSurfaceWidthFeet"])
 
     return {
@@ -159,6 +160,7 @@ def build_road(target: dict, geometry_features: list[dict], stat_features: list[
         "kind": target["kind"],
         "priority": target["priority"],
         "laneCount": lane_count,
+        "mapLanesPerDirection": map_lanes_per_direction(typical_lane_count),
         "surfaceWidthFeet": surface_width_feet,
         "travelInfluenceRadius": travel_influence_radius(target["kind"], lane_count),
         "segments": segments,
@@ -248,15 +250,44 @@ def perpendicular_distance(
 
 
 def choose_lane_count(features: list[dict], fallback: int) -> int:
-    lanes = [
-        int(value)
-        for feature in features
-        if (value := feature.get("attributes", {}).get("THRULNQTY")) is not None and int(value) > 0
-    ]
+    lanes = lane_counts(features)
     if not lanes:
         return fallback
 
     return max(1, min(8, max(lanes)))
+
+
+def choose_typical_lane_count(features: list[dict], fallback: int) -> float:
+    lanes = lane_counts(features)
+    if not lanes:
+        return fallback
+
+    sorted_lanes = sorted(lanes)
+    midpoint = len(sorted_lanes) // 2
+    if len(sorted_lanes) % 2 == 1:
+        return float(sorted_lanes[midpoint])
+
+    return (sorted_lanes[midpoint - 1] + sorted_lanes[midpoint]) / 2
+
+
+def map_lanes_per_direction(total_lane_count: float) -> int:
+    if total_lane_count <= 2:
+        return 1
+
+    if total_lane_count <= 4:
+        return 2
+
+    return 3
+
+
+def lane_counts(features: list[dict]) -> list[int]:
+    lanes = []
+    for feature in features:
+        value = number_or_none(feature.get("attributes", {}).get("THRULNQTY"))
+        if value is not None and value > 0:
+            lanes.append(max(1, min(8, int(value))))
+
+    return lanes
 
 
 def choose_surface_width(features: list[dict], fallback: float) -> float:

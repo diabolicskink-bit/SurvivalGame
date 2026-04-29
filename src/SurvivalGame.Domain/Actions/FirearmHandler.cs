@@ -11,6 +11,7 @@ public sealed class FirearmHandler : IActionHandler
         GameActionKind.LoadWeapon,
         GameActionKind.ReloadWeapon,
         GameActionKind.TestFire,
+        GameActionKind.ToggleFireMode,
         GameActionKind.LoadStatefulFeedDevice,
         GameActionKind.UnloadStatefulFeedDevice,
         GameActionKind.InsertStatefulFeedDevice,
@@ -18,6 +19,7 @@ public sealed class FirearmHandler : IActionHandler
         GameActionKind.LoadStatefulWeapon,
         GameActionKind.ReloadStatefulWeapon,
         GameActionKind.TestFireStatefulWeapon,
+        GameActionKind.ToggleStatefulFireMode,
         GameActionKind.InstallStatefulWeaponMod,
         GameActionKind.RemoveStatefulWeaponMod,
         GameActionKind.ShootNpc
@@ -67,6 +69,10 @@ public sealed class FirearmHandler : IActionHandler
                 context,
                 service => service.TestFire(context.State, testFire.WeaponItemId)
             ),
+            ToggleFireModeActionRequest toggleFireMode => ExecuteFirearmAction(
+                context,
+                service => service.ToggleFireMode(context.State, toggleFireMode.WeaponItemId)
+            ),
             LoadStatefulFeedDeviceActionRequest loadStatefulFeed => ExecuteFirearmAction(
                 context,
                 service => service.LoadStatefulFeedDevice(context.State, loadStatefulFeed.FeedDeviceItemId, loadStatefulFeed.AmmunitionItemId)
@@ -94,6 +100,10 @@ public sealed class FirearmHandler : IActionHandler
             TestFireStatefulWeaponActionRequest testStatefulWeapon => ExecuteFirearmAction(
                 context,
                 service => service.TestFireStatefulWeapon(context.State, testStatefulWeapon.WeaponItemId)
+            ),
+            ToggleStatefulFireModeActionRequest toggleStatefulFireMode => ExecuteFirearmAction(
+                context,
+                service => service.ToggleStatefulFireMode(context.State, toggleStatefulFireMode.WeaponItemId)
             ),
             InstallStatefulWeaponModActionRequest installWeaponMod => ExecuteFirearmAction(
                 context,
@@ -149,10 +159,11 @@ public sealed class FirearmHandler : IActionHandler
             return result;
         }
 
-        context.State.AdvanceTime(GameActionPipeline.ShootTickCost);
+        var elapsedTicks = result.ElapsedTicks;
+        context.State.AdvanceTime(elapsedTicks);
         return GameActionResult.Success(
-            GameActionPipeline.ShootTickCost,
-            result.Messages.Concat(new[] { $"Time +{GameActionPipeline.ShootTickCost}." }).ToArray()
+            elapsedTicks,
+            result.Messages.Concat(new[] { $"Time +{elapsedTicks}." }).ToArray()
         );
     }
 }

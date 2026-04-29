@@ -147,11 +147,15 @@ internal sealed record ReloadFeedPlan(
 
 internal sealed record TestFirePlan(string WeaponName, FeedDeviceState ActiveFeed);
 
+internal sealed record ToggleFireModePlan(IFirearmWeaponRef Weapon);
+
 internal sealed record ShootNpcPlan(
     string WeaponName,
+    WeaponFireMode FireMode,
     FeedDeviceState ActiveFeed,
     NpcState Target,
     AmmunitionDefinition Ammunition,
+    int RoundCount,
     int Damage);
 
 internal sealed record InstallWeaponModPlan(
@@ -177,4 +181,6 @@ internal sealed record ReloadFeedResult(int LoadedQuantity);
 
 internal sealed record TestFireResult(ItemId AmmunitionItemId);
 
-internal sealed record ShootNpcResult(int DealtDamage, bool TargetDisabled);
+internal sealed record ToggleFireModeResult(string WeaponName, WeaponFireMode CurrentFireMode);
+
+internal sealed record ShootNpcResult(int DealtDamage, int ConsumedRounds, bool TargetDisabled);

@@ -103,6 +103,8 @@ public sealed class PrototypeGameState
 
     public int ElapsedTicks => Time.ElapsedTicks;
 
+    public WorldObjectInstanceId? ActiveTravelAnchorInstanceId { get; private set; }
+
     public void SetPlayerPosition(GridPosition position)
     {
         if (!LocalMap.Map.Contains(position))
@@ -116,6 +118,23 @@ public sealed class PrototypeGameState
     public void AdvanceTime(int ticks)
     {
         Time.Advance(ticks);
+    }
+
+    public void SetActiveTravelAnchor(WorldObjectInstanceId anchorInstanceId)
+    {
+        ArgumentNullException.ThrowIfNull(anchorInstanceId);
+
+        if (!WorldObjects.TryGetPlacement(anchorInstanceId, out _))
+        {
+            throw new ArgumentException($"Travel anchor '{anchorInstanceId}' is not placed on this local map.", nameof(anchorInstanceId));
+        }
+
+        ActiveTravelAnchorInstanceId = anchorInstanceId;
+    }
+
+    public void ClearActiveTravelAnchor()
+    {
+        ActiveTravelAnchorInstanceId = null;
     }
 
     private static LocalMapState CreateLocalMapState(

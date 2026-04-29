@@ -17,8 +17,18 @@ public partial class GameShell : Control
     private const int MinimumBoardMargin = 16;
     private const float SidePanelWidth = 346.0f;
     private const float MinimumWidePanelWidth = 620.0f;
+    private const float ItemInfoPopupWidth = 380.0f;
+    private const float ItemInfoContentWidth = 330.0f;
     private const int StatusFontSize = 18;
     private const int SectionTitleFontSize = 17;
+
+    private static readonly StructureEdgeDirection[] TooltipStructureDirections =
+    [
+        StructureEdgeDirection.North,
+        StructureEdgeDirection.East,
+        StructureEdgeDirection.South,
+        StructureEdgeDirection.West
+    ];
 
     private ItemCatalog _itemCatalog = null!;
     private FirearmCatalog _firearmCatalog = null!;
@@ -161,11 +171,23 @@ public partial class GameShell : Control
     {
         if (ShowsReturnToWorldMap)
         {
+            if (!CanReturnToWorldMap())
+            {
+                _messageLog.AddMessage("Return to your vehicle or pushbike to leave the site.");
+                return;
+            }
+
             ReturnToWorldMapRequested?.Invoke();
             return;
         }
 
         GetTree().ChangeSceneToFile(MainMenuScenePath);
+    }
+
+    private bool CanReturnToWorldMap()
+    {
+        return Session?.ActiveTravelAnchorInstanceId is null
+            || TravelAnchorService.IsPlayerNearAnchor(_gameState, Session.ActiveTravelAnchorInstanceId);
     }
 
     private void BuildOverlay()
@@ -324,7 +346,7 @@ public partial class GameShell : Control
             Name = "ItemInfoPopup",
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
-            CustomMinimumSize = new Vector2(360, 0)
+            CustomMinimumSize = new Vector2(ItemInfoPopupWidth, 0)
         };
         _itemInfoPopup.AddThemeStyleboxOverride("panel", CreatePanelStyle());
         uiLayer.AddChild(_itemInfoPopup);
@@ -336,14 +358,17 @@ public partial class GameShell : Control
         var infoScroll = new ScrollContainer
         {
             MouseFilter = Control.MouseFilterEnum.Ignore,
-            CustomMinimumSize = new Vector2(330, 0)
+            CustomMinimumSize = new Vector2(ItemInfoContentWidth, 0),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
         infoMargin.AddChild(infoScroll);
 
         _itemInfoPanel = new SelectedItemPanel
         {
             Name = "ItemInfoPanel",
-            MouseFilter = Control.MouseFilterEnum.Ignore
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(ItemInfoContentWidth, 0),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
         infoScroll.AddChild(_itemInfoPanel);
 
@@ -514,7 +539,11 @@ public partial class GameShell : Control
                 or GameActionKind.Pickup
                 or GameActionKind.RefuelVehicle
                 or GameActionKind.SearchContainer
-                or GameActionKind.TakeContainerItemStack)
+                or GameActionKind.TakeContainerItemStack
+                or GameActionKind.TakeTravelCargoItemStack
+                or GameActionKind.TakeTravelCargoStatefulItem
+                or GameActionKind.FillFuelCan
+                or GameActionKind.PourFuelCanIntoVehicle)
             .ToList();
 
         if (GetSelectedTargetNpc() is { } target)
@@ -572,9 +601,15 @@ public partial class GameShell : Control
             ReloadWeaponActionRequest reloadWeapon => MatchesStackItem(selectedItem, reloadWeapon.WeaponItemId)
                 || MatchesStackItem(selectedItem, reloadWeapon.AmmunitionItemId),
             TestFireActionRequest testFire => MatchesStackItem(selectedItem, testFire.WeaponItemId),
+            ToggleFireModeActionRequest toggleFireMode => MatchesStackItem(selectedItem, toggleFireMode.WeaponItemId),
             PickupStatefulItemActionRequest pickupStateful => MatchesStatefulItem(selectedItem, pickupStateful.ItemId),
             DropStatefulItemActionRequest dropStateful => MatchesStatefulItem(selectedItem, dropStateful.ItemId),
             InspectStatefulItemActionRequest inspectStateful => MatchesStatefulItem(selectedItem, inspectStateful.ItemId),
+            StowItemStackInTravelCargoActionRequest stowStack => selectedItem.Kind == SelectedItemKind.InventoryStack
+                && selectedItem.ItemId == stowStack.ItemId,
+            StowStatefulItemInTravelCargoActionRequest stowStateful => MatchesStatefulItem(selectedItem, stowStateful.ItemId),
+            FillFuelCanActionRequest fillFuelCan => MatchesStatefulItem(selectedItem, fillFuelCan.FuelCanId),
+            PourFuelCanIntoVehicleActionRequest pourFuelCan => MatchesStatefulItem(selectedItem, pourFuelCan.FuelCanId),
             EquipStatefulItemActionRequest equipStateful => MatchesStatefulItem(selectedItem, equipStateful.ItemId),
             UnequipStatefulItemActionRequest unequipStateful => MatchesStatefulItem(selectedItem, unequipStateful.ItemId),
             LoadStatefulFeedDeviceActionRequest loadStatefulFeed => MatchesStatefulItem(selectedItem, loadStatefulFeed.FeedDeviceItemId),
@@ -586,6 +621,7 @@ public partial class GameShell : Control
             ReloadStatefulWeaponActionRequest reloadStatefulWeapon => MatchesStatefulItem(selectedItem, reloadStatefulWeapon.WeaponItemId)
                 || MatchesStackItem(selectedItem, reloadStatefulWeapon.AmmunitionItemId),
             TestFireStatefulWeaponActionRequest testStatefulFire => MatchesStatefulItem(selectedItem, testStatefulFire.WeaponItemId),
+            ToggleStatefulFireModeActionRequest toggleStatefulFireMode => MatchesStatefulItem(selectedItem, toggleStatefulFireMode.WeaponItemId),
             InstallStatefulWeaponModActionRequest installWeaponMod => MatchesStatefulItem(selectedItem, installWeaponMod.WeaponItemId)
                 || MatchesStatefulItem(selectedItem, installWeaponMod.ModItemId),
             RemoveStatefulWeaponModActionRequest removeWeaponMod => MatchesStatefulItem(selectedItem, removeWeaponMod.WeaponItemId),
@@ -661,7 +697,8 @@ public partial class GameShell : Control
     private void ShowItemInfoPopup(Vector2 cursorPosition)
     {
         var viewportSize = GetViewportRect().Size;
-        var popupSize = new Vector2(380, Mathf.Min(420.0f, viewportSize.Y - (LayoutMargin * 2.0f)));
+        var popupWidth = Mathf.Max(260.0f, Mathf.Min(ItemInfoPopupWidth, viewportSize.X - (LayoutMargin * 2.0f)));
+        var popupSize = new Vector2(popupWidth, Mathf.Min(420.0f, viewportSize.Y - (LayoutMargin * 2.0f)));
         var desiredPosition = cursorPosition + new Vector2(18, 18);
 
         _itemInfoPopup.Position = GetClampedPopupPosition(desiredPosition, popupSize);
@@ -837,13 +874,7 @@ public partial class GameShell : Control
 
     private StructureDefinition? GetStructureAt(GridPosition position)
     {
-        foreach (var direction in new[]
-        {
-            StructureEdgeDirection.North,
-            StructureEdgeDirection.East,
-            StructureEdgeDirection.South,
-            StructureEdgeDirection.West
-        })
+        foreach (var direction in TooltipStructureDirections)
         {
             if (_gameState.LocalMap.Structures.TryGetEdgeAt(position, direction, out var edge))
             {

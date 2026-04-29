@@ -13,7 +13,8 @@ public sealed record ItemDefinition
         string? iconId = null,
         string? spriteId = null,
         IEnumerable<string>? actions = null,
-        InventoryItemSize? inventorySize = null
+        InventoryItemSize? inventorySize = null,
+        FuelContainerDefinition? fuelContainer = null
     )
     {
         ArgumentNullException.ThrowIfNull(id);
@@ -49,6 +50,7 @@ public sealed record ItemDefinition
         SpriteId = NormalizeOptional(spriteId);
         Actions = NormalizeList(actions);
         InventorySize = inventorySize ?? InventoryItemSize.Default;
+        FuelContainer = fuelContainer;
         TypePath = BuildTypePath(Category, Tags);
     }
 
@@ -73,6 +75,8 @@ public sealed record ItemDefinition
     public IReadOnlyList<string> Actions { get; }
 
     public InventoryItemSize InventorySize { get; }
+
+    public FuelContainerDefinition? FuelContainer { get; }
 
     public ItemTypePath TypePath { get; }
 

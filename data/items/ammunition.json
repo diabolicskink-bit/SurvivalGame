@@ -89,5 +89,17 @@
     "iconId": "ammo_22lr_standard",
     "spriteId": "item_ammo_22lr_standard",
     "actions": []
+  },
+  {
+    "id": "ammo_556_standard",
+    "name": "5.56x45mm standard rounds",
+    "description": "Standard intermediate rifle cartridges for 5.56 carbines.",
+    "category": "Ammunition",
+    "tags": ["5.56x45mm", "Standard"],
+    "maxStackSize": 40,
+    "inventorySize": { "width": 1, "height": 1 },
+    "weight": 0.012,
+    "iconId": "ammo_556_standard",
+    "actions": []
   }
 ]

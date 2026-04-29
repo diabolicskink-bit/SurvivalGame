@@ -10,6 +10,7 @@ public sealed class GameActionContext
         NpcCatalog? npcCatalog,
         FirearmActionService? firearmActions,
         VehicleFuelState? vehicleFuelState,
+        TravelCargoStore? travelCargo,
         ItemDescriber itemDescriber)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -23,6 +24,7 @@ public sealed class GameActionContext
         NpcCatalog = npcCatalog;
         FirearmActions = firearmActions;
         VehicleFuelState = vehicleFuelState;
+        TravelCargo = travelCargo;
         ItemDescriber = itemDescriber;
     }
 
@@ -39,6 +41,8 @@ public sealed class GameActionContext
     public FirearmActionService? FirearmActions { get; }
 
     public VehicleFuelState? VehicleFuelState { get; }
+
+    public TravelCargoStore? TravelCargo { get; }
 
     public ItemDescriber ItemDescriber { get; }
 

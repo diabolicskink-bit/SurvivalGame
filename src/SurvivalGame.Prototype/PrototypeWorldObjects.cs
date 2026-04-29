@@ -22,4 +22,6 @@ public static class PrototypeWorldObjects
     public static readonly WorldObjectId TrashBin = new("trash_bin");
     public static readonly WorldObjectId ParkingBollard = new("parking_bollard");
     public static readonly WorldObjectId AbandonedVehicle = new("abandoned_vehicle");
+    public static readonly WorldObjectId PlayerVehicle = TravelAnchorRules.PlayerVehicleObjectId;
+    public static readonly WorldObjectId PlayerPushbike = TravelAnchorRules.PlayerPushbikeObjectId;
 }

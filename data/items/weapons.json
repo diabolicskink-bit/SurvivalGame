@@ -76,5 +76,17 @@
     "iconId": "rifle_22lr",
     "spriteId": "item_rifle_22lr",
     "actions": ["equip"]
+  },
+  {
+    "id": "carbine_556",
+    "name": "5.56 burst carbine",
+    "description": "A compact 5.56 carbine with a simple single-shot and three-round burst selector.",
+    "category": "Weapon",
+    "tags": ["Gun", "Rifle", "Carbine", "5.56", "Burst"],
+    "maxStackSize": 1,
+    "inventorySize": { "width": 5, "height": 2 },
+    "weight": 3.1,
+    "iconId": "carbine_556",
+    "actions": ["equip"]
   }
 ]

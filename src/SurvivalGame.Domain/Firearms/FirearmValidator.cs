@@ -5,16 +5,23 @@ internal sealed class FirearmValidator
     private readonly FirearmCatalog _catalog;
     private readonly FirearmItemServices _items;
     private readonly FirearmRefFactory _refs;
+    private readonly LineOfFireResolver _lineOfFire;
 
-    public FirearmValidator(FirearmCatalog catalog, FirearmItemServices items, FirearmRefFactory refs)
+    public FirearmValidator(
+        FirearmCatalog catalog,
+        FirearmItemServices items,
+        FirearmRefFactory refs,
+        LineOfFireResolver lineOfFire)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(refs);
+        ArgumentNullException.ThrowIfNull(lineOfFire);
 
         _catalog = catalog;
         _items = items;
         _refs = refs;
+        _lineOfFire = lineOfFire;
     }
 
     public FirearmValidation<LoadAmmunitionPlan> ValidateLoadFeedDevice(
@@ -202,6 +209,18 @@ internal sealed class FirearmValidator
         }
 
         return FirearmValidation<TestFirePlan>.Success(new TestFirePlan(weapon.Definition.Name, activeFeed));
+    }
+
+    public FirearmValidation<ToggleFireModePlan> ValidateToggleFireMode(
+        PrototypeGameState state,
+        ItemId weaponItemId)
+    {
+        if (!_refs.TryGetOwnedStackWeapon(state.Player, weaponItemId, out var weapon))
+        {
+            return FirearmValidation<ToggleFireModePlan>.Failure("That weapon is not available.");
+        }
+
+        return ValidateToggleFireMode(weapon);
     }
 
     public FirearmValidation<LoadAmmunitionPlan> ValidateLoadStatefulFeedDevice(
@@ -421,6 +440,20 @@ internal sealed class FirearmValidator
         return FirearmValidation<TestFirePlan>.Success(new TestFirePlan(_items.GetItemName(weaponItem.ItemId), activeFeed));
     }
 
+    public FirearmValidation<ToggleFireModePlan> ValidateToggleStatefulFireMode(
+        PrototypeGameState state,
+        StatefulItemId weaponItemId)
+    {
+        if (!state.StatefulItems.TryGet(weaponItemId, out var weaponItem)
+            || !IsOwnedStatefulWeapon(weaponItem)
+            || !_refs.TryGetStatefulWeapon(state.StatefulItems, weaponItem, out var weapon))
+        {
+            return FirearmValidation<ToggleFireModePlan>.Failure("That weapon is not available.");
+        }
+
+        return ValidateToggleFireMode(weapon);
+    }
+
     public FirearmValidation<InstallWeaponModPlan> ValidateInstallStatefulWeaponMod(
         PrototypeGameState state,
         StatefulItemId weaponItemId,
@@ -517,6 +550,11 @@ internal sealed class FirearmValidator
             );
         }
 
+        if (_lineOfFire.TryFindBlocker(state.LocalMap, state.Player.Position, target.Position, out var blocker))
+        {
+            return FirearmValidation<ShootNpcPlan>.Failure($"Line of fire blocked by {blocker.Name}.");
+        }
+
         if (equippedFirearm.ActiveFeed?.LoadedAmmunitionItemId is not { } ammunitionItemId
             || equippedFirearm.ActiveFeed.LoadedCount < 1)
         {
@@ -528,10 +566,43 @@ internal sealed class FirearmValidator
             return FirearmValidation<ShootNpcPlan>.Failure($"Unknown ammunition: {ammunitionItemId}.");
         }
 
-        var damage = equippedFirearm.Stats.ModifyDamage(ammunition.Damage);
+        var fireMode = equippedFirearm.FireMode;
+        if (!equippedFirearm.Weapon.SupportsFireMode(fireMode))
+        {
+            fireMode = WeaponFireMode.SingleShot;
+        }
+
+        var requiredRounds = equippedFirearm.Weapon.GetRoundCount(fireMode);
+        if (equippedFirearm.ActiveFeed.LoadedCount < requiredRounds)
+        {
+            return FirearmValidation<ShootNpcPlan>.Failure(
+                $"{equippedFirearm.Weapon.Name} needs {requiredRounds} loaded rounds for {WeaponFireModeNames.Format(fireMode)}."
+            );
+        }
+
+        var singleShotDamage = equippedFirearm.Stats.ModifyDamage(ammunition.Damage);
+        var damage = singleShotDamage * equippedFirearm.Weapon.GetDamageMultiplier(fireMode);
         return FirearmValidation<ShootNpcPlan>.Success(
-            new ShootNpcPlan(equippedFirearm.Weapon.Name, equippedFirearm.ActiveFeed, target, ammunition, damage)
+            new ShootNpcPlan(
+                equippedFirearm.Weapon.Name,
+                fireMode,
+                equippedFirearm.ActiveFeed,
+                target,
+                ammunition,
+                requiredRounds,
+                damage
+            )
         );
+    }
+
+    private static FirearmValidation<ToggleFireModePlan> ValidateToggleFireMode(IFirearmWeaponRef weapon)
+    {
+        if (!weapon.Definition.HasMultipleFireModes)
+        {
+            return FirearmValidation<ToggleFireModePlan>.Failure($"{weapon.Definition.Name} has only one fire mode.");
+        }
+
+        return FirearmValidation<ToggleFireModePlan>.Success(new ToggleFireModePlan(weapon));
     }
 
     private FirearmValidation<LoadAmmunitionPlan> ValidateLoadAmmunition(
@@ -701,7 +772,7 @@ internal sealed class FirearmValidator
         }
 
         var stats = WeaponModState.GetModifiedStats(weapon, weaponItem.Weapon, state.StatefulItems, _catalog);
-        return new EquippedFirearm(weapon, stats, GetActiveFeedForStatefulWeapon(state, weaponItem));
+        return new EquippedFirearm(weapon, stats, GetActiveFeedForStatefulWeapon(state, weaponItem), weaponItem.Weapon.CurrentFireMode);
     }
 
     private EquippedFirearm? FindEquippedStackFirearmInSlot(PrototypeGameState state, EquipmentSlotId slotId)
@@ -712,14 +783,18 @@ internal sealed class FirearmValidator
             return null;
         }
 
-        var activeFeed = state.Player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState)
+        var hasRuntimeState = state.Player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState);
+        var activeFeed = hasRuntimeState
             ? state.Player.Firearms.GetActiveFeedForWeapon(weaponState)
             : null;
 
         return new EquippedFirearm(
             weapon,
             ModifiedWeaponStats.From(weapon, Array.Empty<WeaponModDefinition>()),
-            activeFeed
+            activeFeed,
+            hasRuntimeState
+                ? weaponState.CurrentFireMode
+                : WeaponFireMode.SingleShot
         );
     }
 
@@ -731,5 +806,6 @@ internal sealed class FirearmValidator
     private sealed record EquippedFirearm(
         WeaponDefinition Weapon,
         ModifiedWeaponStats Stats,
-        FeedDeviceState? ActiveFeed);
+        FeedDeviceState? ActiveFeed,
+        WeaponFireMode FireMode);
 }

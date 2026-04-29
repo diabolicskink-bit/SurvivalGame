@@ -66,6 +66,8 @@ public partial class FirearmPanel : VBoxContainer
             return $"{name} [{item.Id}]: no weapon state";
         }
 
+        var mode = WeaponFireModeNames.Format(item.Weapon.CurrentFireMode);
+
         var activeFeed = item.Weapon.BuiltInFeed;
         if (activeFeed is null && item.Weapon.InsertedFeedDeviceItemId is not null)
         {
@@ -74,14 +76,14 @@ public partial class FirearmPanel : VBoxContainer
 
         if (activeFeed is null)
         {
-            return $"{name} [{item.Id}]: no feed inserted";
+            return $"{name} [{item.Id}]: no feed inserted ({mode})";
         }
 
         var loadedText = activeFeed.LoadedAmmunitionVariant is null
             ? "empty"
             : $"{activeFeed.LoadedCount}/{activeFeed.Capacity} {activeFeed.LoadedAmmunitionVariant}";
 
-        return $"{name} [{item.Id}]: {loadedText}";
+        return $"{name} [{item.Id}]: {loadedText} ({mode})";
     }
 
     private static string FormatStatefulFeedDevice(StatefulItem item)
@@ -110,13 +112,14 @@ public partial class FirearmPanel : VBoxContainer
     {
         if (!player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState))
         {
-            return $"{weapon.Name}: empty";
+            return $"{weapon.Name}: empty (single shot)";
         }
 
         var feedDevice = player.Firearms.GetActiveFeedForWeapon(weaponState);
+        var mode = WeaponFireModeNames.Format(weaponState.CurrentFireMode);
         if (feedDevice is null)
         {
-            return $"{weapon.Name}: no feed inserted";
+            return $"{weapon.Name}: no feed inserted ({mode})";
         }
 
         var loadedText = feedDevice.LoadedAmmunitionVariant is null
@@ -125,10 +128,10 @@ public partial class FirearmPanel : VBoxContainer
 
         if (weaponState.InsertedFeedDeviceItemId is not null)
         {
-            return $"{weapon.Name}: {loadedText} in {feedDevice.DisplayName}";
+            return $"{weapon.Name}: {loadedText} in {feedDevice.DisplayName} ({mode})";
         }
 
-        return $"{weapon.Name}: {loadedText}";
+        return $"{weapon.Name}: {loadedText} ({mode})";
     }
 
     private static string FormatFeedDevice(PlayerState player, FeedDeviceState feedDevice)

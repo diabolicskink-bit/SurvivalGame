@@ -33,6 +33,7 @@ public sealed record WorldMapRoad
         IReadOnlyList<WorldMapRoadSegment> segments,
         int priority,
         int laneCount,
+        int mapLanesPerDirection,
         double surfaceWidthFeet,
         double travelInfluenceRadius)
     {
@@ -63,6 +64,7 @@ public sealed record WorldMapRoad
         Segments = segments.ToArray();
         Priority = priority;
         LaneCount = Math.Max(1, laneCount);
+        MapLanesPerDirection = Math.Clamp(mapLanesPerDirection, 1, 3);
         SurfaceWidthFeet = Math.Max(0.0, surfaceWidthFeet);
         TravelInfluenceRadius = travelInfluenceRadius;
     }
@@ -78,6 +80,8 @@ public sealed record WorldMapRoad
     public int Priority { get; }
 
     public int LaneCount { get; }
+
+    public int MapLanesPerDirection { get; }
 
     public double SurfaceWidthFeet { get; }
 

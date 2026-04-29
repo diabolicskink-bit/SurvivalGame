@@ -48,6 +48,8 @@ public sealed class WorldObjectTests
         Assert.Equal("Tree", catalog.Get(PrototypeWorldObjects.Tree).Name);
         Assert.Equal("Single bed", catalog.Get(PrototypeWorldObjects.SingleBed).Name);
         Assert.Equal("Fuel pump", catalog.Get(PrototypeWorldObjects.FuelPump).Name);
+        Assert.Equal("Your vehicle", catalog.Get(PrototypeWorldObjects.PlayerVehicle).Name);
+        Assert.Equal("Your pushbike", catalog.Get(PrototypeWorldObjects.PlayerPushbike).Name);
         Assert.Equal("Glass door", catalog.Get(PrototypeWorldObjects.GlassDoor).Name);
         Assert.Equal("Verandah post", catalog.Get(new WorldObjectId("verandah_post")).Name);
         Assert.Equal("Water tank", catalog.Get(new WorldObjectId("water_tank")).Name);
@@ -65,6 +67,8 @@ public sealed class WorldObjectTests
         Assert.Equal(WorldObjectFootprint.SingleTile, catalog.Get(PrototypeWorldObjects.Wall).Footprint);
         Assert.Equal(new WorldObjectFootprint(1, 2), catalog.Get(PrototypeWorldObjects.SingleBed).Footprint);
         Assert.Equal(new WorldObjectFootprint(2, 4), catalog.Get(PrototypeWorldObjects.AbandonedVehicle).Footprint);
+        Assert.Equal(new WorldObjectFootprint(2, 4), catalog.Get(PrototypeWorldObjects.PlayerVehicle).Footprint);
+        Assert.Equal(new WorldObjectFootprint(1, 2), catalog.Get(PrototypeWorldObjects.PlayerPushbike).Footprint);
         Assert.Equal(new WorldObjectFootprint(3, 3), catalog.Get(new WorldObjectId("water_tank")).Footprint);
         Assert.Equal(new WorldObjectFootprint(2, 3), catalog.Get(new WorldObjectId("tractor_wreck")).Footprint);
         Assert.Equal(new WorldObjectFootprint(2, 3), catalog.Get(new WorldObjectId("farm_trailer")).Footprint);
@@ -90,6 +94,9 @@ public sealed class WorldObjectTests
         Assert.True(catalog.Get(PrototypeWorldObjects.CheckoutCounter).BlocksMovement);
         Assert.True(catalog.Get(PrototypeWorldObjects.StoreShelf).BlocksMovement);
         Assert.True(catalog.Get(PrototypeWorldObjects.AbandonedVehicle).BlocksMovement);
+        Assert.True(catalog.Get(PrototypeWorldObjects.PlayerVehicle).BlocksMovement);
+        Assert.False(catalog.Get(PrototypeWorldObjects.PlayerPushbike).BlocksMovement);
+        Assert.True(catalog.Get(new WorldObjectId("fuel_drum")).HasTag("refuel_source"));
         Assert.True(catalog.Get(new WorldObjectId("water_tank")).BlocksMovement);
         Assert.True(catalog.Get(new WorldObjectId("tractor_wreck")).BlocksMovement);
         Assert.False(catalog.Get(PrototypeWorldObjects.GlassDoor).BlocksMovement);

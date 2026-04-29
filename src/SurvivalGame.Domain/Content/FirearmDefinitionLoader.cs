@@ -169,6 +169,12 @@ public sealed class FirearmDefinitionLoader
 
         public string[]? CompatibleFeedDeviceIds { get; set; }
 
+        public WeaponFireMode[]? SupportedFireModes { get; set; }
+
+        public int? BurstRoundCount { get; set; }
+
+        public int? BurstDamageMultiplier { get; set; }
+
         public WeaponDefinition ToDefinition(string sourcePath)
         {
             if (AcceptedAmmoSizes is null || AcceptedAmmoSizes.Length == 0)
@@ -185,7 +191,10 @@ public sealed class FirearmDefinitionLoader
                 BuiltInCapacity,
                 EffectiveRangeTiles,
                 MaximumRangeTiles,
-                CompatibleFeedDeviceIds?.Select(id => new ItemId(id))
+                CompatibleFeedDeviceIds?.Select(id => new ItemId(id)),
+                SupportedFireModes,
+                BurstRoundCount ?? WeaponDefinition.DefaultBurstRoundCount,
+                BurstDamageMultiplier ?? WeaponDefinition.DefaultBurstDamageMultiplier
             );
         }
     }

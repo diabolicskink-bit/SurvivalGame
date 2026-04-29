@@ -78,18 +78,26 @@ internal sealed class FirearmStateOperations
         return new TestFireResult(consumed.ItemId);
     }
 
+    public ToggleFireModeResult ToggleFireMode(ToggleFireModePlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+
+        var currentMode = plan.Weapon.ToggleFireMode();
+        return new ToggleFireModeResult(plan.Weapon.Definition.Name, currentMode);
+    }
+
     public ShootNpcResult Shoot(ShootNpcPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var consumed = plan.ActiveFeed.ConsumeOne();
+        var consumed = plan.ActiveFeed.Consume(plan.RoundCount);
         if (consumed is null)
         {
             throw new InvalidOperationException($"{plan.WeaponName} lost its loaded ammunition before shooting.");
         }
 
         var dealtDamage = plan.Target.TakeDamage(plan.Damage);
-        return new ShootNpcResult(dealtDamage, plan.Target.IsDisabled);
+        return new ShootNpcResult(dealtDamage, consumed.Quantity, plan.Target.IsDisabled);
     }
 
     public void InstallWeaponMod(InstallWeaponModPlan plan, StatefulItemStore items)

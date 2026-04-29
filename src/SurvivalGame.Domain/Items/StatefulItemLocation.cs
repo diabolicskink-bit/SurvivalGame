@@ -6,7 +6,8 @@ public enum StatefulItemLocationKind
     Equipment,
     Ground,
     Inserted,
-    Contained
+    Contained,
+    TravelCargo
 }
 
 public abstract record StatefulItemLocation
@@ -27,6 +28,8 @@ public abstract record StatefulItemLocation
     public static InsertedLocation Inserted(StatefulItemId parentItemId) => new(parentItemId);
 
     public static ContainedLocation Contained(StatefulItemId parentItemId) => new(parentItemId);
+
+    public static TravelCargoLocation TravelCargo() => new();
 }
 
 public sealed record PlayerInventoryLocation : StatefulItemLocation
@@ -52,4 +55,9 @@ public sealed record InsertedLocation(StatefulItemId ParentItemId) : StatefulIte
 public sealed record ContainedLocation(StatefulItemId ParentItemId) : StatefulItemLocation
 {
     public override StatefulItemLocationKind Kind => StatefulItemLocationKind.Contained;
+}
+
+public sealed record TravelCargoLocation : StatefulItemLocation
+{
+    public override StatefulItemLocationKind Kind => StatefulItemLocationKind.TravelCargo;
 }

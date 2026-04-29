@@ -74,7 +74,9 @@ public sealed class ItemDescriber
 
         var stateText = item.FeedDevice is not null
             ? $" {FormatFeedState(item.FeedDevice)}"
-            : string.Empty;
+            : item.FuelContainer is not null
+                ? $" ({item.FuelContainer.CurrentFuel:0.0}/{item.FuelContainer.Capacity:0.0} fuel)"
+                : string.Empty;
 
         return $"{name} [{item.Id}]{stateText}";
     }
@@ -97,6 +99,11 @@ public sealed class ItemDescriber
             details += $" Feed: {FormatFeedState(item.FeedDevice)} accepts {item.FeedDevice.AmmoSize}.";
         }
 
+        if (item.FuelContainer is not null)
+        {
+            details += $" Fuel: {item.FuelContainer.CurrentFuel:0.0}/{item.FuelContainer.Capacity:0.0}.";
+        }
+
         if (_firearmCatalog?.TryGetWeaponMod(item.ItemId, out var weaponMod) == true)
         {
             details += $" Weapon mod: {weaponMod.Slot} slot. Effects: {FormatModEffects(weaponMod)}. Compatible families: {string.Join(", ", weaponMod.CompatibleWeaponFamilies)}.";
@@ -116,6 +123,7 @@ public sealed class ItemDescriber
                     ? ModifiedWeaponStats.From(weaponDefinition, Array.Empty<WeaponModDefinition>())
                     : WeaponModState.GetModifiedStats(weaponDefinition, item.Weapon, statefulItems, _firearmCatalog);
                 details += $" Modified range: {stats.EffectiveRangeTiles} effective / {stats.MaximumRangeTiles} max tiles. Damage bonus: {FormatSigned(stats.DamageBonus)}.";
+                details += $" Fire mode: {WeaponFireModeNames.Format(item.Weapon.CurrentFireMode)}. Supported modes: {FormatFireModes(weaponDefinition)}.";
                 details += $" Mods: {FormatInstalledMods(item.Weapon, statefulItems)}.";
             }
         }
@@ -159,6 +167,14 @@ public sealed class ItemDescriber
         return effects.Count == 0 ? "none" : string.Join(", ", effects);
     }
 
+    private static string FormatFireModes(WeaponDefinition weapon)
+    {
+        var modes = string.Join(", ", weapon.SupportedFireModes.Select(WeaponFireModeNames.Format));
+        return weapon.SupportsFireMode(WeaponFireMode.Burst)
+            ? $"{modes} (burst {weapon.BurstRoundCount} rounds, x{weapon.BurstDamageMultiplier} damage)"
+            : modes;
+    }
+
     private static void AddSignedEffect(List<string> effects, string label, int value)
     {
         if (value == 0)
@@ -192,6 +208,7 @@ public sealed class ItemDescriber
             EquipmentLocation e => $"equipment {e.SlotId}",
             InsertedLocation i => $"inserted in {i.ParentItemId}",
             ContainedLocation c => $"inside {c.ParentItemId}",
+            TravelCargoLocation => "travel cargo",
             _ => location.Kind.ToString()
         };
     }

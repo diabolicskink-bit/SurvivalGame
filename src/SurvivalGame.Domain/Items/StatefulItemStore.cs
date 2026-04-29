@@ -12,10 +12,11 @@ public sealed class StatefulItemStore
         int quantity,
         StatefulItemLocation location,
         FirearmCatalog? firearmCatalog = null,
-        ItemCondition condition = ItemCondition.Good)
+        ItemCondition condition = ItemCondition.Good,
+        ItemCatalog? itemCatalog = null)
     {
         var item = new StatefulItem(new StatefulItemId(_nextItemId++), itemId, quantity, location, condition);
-        AttachKnownState(item, firearmCatalog);
+        AttachKnownState(item, firearmCatalog, itemCatalog);
         _items.Add(item.Id, item);
         return item;
     }
@@ -44,7 +45,7 @@ public sealed class StatefulItemStore
 
     public IReadOnlyList<StatefulItem> InPlayerInventory()
     {
-        return Items
+        return _items.Values
             .Where(item => item.Location is PlayerInventoryLocation)
             .OrderBy(item => item.Id.Value)
             .ToArray();
@@ -53,7 +54,7 @@ public sealed class StatefulItemStore
     public IReadOnlyList<StatefulItem> OnGround(GridPosition position, SiteId? siteId = null)
     {
         var resolvedSiteId = siteId ?? SiteId.Default;
-        return Items
+        return _items.Values
             .Where(item => item.Location is GroundLocation g
                 && g.Position == position
                 && g.SiteId == resolvedSiteId)
@@ -68,7 +69,7 @@ public sealed class StatefulItemStore
             return Array.Empty<StatefulItem>();
         }
 
-        return Items
+        return _items.Values
             .Where(item => item.Location is GroundLocation g && g.SiteId == siteId)
             .OrderBy(item => item.Id.Value)
             .ToArray();
@@ -76,7 +77,7 @@ public sealed class StatefulItemStore
 
     public IReadOnlyList<StatefulItem> Equipped()
     {
-        return Items
+        return _items.Values
             .Where(item => item.Location is EquipmentLocation)
             .OrderBy(item => item.Id.Value)
             .ToArray();
@@ -85,21 +86,29 @@ public sealed class StatefulItemStore
     public StatefulItem? EquippedIn(EquipmentSlotId slotId)
     {
         ArgumentNullException.ThrowIfNull(slotId);
-        return Items.FirstOrDefault(item =>
+        return _items.Values.FirstOrDefault(item =>
             item.Location is EquipmentLocation e && e.SlotId == slotId);
     }
 
     public IReadOnlyList<StatefulItem> ContainedIn(StatefulItemId parentItemId)
     {
-        return Items
+        return _items.Values
             .Where(item => item.Location is ContainedLocation c && c.ParentItemId == parentItemId)
+            .OrderBy(item => item.Id.Value)
+            .ToArray();
+    }
+
+    public IReadOnlyList<StatefulItem> InTravelCargo()
+    {
+        return _items.Values
+            .Where(item => item.Location is TravelCargoLocation)
             .OrderBy(item => item.Id.Value)
             .ToArray();
     }
 
     public StatefulItem? InsertedIn(StatefulItemId parentItemId)
     {
-        return Items.FirstOrDefault(item =>
+        return _items.Values.FirstOrDefault(item =>
             item.Location is InsertedLocation i && i.ParentItemId == parentItemId);
     }
 
@@ -147,6 +156,11 @@ public sealed class StatefulItemStore
         Get(parentItemId).AddContent(itemId);
     }
 
+    public void MoveToTravelCargo(StatefulItemId itemId)
+    {
+        MoveItem(itemId, StatefulItemLocation.TravelCargo());
+    }
+
     private void MoveItem(StatefulItemId itemId, StatefulItemLocation location)
     {
         var item = Get(itemId);
@@ -159,8 +173,15 @@ public sealed class StatefulItemStore
         item.MoveTo(location);
     }
 
-    private static void AttachKnownState(StatefulItem item, FirearmCatalog? firearmCatalog)
+    private static void AttachKnownState(StatefulItem item, FirearmCatalog? firearmCatalog, ItemCatalog? itemCatalog)
     {
+        if (itemCatalog is not null
+            && itemCatalog.TryGet(item.ItemId, out var definition)
+            && definition.FuelContainer is not null)
+        {
+            item.AttachFuelContainerState(new FuelContainerState(definition.FuelContainer.Capacity));
+        }
+
         if (firearmCatalog is null)
         {
             return;

@@ -15,6 +15,7 @@ public sealed class CampaignStateTests
         Assert.Same(fixture.StatefulItems, fixture.Campaign.StatefulItems);
         Assert.Same(fixture.WorldMap, fixture.Campaign.WorldMap);
         Assert.Same(fixture.VehicleFuel, fixture.Campaign.VehicleFuel);
+        Assert.Same(fixture.TravelCargo, fixture.Campaign.TravelCargo);
         Assert.Equal(CampaignMode.WorldMap, fixture.Campaign.Mode);
     }
 
@@ -112,6 +113,59 @@ public sealed class CampaignStateTests
         Assert.Same(statefulItem, fixture.StatefulItems.Get(statefulItem.Id));
     }
 
+    [Fact]
+    public void TravelCargoPersistsAcrossLocalSites()
+    {
+        var fixture = CreateCampaignWithSites();
+        var cargoItem = fixture.StatefulItems.Create(
+            PrototypeItems.FuelCan,
+            1,
+            StatefulItemLocation.TravelCargo(),
+            itemCatalog: CreateItemCatalog()
+        );
+        fixture.TravelCargo.StowStack(PrototypeItems.Stone, 4);
+        fixture.TravelCargo.StowStatefulItem(cargoItem.Id);
+
+        fixture.Campaign.EnterLocalSite(PrototypeLocalSites.DefaultSiteId);
+        fixture.Campaign.ReturnToWorldMap();
+        fixture.Campaign.EnterLocalSite(PrototypeLocalSites.GasStationSiteId);
+
+        Assert.Equal(4, fixture.TravelCargo.CountOf(PrototypeItems.Stone));
+        Assert.True(fixture.TravelCargo.ContainsStatefulItem(cargoItem.Id));
+        Assert.Same(cargoItem, fixture.StatefulItems.Get(cargoItem.Id));
+    }
+
+    [Fact]
+    public void TravelAnchorsArePlacedOnceForAnchoredTravelMethods()
+    {
+        var fixture = CreateCampaignWithSites();
+        var site = fixture.Campaign.GetLocalSite(PrototypeLocalSites.DefaultSiteId);
+        var catalog = CreateWorldObjectCatalog();
+
+        var firstVehicleAnchor = TravelAnchorService.EnsureAnchor(site, TravelMethodId.Vehicle, catalog);
+        var secondVehicleAnchor = TravelAnchorService.EnsureAnchor(site, TravelMethodId.Vehicle, catalog);
+        var pushbikeAnchor = TravelAnchorService.EnsureAnchor(site, TravelMethodId.Pushbike, catalog);
+
+        Assert.NotNull(firstVehicleAnchor);
+        Assert.NotNull(secondVehicleAnchor);
+        Assert.NotNull(pushbikeAnchor);
+        Assert.Equal(firstVehicleAnchor.Value.InstanceId, secondVehicleAnchor.Value.InstanceId);
+        Assert.Single(site.GameState.WorldObjects.AllObjects, placed => placed.ObjectId == PrototypeWorldObjects.PlayerVehicle);
+        Assert.Single(site.GameState.WorldObjects.AllObjects, placed => placed.ObjectId == PrototypeWorldObjects.PlayerPushbike);
+    }
+
+    [Fact]
+    public void WalkingTravelDoesNotPlaceAnArrivalAnchor()
+    {
+        var fixture = CreateCampaignWithSites();
+        var site = fixture.Campaign.GetLocalSite(PrototypeLocalSites.DefaultSiteId);
+
+        var anchor = TravelAnchorService.EnsureAnchor(site, TravelMethodId.Walking, CreateWorldObjectCatalog());
+
+        Assert.Null(anchor);
+        Assert.Empty(site.GameState.WorldObjects.AllObjects);
+    }
+
     private static CampaignFixture CreateCampaignWithSites()
     {
         var time = new WorldTime();
@@ -146,7 +200,7 @@ public sealed class CampaignStateTests
             statefulItems
         ));
 
-        return new CampaignFixture(campaign, time, player, statefulItems, worldMap, vehicleFuel);
+        return new CampaignFixture(campaign, time, player, statefulItems, worldMap, vehicleFuel, campaign.TravelCargo);
     }
 
     private static LocalSiteState CreateLocalSite(
@@ -168,7 +222,12 @@ public sealed class CampaignStateTests
                 siteId
             ),
             displayName,
-            entryPosition
+            entryPosition,
+            new Dictionary<TravelMethodId, TravelAnchorPlacement>
+            {
+                [TravelMethodId.Vehicle] = new(TravelMethodId.Vehicle, new GridPosition(0, 1), WorldObjectFacing.North),
+                [TravelMethodId.Pushbike] = new(TravelMethodId.Pushbike, new GridPosition(3, 1), WorldObjectFacing.North)
+            }
         );
     }
 
@@ -181,12 +240,49 @@ public sealed class CampaignStateTests
         );
     }
 
+    private static ItemCatalog CreateItemCatalog()
+    {
+        var catalog = new ItemCatalog();
+        catalog.Add(new ItemDefinition(
+            PrototypeItems.FuelCan,
+            "Fuel can",
+            "",
+            "Tool",
+            fuelContainer: new FuelContainerDefinition(5.0)
+        ));
+        return catalog;
+    }
+
+    private static WorldObjectCatalog CreateWorldObjectCatalog()
+    {
+        var catalog = new WorldObjectCatalog();
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.PlayerVehicle,
+            "Your vehicle",
+            "",
+            "Vehicle",
+            new[] { "travel_anchor", "cargo_anchor", "fuel_receiver" },
+            blocksMovement: true,
+            footprint: new WorldObjectFootprint(2, 4)
+        ));
+        catalog.Add(new WorldObjectDefinition(
+            PrototypeWorldObjects.PlayerPushbike,
+            "Your pushbike",
+            "",
+            "Vehicle",
+            new[] { "travel_anchor", "cargo_anchor" },
+            footprint: new WorldObjectFootprint(1, 2)
+        ));
+        return catalog;
+    }
+
     private sealed record CampaignFixture(
         CampaignState Campaign,
         WorldTime Time,
         PlayerState Player,
         StatefulItemStore StatefulItems,
         WorldMapTravelState WorldMap,
-        VehicleFuelState VehicleFuel
+        VehicleFuelState VehicleFuel,
+        TravelCargoStore TravelCargo
     );
 }

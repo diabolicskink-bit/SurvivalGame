@@ -25,6 +25,7 @@ internal sealed class FirearmActionProvider
         AddReloadWeaponActions(state.Player, actions);
         AddLoadWeaponActions(state.Player, actions);
         AddTestFireActions(state.Player, actions);
+        AddToggleFireModeActions(state.Player, actions);
 
         return actions;
     }
@@ -86,6 +87,15 @@ internal sealed class FirearmActionProvider
                 $"Test fire {_items.FormatStatefulName(weaponItem, itemCatalog)}",
                 new TestFireStatefulWeaponActionRequest(weaponItem.Id)
             ));
+
+            if (weaponDefinition.HasMultipleFireModes)
+            {
+                actions.Add(new AvailableAction(
+                    GameActionKind.ToggleStatefulFireMode,
+                    $"Switch {_items.FormatStatefulName(weaponItem, itemCatalog)} to {FormatNextFireMode(weaponDefinition, weaponState.CurrentFireMode)}",
+                    new ToggleStatefulFireModeActionRequest(weaponItem.Id)
+                ));
+            }
 
             if (weaponDefinition.UsesBuiltInFeed)
             {
@@ -320,6 +330,27 @@ internal sealed class FirearmActionProvider
                 new TestFireActionRequest(weapon.ItemId)
             ));
         }
+    }
+
+    private void AddToggleFireModeActions(PlayerState player, List<AvailableAction> actions)
+    {
+        foreach (var weapon in OwnedWeapons(player).Where(weapon => weapon.HasMultipleFireModes))
+        {
+            var currentMode = player.Firearms.TryGetWeapon(weapon.ItemId, out var weaponState)
+                ? weaponState.CurrentFireMode
+                : WeaponFireMode.SingleShot;
+
+            actions.Add(new AvailableAction(
+                GameActionKind.ToggleFireMode,
+                $"Switch {weapon.Name} to {FormatNextFireMode(weapon, currentMode)}",
+                new ToggleFireModeActionRequest(weapon.ItemId)
+            ));
+        }
+    }
+
+    private static string FormatNextFireMode(WeaponDefinition weapon, WeaponFireMode currentMode)
+    {
+        return WeaponFireModeNames.Format(weapon.GetNextFireMode(currentMode));
     }
 
     private void AddReloadStatefulWeaponActions(

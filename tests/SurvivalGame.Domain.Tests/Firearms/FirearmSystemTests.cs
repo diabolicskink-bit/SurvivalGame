@@ -29,6 +29,42 @@ public sealed class FirearmSystemTests
         AssertWeaponRange(catalog.GetWeapon(PrototypeItems.HuntingRifle), effective: 32, maximum: 80);
         AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Shotgun12Gauge), effective: 6, maximum: 18);
         AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Rifle22), effective: 18, maximum: 45);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Carbine556), effective: 22, maximum: 55);
+    }
+
+    [Fact]
+    public void ExistingWeaponsDefaultToSingleShotMode()
+    {
+        var catalog = LoadFirearmCatalog();
+        var pistol = catalog.GetWeapon(PrototypeFirearms.Pistol9mm);
+
+        Assert.Equal(new[] { WeaponFireMode.SingleShot }, pistol.SupportedFireModes);
+        Assert.False(pistol.HasMultipleFireModes);
+        Assert.True(pistol.SupportsFireMode(WeaponFireMode.SingleShot));
+        Assert.False(pistol.SupportsFireMode(WeaponFireMode.Burst));
+    }
+
+    [Fact]
+    public void BurstCarbineLoadsAmmoMagazineModesAndModCompatibility()
+    {
+        var catalog = LoadFirearmCatalog();
+        var carbine = catalog.GetWeapon(PrototypeFirearms.Carbine556);
+        var ammunition = catalog.GetAmmunition(PrototypeFirearms.Ammo556Standard);
+        var magazine = catalog.GetFeedDevice(PrototypeFirearms.Magazine55630Round);
+
+        Assert.Equal("5.56 burst carbine", carbine.Name);
+        Assert.Equal("carbine_556", carbine.WeaponFamily);
+        Assert.True(carbine.AcceptsAmmunition(ammunition));
+        Assert.True(carbine.CanUseFeedDevice(magazine));
+        Assert.Equal(PrototypeFirearms.FiveFiveSix, ammunition.Size);
+        Assert.Equal(40, ammunition.Damage);
+        Assert.Equal(30, magazine.Capacity);
+        Assert.Equal(new[] { WeaponFireMode.SingleShot, WeaponFireMode.Burst }, carbine.SupportedFireModes);
+        Assert.Equal(3, carbine.BurstRoundCount);
+        Assert.Equal(2, carbine.BurstDamageMultiplier);
+        Assert.True(catalog.GetWeaponMod(PrototypeFirearms.RedDotSight).IsCompatibleWith(carbine));
+        Assert.True(catalog.GetWeaponMod(PrototypeFirearms.HuntingScope).IsCompatibleWith(carbine));
+        Assert.True(catalog.GetWeaponMod(PrototypeFirearms.MatchBarrel).IsCompatibleWith(carbine));
     }
 
     [Fact]
@@ -464,6 +500,75 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
+    public void StackBackedBurstWeaponCanToggleFireModeWithoutAdvancingTime()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeFirearms.Carbine556);
+
+        var actions = pipeline.GetAvailableActions(state);
+        Assert.Contains(actions, action => action.Request is ToggleFireModeActionRequest toggle
+            && toggle.WeaponItemId == PrototypeFirearms.Carbine556);
+
+        var toggleToBurst = pipeline.Execute(new ToggleFireModeActionRequest(PrototypeFirearms.Carbine556), state);
+
+        Assert.True(toggleToBurst.Succeeded);
+        Assert.Equal(0, toggleToBurst.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.True(state.Player.Firearms.TryGetWeapon(PrototypeFirearms.Carbine556, out var weaponState));
+        Assert.Equal(WeaponFireMode.Burst, weaponState.CurrentFireMode);
+        Assert.Contains("Set 5.56 burst carbine to burst.", toggleToBurst.Messages);
+
+        var toggleToSingle = pipeline.Execute(new ToggleFireModeActionRequest(PrototypeFirearms.Carbine556), state);
+
+        Assert.True(toggleToSingle.Succeeded);
+        Assert.Equal(WeaponFireMode.SingleShot, weaponState.CurrentFireMode);
+        Assert.Contains("Set 5.56 burst carbine to single shot.", toggleToSingle.Messages);
+    }
+
+    [Fact]
+    public void SingleShotOnlyWeaponDoesNotExposeFireModeToggle()
+    {
+        var pipeline = CreatePipeline();
+        var state = CreateState();
+        state.Player.Inventory.Add(PrototypeFirearms.Pistol9mm);
+
+        var actions = pipeline.GetAvailableActions(state);
+        var result = pipeline.Execute(new ToggleFireModeActionRequest(PrototypeFirearms.Pistol9mm), state);
+
+        Assert.DoesNotContain(actions, action => action.Request is ToggleFireModeActionRequest);
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Contains("9mm pistol has only one fire mode.", result.Messages);
+    }
+
+    [Fact]
+    public void StatefulBurstWeaponCanToggleFireModeWithoutAdvancingTime()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var state = CreateState();
+        var carbine = state.StatefulItems.Create(
+            PrototypeFirearms.Carbine556,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearms
+        );
+
+        var actions = pipeline.GetAvailableActions(state);
+        Assert.Contains(actions, action => action.Request is ToggleStatefulFireModeActionRequest toggle
+            && toggle.WeaponItemId == carbine.Id);
+
+        var result = pipeline.Execute(new ToggleStatefulFireModeActionRequest(carbine.Id), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(WeaponFireMode.Burst, carbine.Weapon!.CurrentFireMode);
+        Assert.Contains("Set 5.56 burst carbine to burst.", result.Messages);
+    }
+
+    [Fact]
     public void ShootingNpcWithEquippedLoadedStatefulWeaponConsumesAmmoDamagesNpcAndAdvancesTime()
     {
         var pipeline = CreatePipeline();
@@ -494,8 +599,234 @@ public sealed class FirearmSystemTests
         Assert.Equal(GameActionPipeline.ShootTickCost, state.Time.ElapsedTicks);
         Assert.Equal(4, magazine.FeedDevice.LoadedCount);
         Assert.Equal(175, target.Health.Current);
-        Assert.Contains("Shot Test Dummy with 9mm pistol using 9mm standard rounds for 25 damage.", result.Messages);
+        Assert.Contains("Fired single shot at Test Dummy with 9mm pistol using 9mm standard rounds for 25 damage.", result.Messages);
         Assert.Contains("Test Dummy health: 175/200.", result.Messages);
+    }
+
+    [Fact]
+    public void BurstShootingConsumesThreeRoundsDealsBurstDamageDisablesNpcAndAdvancesBurstTime()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 80, 80);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        var carbine = state.StatefulItems.Create(
+            PrototypeFirearms.Carbine556,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine55630Round,
+            1,
+            StatefulItemLocation.Inserted(carbine.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo556Standard), 5);
+        carbine.Weapon!.InsertFeedDevice(magazine.Id);
+        pipeline.Execute(new ToggleStatefulFireModeActionRequest(carbine.Id), state);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.BurstShootTickCost, result.ElapsedTicks);
+        Assert.Equal(GameActionPipeline.BurstShootTickCost, state.Time.ElapsedTicks);
+        Assert.Equal(2, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(0, target.Health.Current);
+        Assert.True(target.IsDisabled);
+        Assert.Contains("Fired 3-round burst at Test Dummy with 5.56 burst carbine using 5.56x45mm standard rounds for 80 damage.", result.Messages);
+        Assert.Contains("Test Dummy is disabled.", result.Messages);
+    }
+
+    [Fact]
+    public void BurstShootingRequiresThreeLoadedRoundsWithoutMutation()
+    {
+        var pipeline = CreatePipeline();
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        var carbine = state.StatefulItems.Create(
+            PrototypeFirearms.Carbine556,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine55630Round,
+            1,
+            StatefulItemLocation.Inserted(carbine.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo556Standard), 2);
+        carbine.Weapon!.InsertFeedDevice(magazine.Id);
+        pipeline.Execute(new ToggleStatefulFireModeActionRequest(carbine.Id), state);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(2, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("5.56 burst carbine needs 3 loaded rounds for burst.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcFailsWithoutMutationWhenStructureBlocksLineOfFire()
+    {
+        var firearms = LoadFirearmCatalog();
+        var structures = new StructureEdgeMap(new GridBounds(7, 3));
+        var wallId = new StructureId("test_wall");
+        structures.Place(new GridPosition(2, 1), StructureEdgeDirection.East, wallId);
+        var structureCatalog = CreateStructureCatalog(new StructureDefinition(
+            wallId,
+            "Test wall",
+            "",
+            "Structure",
+            "test",
+            "wall",
+            blocksSight: true
+        ));
+        var pipeline = CreatePipeline(structureCatalog: structureCatalog);
+        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
+        var magazine = CreateEquippedLoadedPistol(state, firearms);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(5, magazine.FeedDevice!.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("Line of fire blocked by Test wall.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcAllowsNonSightBlockingStructureInLineOfFire()
+    {
+        var firearms = LoadFirearmCatalog();
+        var structures = new StructureEdgeMap(new GridBounds(7, 3));
+        var windowId = new StructureId("test_window");
+        structures.Place(new GridPosition(2, 1), StructureEdgeDirection.East, windowId);
+        var structureCatalog = CreateStructureCatalog(new StructureDefinition(
+            windowId,
+            "Test window",
+            "",
+            "Window",
+            "test",
+            "window",
+            blocksMovement: true,
+            blocksSight: false
+        ));
+        var pipeline = CreatePipeline(structureCatalog: structureCatalog);
+        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
+        var magazine = CreateEquippedLoadedPistol(state, firearms);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.ShootTickCost, result.ElapsedTicks);
+        Assert.Equal(4, magazine.FeedDevice!.LoadedCount);
+        Assert.Equal(175, target.Health.Current);
+    }
+
+    [Fact]
+    public void ShootingNpcFailsWithoutMutationWhenWorldObjectBlocksLineOfFire()
+    {
+        var firearms = LoadFirearmCatalog();
+        var blockerId = new WorldObjectId("test_blocker");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(new GridPosition(3, 1), blockerId);
+        var worldObjectCatalog = CreateWorldObjectCatalog(new WorldObjectDefinition(
+            blockerId,
+            "Test blocker",
+            "",
+            "Obstacle",
+            blocksSight: true
+        ));
+        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
+        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var magazine = CreateEquippedLoadedPistol(state, firearms);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(5, magazine.FeedDevice!.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("Line of fire blocked by Test blocker.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcAllowsNonSightBlockingWorldObjectInLineOfFire()
+    {
+        var firearms = LoadFirearmCatalog();
+        var tableId = new WorldObjectId("test_table");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(new GridPosition(3, 1), tableId);
+        var worldObjectCatalog = CreateWorldObjectCatalog(new WorldObjectDefinition(
+            tableId,
+            "Test table",
+            "",
+            "Furniture",
+            blocksMovement: true,
+            blocksSight: false
+        ));
+        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
+        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var magazine = CreateEquippedLoadedPistol(state, firearms);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.ShootTickCost, result.ElapsedTicks);
+        Assert.Equal(4, magazine.FeedDevice!.LoadedCount);
+        Assert.Equal(175, target.Health.Current);
+    }
+
+    [Fact]
+    public void ShootingNpcFailsWhenMultiTileObjectFootprintBlocksLineOfFire()
+    {
+        var firearms = LoadFirearmCatalog();
+        var vehicleId = new WorldObjectId("test_vehicle");
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(
+            new GridPosition(3, 0),
+            vehicleId,
+            WorldObjectFacing.North,
+            new WorldObjectFootprint(2, 2),
+            new GridBounds(8, 3)
+        );
+        var worldObjectCatalog = CreateWorldObjectCatalog(new WorldObjectDefinition(
+            vehicleId,
+            "Test vehicle",
+            "",
+            "Vehicle",
+            blocksSight: true,
+            footprint: new WorldObjectFootprint(2, 2)
+        ));
+        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
+        var npcs = CreateTargetRoster(new GridPosition(6, 1), out var target);
+        var state = CreateState(new GridBounds(8, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var magazine = CreateEquippedLoadedPistol(state, firearms);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(0, result.ElapsedTicks);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.Equal(5, magazine.FeedDevice!.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.Contains("Line of fire blocked by Test vehicle.", result.Messages);
     }
 
     [Fact]
@@ -633,7 +964,7 @@ public sealed class FirearmSystemTests
         Assert.True(installResult.Succeeded);
         Assert.True(shootResult.Succeeded);
         Assert.Equal(130, target.Health.Current);
-        Assert.Contains("Shot Test Dummy with .308 hunting rifle using .308 standard rounds for 70 damage.", shootResult.Messages);
+        Assert.Contains("Fired single shot at Test Dummy with .308 hunting rifle using .308 standard rounds for 70 damage.", shootResult.Messages);
     }
 
     [Fact]
@@ -672,7 +1003,7 @@ public sealed class FirearmSystemTests
         Assert.True(installResult.Succeeded);
         Assert.True(shootResult.Succeeded);
         Assert.Equal(170, target.Health.Current);
-        Assert.Contains("Shot Test Dummy with 9mm pistol using 9mm standard rounds for 30 damage.", shootResult.Messages);
+        Assert.Contains("Fired single shot at Test Dummy with 9mm pistol using 9mm standard rounds for 30 damage.", shootResult.Messages);
     }
 
     [Fact]
@@ -777,9 +1108,16 @@ public sealed class FirearmSystemTests
         Assert.Contains("Test Dummy is out of range for 9mm pistol (23/20 tiles).", result.Messages);
     }
 
-    private static GameActionPipeline CreatePipeline()
+    private static GameActionPipeline CreatePipeline(
+        WorldObjectCatalog? worldObjectCatalog = null,
+        StructureCatalog? structureCatalog = null)
     {
-        return new GameActionPipeline(new ItemCatalog(), firearmCatalog: LoadFirearmCatalog());
+        return new GameActionPipeline(
+            new ItemCatalog(),
+            worldObjectCatalog: worldObjectCatalog,
+            firearmCatalog: LoadFirearmCatalog(),
+            structureCatalog: structureCatalog
+        );
     }
 
     private static GameActionPipeline CreatePipelineWithItemCatalog()
@@ -790,18 +1128,75 @@ public sealed class FirearmSystemTests
     private static PrototypeGameState CreateState(
         GridBounds? bounds = null,
         NpcRoster? npcs = null,
-        GridPosition? startPosition = null
+        GridPosition? startPosition = null,
+        TileObjectMap? worldObjects = null,
+        StructureEdgeMap? structures = null
     )
     {
         var mapBounds = bounds ?? new GridBounds(5, 5);
+        var surfaces = new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete);
         return new PrototypeGameState(
-            mapBounds,
-            new TileItemMap(),
-            new TileSurfaceMap(mapBounds, PrototypeSurfaces.Concrete),
-            new TileObjectMap(),
-            npcs ?? new NpcRoster(),
+            new LocalMapState(
+                new LocalMap(mapBounds, surfaces),
+                new TileItemMap(),
+                worldObjects ?? new TileObjectMap(),
+                npcs,
+                structures: structures
+            ),
             startPosition ?? new GridPosition(2, 2)
         );
+    }
+
+    private static NpcRoster CreateTargetRoster(GridPosition targetPosition, out NpcState target)
+    {
+        var npcs = new NpcRoster();
+        target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", targetPosition, 200, 200);
+        npcs.Add(target);
+        return npcs;
+    }
+
+    private static StatefulItem CreateEquippedLoadedPistol(
+        PrototypeGameState state,
+        FirearmCatalog firearms,
+        int loadedRounds = 5)
+    {
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), loadedRounds);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+        return magazine;
+    }
+
+    private static WorldObjectCatalog CreateWorldObjectCatalog(params WorldObjectDefinition[] definitions)
+    {
+        var catalog = new WorldObjectCatalog();
+        foreach (var definition in definitions)
+        {
+            catalog.Add(definition);
+        }
+
+        return catalog;
+    }
+
+    private static StructureCatalog CreateStructureCatalog(params StructureDefinition[] definitions)
+    {
+        var catalog = new StructureCatalog();
+        foreach (var definition in definitions)
+        {
+            catalog.Add(definition);
+        }
+
+        return catalog;
     }
 
     private static FirearmCatalog LoadFirearmCatalog()

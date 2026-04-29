@@ -9,7 +9,8 @@ public sealed class CampaignState
         PlayerState player,
         StatefulItemStore statefulItems,
         WorldMapTravelState worldMap,
-        VehicleFuelState vehicleFuel)
+        VehicleFuelState vehicleFuel,
+        TravelCargoStore? travelCargo = null)
     {
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(player);
@@ -27,6 +28,7 @@ public sealed class CampaignState
         StatefulItems = statefulItems;
         WorldMap = worldMap;
         VehicleFuel = vehicleFuel;
+        TravelCargo = travelCargo ?? new TravelCargoStore();
         Mode = CampaignMode.WorldMap;
     }
 
@@ -39,6 +41,8 @@ public sealed class CampaignState
     public WorldMapTravelState WorldMap { get; }
 
     public VehicleFuelState VehicleFuel { get; }
+
+    public TravelCargoStore TravelCargo { get; }
 
     public CampaignMode Mode { get; private set; }
 
@@ -84,6 +88,7 @@ public sealed class CampaignState
 
         WorldMap.ClearDestination();
         localSite.GameState.SetPlayerPosition(localSite.LastPlayerPosition);
+        localSite.GameState.ClearActiveTravelAnchor();
         Mode = CampaignMode.LocalSite;
         ActiveLocalSiteId = localSite.Id;
 
@@ -93,6 +98,7 @@ public sealed class CampaignState
     public void ReturnToWorldMap()
     {
         StoreActiveLocalSitePlayerPosition();
+        ClearActiveLocalSiteAnchor();
         Mode = CampaignMode.WorldMap;
         ActiveLocalSiteId = null;
     }
@@ -105,6 +111,16 @@ public sealed class CampaignState
         }
 
         GetLocalSite(ActiveLocalSiteId).StorePlayerPosition(Player.Position);
+    }
+
+    private void ClearActiveLocalSiteAnchor()
+    {
+        if (ActiveLocalSiteId is null)
+        {
+            return;
+        }
+
+        GetLocalSite(ActiveLocalSiteId).GameState.ClearActiveTravelAnchor();
     }
 
     private void EnsureLocalSiteUsesCampaignState(LocalSiteState localSite)

@@ -1,10 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SurvivalGame.Domain;
 
 public partial class WorldMapView : Control
 {
+    private const int MinimumMapLanesPerDirection = 1;
+    private const int MaximumMapLanesPerDirection = 3;
+    private const float SingleLaneRoadSurfaceWidth = 21.0f;
+    private const float DoubleLaneRoadSurfaceWidth = 33.0f;
+    private const float TripleLaneRoadSurfaceWidth = 45.0f;
+    private const float InterstateRoadCasingWidth = 9.0f;
+    private const float HighwayRoadCasingWidth = 7.2f;
+    private const float SingleLaneCenterLineWidth = 2.0f;
+    private const float MultiLaneCenterLineWidth = 2.5f;
+    private const float LaneSeparatorLineWidth = 1.7f;
+    private const float RoadPointJoinEpsilonSquared = 0.25f;
+
     private static readonly Color BackgroundColor = new(0.035f, 0.047f, 0.054f);
     private static readonly Color MapColor = new(0.13f, 0.19f, 0.14f);
     private static readonly Color BorderColor = new(0.48f, 0.57f, 0.45f);
@@ -14,6 +27,8 @@ public partial class WorldMapView : Control
     private static readonly Color UsHighwayColor = new(0.66f, 0.69f, 0.60f, 0.90f);
     private static readonly Color StateHighwayColor = new(0.50f, 0.56f, 0.49f, 0.86f);
     private static readonly Color RoadCasingColor = new(0.07f, 0.085f, 0.07f, 0.90f);
+    private static readonly Color RoadCenterLineColor = new(0.93f, 0.88f, 0.64f, 0.58f);
+    private static readonly Color RoadLaneLineColor = new(0.94f, 0.92f, 0.80f, 0.34f);
     private static readonly Color RoadLabelColor = new(0.85f, 0.88f, 0.78f, 0.88f);
     private static readonly Color RoadLabelShadowColor = new(0.03f, 0.04f, 0.03f, 0.90f);
     private static readonly Color CityColor = new(0.86f, 0.87f, 0.78f);
@@ -189,12 +204,17 @@ public partial class WorldMapView : Control
 
         foreach (var road in roads)
         {
-            DrawRoadPass(road, RoadCasingColor, RoadFillWidth(road) + RoadCasingWidth(road), mapRect, viewport);
+            DrawRoadPass(road, RoadCasingColor, RoadSurfaceWidth(road) + RoadCasingWidth(road), mapRect, viewport);
         }
 
         foreach (var road in roads)
         {
-            DrawRoadPass(road, RoadFillColor(road), RoadFillWidth(road), mapRect, viewport);
+            DrawRoadPass(road, RoadSurfaceColor(road), RoadSurfaceWidth(road), mapRect, viewport);
+        }
+
+        foreach (var road in roads)
+        {
+            DrawRoadMarkings(road, mapRect, viewport);
         }
 
         DrawRoadLabels(mapRect, viewport);
@@ -207,31 +227,203 @@ public partial class WorldMapView : Control
         Rect2 mapRect,
         WorldMapViewport viewport)
     {
-        foreach (var segment in road.Segments)
+        foreach (var screenPoints in BuildRoadScreenPolylines(road, mapRect, viewport))
         {
-            for (var i = 0; i < segment.Points.Count - 1; i++)
-            {
-                DrawRoadSegment(segment.Points[i], segment.Points[i + 1], color, width, mapRect, viewport);
-            }
+            DrawRoadPolyline(screenPoints, color, width);
         }
     }
 
-    private void DrawRoadSegment(
-        WorldMapPosition start,
-        WorldMapPosition end,
-        Color color,
-        float width,
+    private void DrawRoadMarkings(
+        WorldMapRoad road,
         Rect2 mapRect,
         WorldMapViewport viewport)
     {
-        if (!TryClipSegmentToViewport(start, end, viewport, out var clippedStart, out var clippedEnd))
+        var lanesPerDirection = RoadVisualLaneCount(road);
+        DrawRoadPass(
+            road,
+            RoadCenterLineColor,
+            lanesPerDirection == MinimumMapLanesPerDirection
+                ? SingleLaneCenterLineWidth
+                : MultiLaneCenterLineWidth,
+            mapRect,
+            viewport);
+
+        if (lanesPerDirection <= 1)
         {
             return;
         }
 
-        var screenStart = MapToScreen(clippedStart, mapRect, viewport);
-        var screenEnd = MapToScreen(clippedEnd, mapRect, viewport);
-        DrawLine(screenStart, screenEnd, color, width);
+        var laneWidth = RoadSurfaceWidth(road) / (lanesPerDirection * 2.0f);
+        for (var lane = 1; lane < lanesPerDirection; lane++)
+        {
+            var offset = laneWidth * lane;
+            DrawRoadOffsetPass(road, RoadLaneLineColor, LaneSeparatorLineWidth, offset, mapRect, viewport);
+            DrawRoadOffsetPass(road, RoadLaneLineColor, LaneSeparatorLineWidth, -offset, mapRect, viewport);
+        }
+    }
+
+    private void DrawRoadOffsetPass(
+        WorldMapRoad road,
+        Color color,
+        float width,
+        float screenOffset,
+        Rect2 mapRect,
+        WorldMapViewport viewport)
+    {
+        foreach (var screenPoints in BuildRoadScreenPolylines(road, mapRect, viewport))
+        {
+            DrawRoadPolyline(BuildOffsetRoadPolyline(screenPoints, screenOffset), color, width);
+        }
+    }
+
+    private IEnumerable<Vector2[]> BuildRoadScreenPolylines(
+        WorldMapRoad road,
+        Rect2 mapRect,
+        WorldMapViewport viewport)
+    {
+        foreach (var segment in road.Segments)
+        {
+            var visiblePoints = new List<Vector2>();
+            for (var i = 0; i < segment.Points.Count - 1; i++)
+            {
+                if (!TryClipSegmentToViewport(
+                    segment.Points[i],
+                    segment.Points[i + 1],
+                    viewport,
+                    out var clippedStart,
+                    out var clippedEnd))
+                {
+                    if (visiblePoints.Count >= 2)
+                    {
+                        yield return visiblePoints.ToArray();
+                    }
+
+                    visiblePoints.Clear();
+                    continue;
+                }
+
+                var screenStart = MapToScreen(clippedStart, mapRect, viewport);
+                var screenEnd = MapToScreen(clippedEnd, mapRect, viewport);
+                if (visiblePoints.Count == 0)
+                {
+                    visiblePoints.Add(screenStart);
+                }
+                else if (!AreRoadPointsAdjacent(visiblePoints[^1], screenStart))
+                {
+                    if (visiblePoints.Count >= 2)
+                    {
+                        yield return visiblePoints.ToArray();
+                    }
+
+                    visiblePoints.Clear();
+                    visiblePoints.Add(screenStart);
+                }
+
+                AddRoadPointIfDistinct(visiblePoints, screenEnd);
+            }
+
+            if (visiblePoints.Count >= 2)
+            {
+                yield return visiblePoints.ToArray();
+            }
+        }
+    }
+
+    private void DrawRoadPolyline(
+        Vector2[] screenPoints,
+        Color color,
+        float width)
+    {
+        if (screenPoints.Length < 2)
+        {
+            return;
+        }
+
+        DrawPolyline(screenPoints, color, width, antialiased: true);
+
+        var radius = width / 2.0f;
+        foreach (var point in screenPoints)
+        {
+            DrawCircle(point, radius, color);
+        }
+    }
+
+    private static Vector2[] BuildOffsetRoadPolyline(IReadOnlyList<Vector2> points, float screenOffset)
+    {
+        var offsetPoints = new Vector2[points.Count];
+        for (var i = 0; i < points.Count; i++)
+        {
+            offsetPoints[i] = points[i] + (RoadJoinNormal(points, i) * screenOffset);
+        }
+
+        return offsetPoints;
+    }
+
+    private static Vector2 RoadJoinNormal(IReadOnlyList<Vector2> points, int index)
+    {
+        var previousDirection = index > 0
+            ? SafeRoadDirection(points[index] - points[index - 1])
+            : Vector2.Zero;
+        var nextDirection = index < points.Count - 1
+            ? SafeRoadDirection(points[index + 1] - points[index])
+            : Vector2.Zero;
+
+        if (previousDirection == Vector2.Zero && nextDirection == Vector2.Zero)
+        {
+            return Vector2.Zero;
+        }
+
+        if (previousDirection == Vector2.Zero)
+        {
+            return RoadNormal(nextDirection);
+        }
+
+        if (nextDirection == Vector2.Zero)
+        {
+            return RoadNormal(previousDirection);
+        }
+
+        var previousNormal = RoadNormal(previousDirection);
+        var nextNormal = RoadNormal(nextDirection);
+        var joinedNormal = previousNormal + nextNormal;
+        if (joinedNormal.LengthSquared() <= 0.0001f)
+        {
+            return nextNormal;
+        }
+
+        joinedNormal = joinedNormal.Normalized();
+        var dot = joinedNormal.Dot(nextNormal);
+        if (Math.Abs(dot) <= 0.0001f)
+        {
+            return joinedNormal;
+        }
+
+        return joinedNormal * Mathf.Clamp(1.0f / dot, 0.65f, 1.60f);
+    }
+
+    private static Vector2 SafeRoadDirection(Vector2 vector)
+    {
+        return vector.LengthSquared() <= 0.0001f
+            ? Vector2.Zero
+            : vector.Normalized();
+    }
+
+    private static Vector2 RoadNormal(Vector2 direction)
+    {
+        return new Vector2(-direction.Y, direction.X);
+    }
+
+    private static bool AreRoadPointsAdjacent(Vector2 first, Vector2 second)
+    {
+        return first.DistanceSquaredTo(second) <= RoadPointJoinEpsilonSquared;
+    }
+
+    private static void AddRoadPointIfDistinct(List<Vector2> points, Vector2 point)
+    {
+        if (points.Count == 0 || !AreRoadPointsAdjacent(points[^1], point))
+        {
+            points.Add(point);
+        }
     }
 
     private void DrawRoadLabels(Rect2 mapRect, WorldMapViewport viewport)
@@ -526,7 +718,7 @@ public partial class WorldMapView : Control
         return true;
     }
 
-    private static Color RoadFillColor(WorldMapRoad road)
+    private static Color RoadSurfaceColor(WorldMapRoad road)
     {
         return road.Kind switch
         {
@@ -537,21 +729,29 @@ public partial class WorldMapView : Control
         };
     }
 
-    private static float RoadFillWidth(WorldMapRoad road)
+    private static float RoadSurfaceWidth(WorldMapRoad road)
     {
-        var laneBonus = Math.Min(4, Math.Max(0, road.LaneCount - 2)) * 0.7f;
-        return road.Kind switch
+        return RoadVisualLaneCount(road) switch
         {
-            WorldMapRoadKind.Interstate => 5.6f + laneBonus,
-            WorldMapRoadKind.UsHighway => 4.0f + laneBonus,
-            WorldMapRoadKind.StateHighway => 2.8f + (laneBonus * 0.65f),
-            _ => 2.4f
+            1 => SingleLaneRoadSurfaceWidth,
+            2 => DoubleLaneRoadSurfaceWidth,
+            _ => TripleLaneRoadSurfaceWidth
         };
     }
 
     private static float RoadCasingWidth(WorldMapRoad road)
     {
-        return road.Kind == WorldMapRoadKind.Interstate ? 2.6f : 2.0f;
+        return road.Kind == WorldMapRoadKind.Interstate
+            ? InterstateRoadCasingWidth
+            : HighwayRoadCasingWidth;
+    }
+
+    private static int RoadVisualLaneCount(WorldMapRoad road)
+    {
+        return Math.Clamp(
+            road.MapLanesPerDirection,
+            MinimumMapLanesPerDirection,
+            MaximumMapLanesPerDirection);
     }
 
     private static Color ColorFromHex(string hex, Color fallback)

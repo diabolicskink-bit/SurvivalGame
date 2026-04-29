@@ -40,10 +40,13 @@ public sealed class StatefulItem
 
     public StatefulWeaponState? Weapon { get; private set; }
 
+    public FuelContainerState? FuelContainer { get; private set; }
+
     public IReadOnlyList<StatefulItemId> Contents => _contents.ToArray();
 
     public bool HasState => FeedDevice is not null
         || Weapon is not null
+        || FuelContainer is not null
         || _contents.Count > 0
         || Condition != ItemCondition.Good
         || Quantity != 1;
@@ -69,6 +72,12 @@ public sealed class StatefulItem
     {
         ArgumentNullException.ThrowIfNull(weapon);
         Weapon = weapon;
+    }
+
+    public void AttachFuelContainerState(FuelContainerState fuelContainer)
+    {
+        ArgumentNullException.ThrowIfNull(fuelContainer);
+        FuelContainer = fuelContainer;
     }
 
     public void AddContent(StatefulItemId itemId)

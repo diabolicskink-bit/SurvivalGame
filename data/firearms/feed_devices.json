@@ -30,5 +30,13 @@
     "ammoSize": "7.62x39mm",
     "capacity": 20,
     "compatibleWeaponFamilies": ["ak_rifle"]
+  },
+  {
+    "itemId": "magazine_556_30_round",
+    "name": "5.56 30-round magazine",
+    "kind": "DetachableMagazine",
+    "ammoSize": "5.56x45mm",
+    "capacity": 30,
+    "compatibleWeaponFamilies": ["carbine_556"]
   }
 ]

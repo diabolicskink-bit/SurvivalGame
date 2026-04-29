@@ -14,7 +14,8 @@ public sealed class PrototypeGameplaySession
         WorldObjectCatalog worldObjectCatalog,
         StructureCatalog structureCatalog,
         NpcCatalog npcCatalog,
-        GameActionPipeline actionPipeline
+        GameActionPipeline actionPipeline,
+        WorldObjectInstanceId? activeTravelAnchorInstanceId = null
     )
     {
         LocalSite = localSite;
@@ -28,6 +29,7 @@ public sealed class PrototypeGameplaySession
         StructureCatalog = structureCatalog;
         NpcCatalog = npcCatalog;
         ActionPipeline = actionPipeline;
+        ActiveTravelAnchorInstanceId = activeTravelAnchorInstanceId;
     }
 
     public LocalSiteState LocalSite { get; }
@@ -51,6 +53,8 @@ public sealed class PrototypeGameplaySession
     public NpcCatalog NpcCatalog { get; }
 
     public GameActionPipeline ActionPipeline { get; }
+
+    public WorldObjectInstanceId? ActiveTravelAnchorInstanceId { get; }
 }
 
 public sealed class PrototypeCampaignSession
@@ -94,15 +98,39 @@ public sealed class PrototypeCampaignSession
 
     public PrototypeGameplaySession CreateGameplaySession(SiteId siteId)
     {
+        var localSite = CampaignState.GetLocalSite(siteId);
+        var activeAnchor = TravelAnchorService.EnsureAnchor(
+            localSite,
+            CampaignState.WorldMap.CurrentTravelMethod,
+            WorldObjectCatalog
+        );
+        if (activeAnchor is not null)
+        {
+            localSite.GameState.SetActiveTravelAnchor(activeAnchor.Value.InstanceId);
+            if (TravelAnchorService.TryFindEntryPosition(
+                localSite.GameState,
+                activeAnchor.Value.InstanceId,
+                WorldObjectCatalog,
+                out var entryPosition))
+            {
+                localSite.GameState.SetPlayerPosition(entryPosition);
+            }
+        }
+        else
+        {
+            localSite.GameState.ClearActiveTravelAnchor();
+        }
+
         return new PrototypeGameplaySession(
-            CampaignState.GetLocalSite(siteId),
+            localSite,
             ItemCatalog,
             FirearmCatalog,
             SurfaceCatalog,
             WorldObjectCatalog,
             StructureCatalog,
             NpcCatalog,
-            ActionPipeline
+            ActionPipeline,
+            activeAnchor?.InstanceId
         );
     }
 }
@@ -166,7 +194,8 @@ public static class PrototypeSessionFactory
             firearmCatalog,
             vehicleFuel,
             npcCatalog,
-            structureCatalog
+            structureCatalog,
+            campaignState.TravelCargo
         );
 
         return new PrototypeCampaignSession(
@@ -190,7 +219,8 @@ public static class PrototypeSessionFactory
         return new LocalSiteState(
             CreateGameState(site, player, time, statefulItems),
             site.DisplayName,
-            site.StartPosition
+            site.StartPosition,
+            site.ArrivalAnchors
         );
     }
 
@@ -227,6 +257,7 @@ public static class PrototypeSessionFactory
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo9mmStandard, 35);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo9mmHollowPoint, 20);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo762x39Standard, 60);
+        AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo556Standard, 60);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo308Standard, 20);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeBuckshot, 20);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeSlug, 10);
@@ -240,10 +271,12 @@ public static class PrototypeSessionFactory
         FirearmCatalog firearmCatalog)
     {
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Pistol9mm);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Carbine556);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeItems.Ak47);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeItems.HuntingRifle);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Shotgun12Gauge);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Rifle22);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeItems.FuelCan);
 
         var loadedMagazine = CreateCarriedStatefulItem(
             gameState,
@@ -253,8 +286,17 @@ public static class PrototypeSessionFactory
         );
         loadedMagazine.FeedDevice?.Load(firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 15);
 
+        var loadedCarbineMagazine = CreateCarriedStatefulItem(
+            gameState,
+            itemCatalog,
+            firearmCatalog,
+            PrototypeFirearms.Magazine55630Round
+        );
+        loadedCarbineMagazine.FeedDevice?.Load(firearmCatalog.GetAmmunition(PrototypeFirearms.Ammo556Standard), 30);
+
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Magazine9mmStandard);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Magazine9mmExtended);
+        CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.Magazine55630Round);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.MagazineAk30Round);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.MagazineAkDamaged20Round);
         CreateCarriedStatefulItem(gameState, itemCatalog, firearmCatalog, PrototypeFirearms.RedDotSight);
@@ -295,7 +337,13 @@ public static class PrototypeSessionFactory
         FirearmCatalog firearmCatalog,
         ItemId itemId)
     {
-        var item = gameState.StatefulItems.Create(itemId, 1, StatefulItemLocation.PlayerInventory(), firearmCatalog);
+        var item = gameState.StatefulItems.Create(
+            itemId,
+            1,
+            StatefulItemLocation.PlayerInventory(),
+            firearmCatalog,
+            itemCatalog: itemCatalog
+        );
         if (!gameState.Player.Inventory.Container.TryAutoPlace(
             ContainerItemRef.Stateful(item.Id),
             GetInventorySize(itemCatalog, item.ItemId)))

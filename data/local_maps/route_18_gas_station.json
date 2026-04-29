@@ -4,6 +4,10 @@
   "sourceKind": "authored",
   "size": { "width": 40, "height": 28 },
   "startPosition": { "x": 21, "y": 14 },
+  "arrivalAnchors": {
+    "vehicle": { "x": 17, "y": 14, "facing": "east" },
+    "pushbike": { "x": 21, "y": 16 }
+  },
   "defaultSurface": "asphalt",
   "surfaceLayer": {
     "legend": {

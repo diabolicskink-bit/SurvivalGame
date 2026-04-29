@@ -9,11 +9,14 @@ public partial class SelectedItemPanel : VBoxContainer
     private const int HeadingFontSize = 17;
     private const int BodyFontSize = 15;
     private const int ActionButtonFontSize = 16;
+    private const float MinimumContentWidth = 320.0f;
 
     public event Action<AvailableAction>? ActionSelected;
 
     public override void _Ready()
     {
+        SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        CustomMinimumSize = new Vector2(MinimumContentWidth, 0);
         AddThemeConstantOverride("separation", 7);
     }
 
@@ -64,7 +67,7 @@ public partial class SelectedItemPanel : VBoxContainer
                 AddInventoryStackDetails(selectedItem.ItemId!, state, itemCatalog, firearmCatalog);
                 break;
             case SelectedItemKind.EquipmentItem:
-                AddEquipmentItemDetails(selectedItem.ItemId!, selectedItem.EquipmentSlotId!, itemCatalog, firearmCatalog);
+                AddEquipmentItemDetails(selectedItem.ItemId!, selectedItem.EquipmentSlotId!, state, itemCatalog, firearmCatalog);
                 break;
             case SelectedItemKind.StatefulItem:
                 AddStatefulItemDetails(selectedItem.StatefulItemId!.Value, state, itemCatalog, firearmCatalog);
@@ -79,16 +82,17 @@ public partial class SelectedItemPanel : VBoxContainer
         FirearmCatalog firearmCatalog)
     {
         var quantity = state.Player.Inventory.CountOf(itemId);
-        AddDefinitionDetails(itemId, quantity, "Inventory", itemCatalog, firearmCatalog);
+        AddDefinitionDetails(itemId, quantity, "Inventory", itemCatalog, firearmCatalog, state);
     }
 
     private void AddEquipmentItemDetails(
         ItemId itemId,
         EquipmentSlotId slotId,
+        PrototypeGameState state,
         ItemCatalog itemCatalog,
         FirearmCatalog firearmCatalog)
     {
-        AddDefinitionDetails(itemId, quantity: 1, $"Equipped: {slotId}", itemCatalog, firearmCatalog);
+        AddDefinitionDetails(itemId, quantity: 1, $"Equipped: {slotId}", itemCatalog, firearmCatalog, state);
     }
 
     private void AddStatefulItemDetails(
@@ -113,6 +117,15 @@ public partial class SelectedItemPanel : VBoxContainer
             AddFeedDetails(item.FeedDevice);
         }
 
+        if (item.FuelContainer is not null)
+        {
+            AddChild(CreateLabel(
+                $"Fuel: {item.FuelContainer.CurrentFuel:0.0}/{item.FuelContainer.Capacity:0.0}",
+                BodyFontSize,
+                new Color(0.8f, 0.85f, 0.75f)
+            ));
+        }
+
         if (item.Weapon is not null)
         {
             AddWeaponStateDetails(item, state, itemCatalog, firearmCatalog);
@@ -133,7 +146,8 @@ public partial class SelectedItemPanel : VBoxContainer
         int quantity,
         string location,
         ItemCatalog itemCatalog,
-        FirearmCatalog firearmCatalog)
+        FirearmCatalog firearmCatalog,
+        PrototypeGameState? state = null)
     {
         var name = GetItemName(itemId, itemCatalog);
         AddChild(CreateLabel(name, HeadingFontSize, new Color(0.9f, 0.93f, 0.84f)));
@@ -156,10 +170,10 @@ public partial class SelectedItemPanel : VBoxContainer
             }
         }
 
-        AddFirearmDefinitionDetails(itemId, firearmCatalog);
+        AddFirearmDefinitionDetails(itemId, firearmCatalog, state);
     }
 
-    private void AddFirearmDefinitionDetails(ItemId itemId, FirearmCatalog firearmCatalog)
+    private void AddFirearmDefinitionDetails(ItemId itemId, FirearmCatalog firearmCatalog, PrototypeGameState? state)
     {
         if (firearmCatalog.TryGetAmmunition(itemId, out var ammunition))
         {
@@ -174,9 +188,20 @@ public partial class SelectedItemPanel : VBoxContainer
         if (firearmCatalog.TryGetWeapon(itemId, out var weapon))
         {
             var acceptedAmmo = string.Join(", ", weapon.AcceptedAmmoSizes);
+            var fireModes = string.Join(", ", weapon.SupportedFireModes.Select(WeaponFireModeNames.Format));
             AddChild(CreateLabel($"Weapon: accepts {acceptedAmmo}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Range: {weapon.EffectiveRangeTiles} effective / {weapon.MaximumRangeTiles} max tiles", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Feed type: {weapon.FeedKind}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            AddChild(CreateLabel($"Fire modes: {fireModes}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            if (weapon.SupportsFireMode(WeaponFireMode.Burst))
+            {
+                AddChild(CreateLabel($"Burst: {weapon.BurstRoundCount} rounds, x{weapon.BurstDamageMultiplier} damage", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            }
+
+            if (state is not null)
+            {
+                AddChild(CreateLabel($"Current mode: {WeaponFireModeNames.Format(GetStackWeaponFireMode(state, itemId))}", BodyFontSize, new Color(0.8f, 0.85f, 0.75f)));
+            }
         }
 
         if (firearmCatalog.TryGetWeaponMod(itemId, out var weaponMod))
@@ -215,6 +240,8 @@ public partial class SelectedItemPanel : VBoxContainer
         {
             AddChild(CreateLabel($"Inserted feed: {item.Weapon.InsertedFeedDeviceItemId}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
         }
+
+        AddChild(CreateLabel($"Current mode: {WeaponFireModeNames.Format(item.Weapon?.CurrentFireMode ?? WeaponFireMode.SingleShot)}", BodyFontSize, new Color(0.8f, 0.85f, 0.75f)));
 
         if (activeFeed is null)
         {
@@ -294,10 +321,14 @@ public partial class SelectedItemPanel : VBoxContainer
         {
             InspectItemActionRequest => "Inspect",
             DropItemStackActionRequest dropStack => dropStack.Quantity == 1 ? "Drop one" : $"Drop {dropStack.Quantity}",
+            StowItemStackInTravelCargoActionRequest stowStack => stowStack.Quantity == 1 ? "Stow one" : $"Stow {stowStack.Quantity}",
             EquipItemActionRequest equip => $"Equip ({GetSlotDisplayName(state, equip.SlotId)})",
             UnequipItemActionRequest => "Unequip",
             InspectStatefulItemActionRequest => "Inspect",
             DropStatefulItemActionRequest => "Drop",
+            StowStatefulItemInTravelCargoActionRequest => "Stow in cargo",
+            FillFuelCanActionRequest => "Fill",
+            PourFuelCanIntoVehicleActionRequest => "Pour into vehicle",
             EquipStatefulItemActionRequest equip => $"Equip ({GetSlotDisplayName(state, equip.SlotId)})",
             UnequipStatefulItemActionRequest => "Unequip",
             PickupStatefulItemActionRequest => "Pick up",
@@ -317,6 +348,7 @@ public partial class SelectedItemPanel : VBoxContainer
                 ? $"Reload with {GetItemName(reloadWeapon.AmmunitionItemId, itemCatalog)}"
                 : $"Reload {GetItemName(reloadWeapon.WeaponItemId, itemCatalog)}",
             TestFireActionRequest => "Test fire",
+            ToggleFireModeActionRequest => "Switch fire mode",
 
             LoadStatefulFeedDeviceActionRequest loadStatefulFeed => $"Load {GetItemName(loadStatefulFeed.AmmunitionItemId, itemCatalog)}",
             UnloadStatefulFeedDeviceActionRequest => "Unload",
@@ -329,6 +361,7 @@ public partial class SelectedItemPanel : VBoxContainer
                 ? $"Reload with {GetItemName(reloadStatefulWeapon.AmmunitionItemId, itemCatalog)}"
                 : $"Reload {GetStatefulItemName(reloadStatefulWeapon.WeaponItemId, state, itemCatalog)}",
             TestFireStatefulWeaponActionRequest => "Test fire",
+            ToggleStatefulFireModeActionRequest => "Switch fire mode",
             InstallStatefulWeaponModActionRequest installWeaponMod => IsSelectedStatefulItem(selectedItem, installWeaponMod.WeaponItemId)
                 ? $"Install {GetStatefulItemName(installWeaponMod.ModItemId, state, itemCatalog)}"
                 : $"Install into {GetStatefulItemName(installWeaponMod.WeaponItemId, state, itemCatalog)}",
@@ -392,6 +425,7 @@ public partial class SelectedItemPanel : VBoxContainer
             EquipmentLocation e => $"Equipped: {e.SlotId}",
             InsertedLocation i => $"Inserted in {i.ParentItemId}",
             ContainedLocation c => $"Inside {c.ParentItemId}",
+            TravelCargoLocation => "Travel cargo",
             _ => location.Kind.ToString()
         };
     }
@@ -403,6 +437,13 @@ public partial class SelectedItemPanel : VBoxContainer
         AddSignedEffect(effects, "max range", mod.MaximumRangeBonus);
         AddSignedEffect(effects, "damage", mod.DamageBonus);
         return effects.Count == 0 ? "none" : string.Join(", ", effects);
+    }
+
+    private static WeaponFireMode GetStackWeaponFireMode(PrototypeGameState state, ItemId itemId)
+    {
+        return state.Player.Firearms.TryGetWeapon(itemId, out var weaponState)
+            ? weaponState.CurrentFireMode
+            : WeaponFireMode.SingleShot;
     }
 
     private static void AddSignedEffect(List<string> effects, string label, int value)
@@ -426,7 +467,9 @@ public partial class SelectedItemPanel : VBoxContainer
         {
             Text = text,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            MouseFilter = Control.MouseFilterEnum.Ignore
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(MinimumContentWidth, 0),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill
         };
         label.AddThemeFontSizeOverride("font_size", fontSize);
         label.AddThemeColorOverride("font_color", color);

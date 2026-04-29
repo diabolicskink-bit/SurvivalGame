@@ -10,6 +10,7 @@ public sealed class GameActionPipeline
     public const int EquipItemTickCost = 0;
     public const int UnequipItemTickCost = 0;
     public const int ShootTickCost = 100;
+    public const int BurstShootTickCost = 150;
     public const int RefuelVehicleTickCost = 100;
     public const int AutomatedTurretRangeTiles = 5;
     public const int AutomatedTurretTickInterval = 75;
@@ -21,6 +22,7 @@ public sealed class GameActionPipeline
     private readonly NpcCatalog? _npcCatalog;
     private readonly FirearmActionService? _firearmActions;
     private readonly VehicleFuelState? _vehicleFuelState;
+    private readonly TravelCargoStore? _travelCargo;
     private readonly ItemDescriber _itemDescriber;
     private readonly ActionHandlerRegistry _registry;
     private readonly NpcCombatService _npcCombatService = new();
@@ -31,7 +33,8 @@ public sealed class GameActionPipeline
         FirearmCatalog? firearmCatalog = null,
         VehicleFuelState? vehicleFuelState = null,
         NpcCatalog? npcCatalog = null,
-        StructureCatalog? structureCatalog = null
+        StructureCatalog? structureCatalog = null,
+        TravelCargoStore? travelCargo = null
     )
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
@@ -40,13 +43,17 @@ public sealed class GameActionPipeline
         _worldObjectCatalog = worldObjectCatalog;
         _structureCatalog = structureCatalog;
         _npcCatalog = npcCatalog;
-        _firearmActions = firearmCatalog is null ? null : new FirearmActionService(firearmCatalog, itemCatalog);
+        _firearmActions = firearmCatalog is null
+            ? null
+            : new FirearmActionService(firearmCatalog, itemCatalog, worldObjectCatalog, structureCatalog);
         _vehicleFuelState = vehicleFuelState;
+        _travelCargo = travelCargo;
         _itemDescriber = new ItemDescriber(itemCatalog, firearmCatalog);
         _registry = new ActionHandlerRegistry(new IActionHandler[]
         {
             new MovementHandler(),
             new InventoryHandler(),
+            new TravelCargoHandler(),
             new InteractHandler(),
             new InspectHandler(),
             new EquipmentHandler(),
@@ -90,6 +97,7 @@ public sealed class GameActionPipeline
             _npcCatalog,
             _firearmActions,
             _vehicleFuelState,
+            _travelCargo,
             _itemDescriber
         );
     }
