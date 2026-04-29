@@ -1,5 +1,30 @@
 # Task Log
 
+## 2026-04-29 - Main Menu Scene Script Path Fix
+
+- Updated the legacy root `main_menu.tscn` scene to reference the current `src/Godot/MainMenu/MainMenu.cs` script path.
+- This prevents Godot from trying to load the removed `res://scripts/MainMenu.cs` path when the old scene is opened or cached.
+
+## 2026-04-26 - Gun Inventory Sprites
+
+- Added transparent item sprites for the existing 9mm pistol, hunting rifle, and 12 gauge shotgun item sprite ids.
+- Added matching Godot texture import metadata for the new sprites.
+- Added `tools/sprites/generate_gun_inventory_sprites.py` so the current prototype gun sprites can be regenerated deterministically.
+- Left item definitions unchanged because `data/items/weapons.json` already referenced the matching sprite ids.
+- Kept the existing AK sprite and the .22 rifle sprite gap out of this pass.
+
+## 2026-04-26 - Tactical Atlas World Map Background
+
+- Added a deterministic Python/Pillow tactical-atlas generator for the Colorado world map.
+- Generated `data/world_map/colorado_atlas.png` at 5200x3800 and `data/world_map/colorado_terrain.generated.json` at 520x380.
+- Added Colorado-specific world-map terrain types for shortgrass prairie, high plains, Front Range corridor, foothills, mountain forest, alpine peaks, mountain valleys, western plateau, canyonlands, desert scrub, river corridors, and reservoirs.
+- Added a domain terrain-grid model and loader support so world-map travel samples generated terrain-grid costs before falling back to broad terrain regions.
+- Updated the world map definition to reference the atlas texture and generated terrain grid.
+- Updated world-map rendering to draw the atlas background under live roads, labels, POIs, destination, and party marker, with terrain polygon fallback when the texture is unavailable.
+- Updated the world-map travel HUD to show the current sampled terrain name.
+- Added tests for terrain-grid dimensions, terrain code profiles, atlas dimensions, terrain-cost sampling, and existing road/terrain modifiers.
+- Kept satellite imagery, DEM ingestion, road snapping, pathfinding, weather, and encounters out of scope.
+
 ## 2026-04-26 - Real Colorado Road Layer
 
 - Replaced the hand-authored world-map road polylines with a committed generated road file at `data/world_map/colorado_roads.generated.json`.

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using SurvivalGame.Domain;
 using Xunit;
 
@@ -144,6 +145,69 @@ public sealed class WorldMapTravelStateTests
         Assert.True(road.Segments.Count > 1);
         Assert.True(road.DistanceTo(pointOnLaterSegment) < 0.01);
         Assert.True(road.DistanceTo(farPoint) > 500);
+    }
+
+    [Fact]
+    public void ColoradoWorldMapLoadsGeneratedTerrainGridAndAtlas()
+    {
+        var definition = PrototypeWorldMapSites.Definition;
+        var grid = Assert.IsType<WorldMapTerrainGrid>(definition.TerrainGrid);
+        var atlasPath = ResolveRepoFile("data", "world_map", "colorado_atlas.png");
+        var atlasBytes = File.ReadAllBytes(atlasPath);
+
+        Assert.Equal("res://data/world_map/colorado_atlas.png", definition.BackgroundTexture);
+        Assert.Equal(520, grid.Width);
+        Assert.Equal(380, grid.Height);
+        Assert.Equal(380, grid.Rows.Count);
+        Assert.All(grid.Rows, row => Assert.Equal(520, row.Length));
+        Assert.Equal(WorldMapTerrainKind.ShortgrassPrairie, grid.Profiles['G'].Kind);
+        Assert.Equal(WorldMapTerrainKind.HighPlains, grid.Profiles['H'].Kind);
+        Assert.Equal(WorldMapTerrainKind.FrontRangeCorridor, grid.Profiles['F'].Kind);
+        Assert.Equal(WorldMapTerrainKind.Foothills, grid.Profiles['O'].Kind);
+        Assert.Equal(WorldMapTerrainKind.MountainForest, grid.Profiles['M'].Kind);
+        Assert.Equal(WorldMapTerrainKind.AlpinePeaks, grid.Profiles['A'].Kind);
+        Assert.Equal(WorldMapTerrainKind.MountainValley, grid.Profiles['V'].Kind);
+        Assert.Equal(WorldMapTerrainKind.WesternPlateau, grid.Profiles['T'].Kind);
+        Assert.Equal(WorldMapTerrainKind.Canyonlands, grid.Profiles['C'].Kind);
+        Assert.Equal(WorldMapTerrainKind.DesertScrub, grid.Profiles['D'].Kind);
+        Assert.Equal(WorldMapTerrainKind.River, grid.Profiles['R'].Kind);
+        Assert.Equal(WorldMapTerrainKind.Reservoir, grid.Profiles['L'].Kind);
+        Assert.Equal("Alpine peaks", grid.Profiles['A'].DisplayName);
+        Assert.Equal(5200, BinaryPrimitives.ReadInt32BigEndian(atlasBytes.AsSpan(16, 4)));
+        Assert.Equal(3800, BinaryPrimitives.ReadInt32BigEndian(atlasBytes.AsSpan(20, 4)));
+    }
+
+    [Fact]
+    public void ColoradoWorldMapTerrainGridDrivesTravelCosts()
+    {
+        var definition = PrototypeWorldMapSites.Definition;
+        var samples = new[]
+        {
+            (Position: definition.Project(-103.90, 39.00), Kind: WorldMapTerrainKind.ShortgrassPrairie, Name: "Shortgrass prairie", Speed: 1.0),
+            (Position: definition.Project(-102.60, 40.40), Kind: WorldMapTerrainKind.HighPlains, Name: "High plains", Speed: 0.95),
+            (Position: definition.Project(-104.80, 39.75), Kind: WorldMapTerrainKind.FrontRangeCorridor, Name: "Front Range corridor", Speed: 1.05),
+            (Position: definition.Project(-105.15, 39.74), Kind: WorldMapTerrainKind.Foothills, Name: "Foothills", Speed: 0.88),
+            (Position: definition.Project(-106.50, 40.14), Kind: WorldMapTerrainKind.MountainForest, Name: "Mountain forest", Speed: 0.62),
+            (Position: definition.Project(-106.45, 39.12), Kind: WorldMapTerrainKind.AlpinePeaks, Name: "Alpine peaks", Speed: 0.48),
+            (Position: definition.Project(-105.95, 37.65), Kind: WorldMapTerrainKind.MountainValley, Name: "Mountain valley", Speed: 0.78),
+            (Position: definition.Project(-108.20, 39.40), Kind: WorldMapTerrainKind.WesternPlateau, Name: "Western plateau", Speed: 0.9),
+            (Position: definition.Project(-108.55, 39.05), Kind: WorldMapTerrainKind.Canyonlands, Name: "Canyonlands", Speed: 0.72),
+            (Position: definition.Project(-108.70, 37.30), Kind: WorldMapTerrainKind.DesertScrub, Name: "Desert scrub", Speed: 0.86),
+            (Position: definition.Project(-107.35, 39.55), Kind: WorldMapTerrainKind.River, Name: "River corridor", Speed: 0.42),
+            (Position: definition.Project(-107.20, 38.46), Kind: WorldMapTerrainKind.Reservoir, Name: "Reservoir", Speed: 0.35)
+        };
+
+        foreach (var sample in samples)
+        {
+            var cost = definition.GetTravelCost(sample.Position, PrototypeTravelMethods.Walking);
+            Assert.Equal(sample.Kind, cost.TerrainKind);
+            Assert.Equal(sample.Name, cost.TerrainDisplayName);
+            Assert.Equal(sample.Speed, cost.SpeedMultiplier, precision: 3);
+        }
+
+        var alpine = definition.GetTravelCost(definition.Project(-106.45, 39.12), PrototypeTravelMethods.Vehicle);
+        var reservoir = definition.GetTravelCost(definition.Project(-107.20, 38.46), PrototypeTravelMethods.Vehicle);
+        Assert.True(reservoir.FuelUseMultiplier > alpine.FuelUseMultiplier);
     }
 
     [Fact]
@@ -391,5 +455,32 @@ public sealed class WorldMapTravelStateTests
             && position.X <= definition.MapWidth
             && position.Y >= 0
             && position.Y <= definition.MapHeight;
+    }
+
+    private static string ResolveRepoFile(params string[] pathParts)
+    {
+        var relativePath = Path.Combine(pathParts);
+        var candidates = new[]
+        {
+            Directory.GetCurrentDirectory(),
+            AppContext.BaseDirectory
+        };
+
+        foreach (var candidate in candidates)
+        {
+            var directory = new DirectoryInfo(candidate);
+            while (directory is not null)
+            {
+                var path = Path.Combine(directory.FullName, relativePath);
+                if (File.Exists(path))
+                {
+                    return path;
+                }
+
+                directory = directory.Parent;
+            }
+        }
+
+        throw new FileNotFoundException($"Could not find required file '{relativePath}'.");
     }
 }

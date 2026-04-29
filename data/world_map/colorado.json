@@ -103,6 +103,8 @@
       ]
     }
   ],
+  "backgroundTexture": "res://data/world_map/colorado_atlas.png",
+  "terrainGridFile": "colorado_terrain.generated.json",
   "roadFiles": ["colorado_roads.generated.json"],
   "pointsOfInterest": [
     { "id": "gas_station", "displayName": "Foothills Test Gas Station", "category": "LocalSite", "labelPriority": 1, "enterRadius": 50, "localSiteId": "gas_station", "longitude": -105.2050, "latitude": 39.7450 },

@@ -13,7 +13,9 @@ public sealed record WorldMapDefinition
         WorldMapPosition startPosition,
         IReadOnlyList<WorldMapPointOfInterest> pointsOfInterest,
         IReadOnlyList<WorldMapRoad> roads,
-        IReadOnlyList<WorldMapTerrainRegion> terrainRegions)
+        IReadOnlyList<WorldMapTerrainRegion> terrainRegions,
+        WorldMapTerrainGrid? terrainGrid = null,
+        string? backgroundTexture = null)
     {
         Id = ValidateRequired(id, nameof(id));
         DisplayName = ValidateRequired(displayName, nameof(displayName));
@@ -52,6 +54,8 @@ public sealed record WorldMapDefinition
         PointsOfInterest = pointsOfInterest.ToArray();
         Roads = roads.ToArray();
         TerrainRegions = terrainRegions.ToArray();
+        TerrainGrid = terrainGrid;
+        BackgroundTexture = string.IsNullOrWhiteSpace(backgroundTexture) ? null : backgroundTexture.Trim();
 
         EnsureUniqueIds(PointsOfInterest.Select(site => site.Id), "point of interest");
         EnsureUniqueIds(Roads.Select(road => road.Id), "road");
@@ -81,6 +85,10 @@ public sealed record WorldMapDefinition
 
     public IReadOnlyList<WorldMapTerrainRegion> TerrainRegions { get; }
 
+    public WorldMapTerrainGrid? TerrainGrid { get; }
+
+    public string? BackgroundTexture { get; }
+
     public WorldMapPosition Project(double longitude, double latitude)
     {
         var x = (longitude - GeographicBounds.MinLongitude)
@@ -97,9 +105,12 @@ public sealed record WorldMapDefinition
     {
         ArgumentNullException.ThrowIfNull(travelMethod);
 
-        var terrain = TerrainRegions.LastOrDefault(region => region.Contains(position));
-        var speedMultiplier = terrain?.SpeedMultiplier ?? 1.0;
-        var fuelMultiplier = terrain?.FuelUseMultiplier ?? 1.0;
+        var terrain = TerrainGrid?.Sample(position, MapWidth, MapHeight);
+        var region = terrain is null
+            ? TerrainRegions.LastOrDefault(region => region.Contains(position))
+            : null;
+        var speedMultiplier = terrain?.SpeedMultiplier ?? region?.SpeedMultiplier ?? 1.0;
+        var fuelMultiplier = terrain?.FuelUseMultiplier ?? region?.FuelUseMultiplier ?? 1.0;
         var nearRoad = IsNearRoad(position);
 
         if (nearRoad)
@@ -127,7 +138,8 @@ public sealed record WorldMapDefinition
         return new WorldMapTravelCost(
             Math.Max(0.1, speedMultiplier),
             Math.Max(0.0, fuelMultiplier),
-            terrain?.Kind ?? WorldMapTerrainKind.Plains,
+            terrain?.Kind ?? region?.Kind ?? WorldMapTerrainKind.Plains,
+            terrain?.DisplayName ?? region?.DisplayName ?? "Plains",
             nearRoad
         );
     }

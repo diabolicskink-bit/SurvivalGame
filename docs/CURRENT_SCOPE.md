@@ -4,17 +4,19 @@
 
 - Main menu with title, subtitle, New Run, and Quit actions.
 - New Run opens a prototype run session at the world map travel screen.
-- World Map travel screen with a data-backed drawn Colorado map/background.
+- World Map travel screen with a data-backed Colorado tactical atlas background.
 - World Map has a 10400w x 7600h scaled Colorado full map while the visible view is 1200w x 760h.
 - World Map camera follows the travel party and clamps at full-map edges.
 - World Map travel party marker shown on the map.
 - JSON-backed Colorado world map definition under `data/world_map/`.
-- Colorado World Map content includes a curated major city/town marker set, recognizable landmark POIs, generated Colorado GIS-derived major road geometry, broad terrain regions, and two local-site test POIs near the Front Range start point.
+- Colorado World Map content includes a curated major city/town marker set, recognizable landmark POIs, generated Colorado GIS-derived major road geometry, a generated illustrated tactical atlas background, a generated Colorado-specific terrain-cost grid, fallback broad terrain regions, and two local-site test POIs near the Front Range start point.
+- The world map samples named terrain such as shortgrass prairie, high plains, Front Range corridor, foothills, mountain forest, alpine peaks, mountain valleys, western plateau, canyonlands, desert scrub, river corridors, and reservoirs.
 - Clicking the world map sets or redirects a continuous travel destination.
 - World Map movement is smooth map-unit movement, not tile/grid movement.
 - Current world map travel method is displayed.
+- Current sampled world-map terrain is displayed.
 - Prototype travel methods include walking, pushbike, and vehicle.
-- Travel speed depends on the selected travel method plus first-pass road/terrain cost modifiers.
+- Travel speed depends on the selected travel method plus first-pass road proximity and generated terrain-grid cost modifiers.
 - World Map time is displayed using the shared elapsed world tick clock.
 - Travelling on the world map advances world time.
 - Vehicle travel displays and consumes prototype fuel.
@@ -176,7 +178,7 @@
 - Finite gas station fuel reserves, payment, fuel cans, pump power, ownership checks, or fuel theft rules.
 - Player healing, death, or health effects beyond direct turret health damage.
 - Hunger, thirst, fatigue, sleep, pain, or body temperature simulation rules.
-- Terrain-based time modifiers or surface-driven action costs.
+- Local-map terrain-based time modifiers or surface-driven action costs.
 - Actor scheduling, initiative, action queues, or long action interruption.
 - Calendar, clock, day/night cycle, or conversion from ticks to minutes/hours.
 - Survival decay driven by elapsed time.

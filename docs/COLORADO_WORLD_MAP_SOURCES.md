@@ -8,7 +8,9 @@ This note records the source strategy for the first Colorado overworld slice. Th
 - City and town markers use real-world municipal locations, curated down to a readable major set rather than every municipality.
 - Landmark POIs prioritize recognizable Colorado places, parks, passes, reservoirs, transport nodes, and major infrastructure.
 - Road geometry is generated into `data/world_map/colorado_roads.generated.json` from official Colorado GIS highway layers, then simplified for readable in-game drawing.
-- Terrain regions are broad gameplay bands: plains, Front Range corridor, central mountains, western plateau, San Luis Valley, and major reservoir area.
+- Tactical atlas and terrain-cost data are generated from deterministic curated Colorado-shaped masks into `data/world_map/colorado_atlas.png` and `data/world_map/colorado_terrain.generated.json`.
+- The V2 atlas generator is intentionally more illustrated than cartographic: it paints mountain spines, alpine high country, foothills, forest bands, canyon country, western plateau/desert scrub, plains texture, named river corridors, and irregular reservoir shapes so the background visually communicates the sampled travel terrain.
+- Terrain regions remain as fallback gameplay bands, while the generated terrain grid is the primary world-map travel terrain source when present.
 
 ## Primary Sources
 
@@ -32,6 +34,8 @@ This note records the source strategy for the first Colorado overworld slice. Th
 - Keep the generated road layer to curated major routes for this pass: interstates, selected US highways, and selected state highways. Do not import dense local streets yet.
 - Use route geometry from the Interstates, US Highways, and State Highways basemap layers. Use the detailed highway segment layer for lane/width metadata where available, falling back to conservative route-class defaults.
 - Regenerate roads with `python tools/world_map/generate_colorado_roads.py` when the route selection, simplification tolerance, or source query rules change. The generated JSON is committed so runtime play does not need network access.
+- Regenerate the tactical atlas and terrain-cost grid with `python tools/world_map/generate_colorado_atlas.py` when terrain classification, atlas size, grid size, or tactical-atlas styling changes.
+- The generated terrain grid currently uses Colorado-specific travel terrain types rather than only broad bands: shortgrass prairie, high plains, Front Range corridor, foothills, mountain forest, alpine peaks, mountain valleys, western plateau, canyonlands, desert scrub, river corridors, and reservoirs.
 - Keep the dedicated `gas_station` and `farmstead` local-site test POIs near the Front Range start point for quick manual testing.
 - Use real sensitive or active sites as map anchors when useful, but treat later local-site content deliberately.
 - Do not treat this data as final route simulation. Roads currently influence travel cost near the party; they do not constrain movement or pathfind.

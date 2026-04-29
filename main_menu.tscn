@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b2bi0www8kpu7"]
 
-[ext_resource type="Script" path="res://scripts/MainMenu.cs" id="1_06t4h"]
+[ext_resource type="Script" path="res://src/Godot/MainMenu/MainMenu.cs" id="1_06t4h"]
 
 [node name="MainMenu" type="Control" unique_id=1420863593]
 layout_mode = 3

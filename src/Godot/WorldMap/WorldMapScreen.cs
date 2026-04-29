@@ -16,6 +16,7 @@ public partial class WorldMapScreen : Control
     private Label _timeLabel = null!;
     private Label _methodLabel = null!;
     private Label _fuelLabel = null!;
+    private Label _terrainLabel = null!;
     private Label _nearbySiteLabel = null!;
     private Button _enterSiteButton = null!;
     private MessageLog _messageLog = null!;
@@ -120,10 +121,12 @@ public partial class WorldMapScreen : Control
         _timeLabel = CreateStatusLabel();
         _methodLabel = CreateStatusLabel();
         _fuelLabel = CreateStatusLabel();
+        _terrainLabel = CreateStatusLabel();
         _nearbySiteLabel = CreateStatusLabel();
         stack.AddChild(_timeLabel);
         stack.AddChild(_methodLabel);
         stack.AddChild(_fuelLabel);
+        stack.AddChild(_terrainLabel);
         stack.AddChild(_nearbySiteLabel);
 
         stack.AddChild(new HSeparator());
@@ -239,6 +242,10 @@ public partial class WorldMapScreen : Control
         _methodLabel.Text = $"Travel: {method.DisplayName}";
         _fuelLabel.Visible = method.UsesFuel;
         _fuelLabel.Text = $"Fuel: {_travelState.VehicleFuel:0.0}";
+        var travelCost = PrototypeWorldMapSites.Definition.GetTravelCost(_travelState.Position, method);
+        _terrainLabel.Text = travelCost.IsNearRoad
+            ? $"Terrain: {travelCost.TerrainDisplayName} / road"
+            : $"Terrain: {travelCost.TerrainDisplayName}";
 
         var nearbySite = _travelState.FindNearbySite(PrototypeWorldMapSites.All);
         _nearbySiteLabel.Text = nearbySite is null

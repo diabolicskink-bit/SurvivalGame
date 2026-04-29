@@ -54,6 +54,7 @@ public sealed class WorldMapDefinitionLoader
         var terrainRegions = (dto.TerrainRegions ?? Array.Empty<TerrainRegionDto>())
             .Select(region => ToTerrainRegion(region, projector, sourcePath))
             .ToArray();
+        var terrainGrid = LoadTerrainGrid(dto, sourcePath);
 
         var roads = LoadRoadDtos(dto, sourcePath)
             .Select(road => ToRoad(road, projector, sourcePath))
@@ -74,7 +75,9 @@ public sealed class WorldMapDefinitionLoader
             start,
             points,
             roads,
-            terrainRegions
+            terrainRegions,
+            terrainGrid,
+            dto.BackgroundTexture
         );
     }
 
@@ -155,6 +158,49 @@ public sealed class WorldMapDefinitionLoader
         }
 
         return roads;
+    }
+
+    private static WorldMapTerrainGrid? LoadTerrainGrid(WorldMapDefinitionDto dto, string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(dto.TerrainGridFile))
+        {
+            return null;
+        }
+
+        var filePath = ResolveSiblingPath(sourcePath, dto.TerrainGridFile);
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"World map terrain grid file '{filePath}' was not found.", filePath);
+        }
+
+        var json = File.ReadAllText(filePath);
+        var gridDto = JsonSerializer.Deserialize<WorldMapTerrainGridDto>(json, JsonOptions)
+            ?? throw new InvalidOperationException($"World map terrain grid file '{filePath}' is empty or invalid.");
+        var legend = gridDto.Legend ?? throw new InvalidOperationException($"World map terrain grid file '{filePath}' is missing legend.");
+        var profiles = new Dictionary<char, WorldMapTerrainProfile>();
+        foreach (var (rawCode, profile) in legend)
+        {
+            if (rawCode.Length != 1)
+            {
+                throw new InvalidOperationException($"World map terrain grid file '{filePath}' has invalid terrain code '{rawCode}'.");
+            }
+
+            profiles[rawCode[0]] = new WorldMapTerrainProfile(
+                ParseEnum(profile.Kind, WorldMapTerrainKind.Plains),
+                profile.SpeedMultiplier <= 0 ? 1.0 : profile.SpeedMultiplier,
+                profile.FuelUseMultiplier < 0 ? 1.0 : profile.FuelUseMultiplier,
+                string.IsNullOrWhiteSpace(profile.DisplayName)
+                    ? rawCode
+                    : profile.DisplayName.Trim()
+            );
+        }
+
+        return new WorldMapTerrainGrid(
+            gridDto.Width,
+            gridDto.Height,
+            gridDto.Rows ?? Array.Empty<string>(),
+            profiles
+        );
     }
 
     private static string ResolveSiblingPath(string sourcePath, string path)
@@ -280,12 +326,30 @@ public sealed class WorldMapDefinitionLoader
         public PointOfInterestDto[]? PointsOfInterest { get; set; }
         public RoadDto[]? Roads { get; set; }
         public string[]? RoadFiles { get; set; }
+        public string? TerrainGridFile { get; set; }
+        public string? BackgroundTexture { get; set; }
         public TerrainRegionDto[]? TerrainRegions { get; set; }
     }
 
     private sealed class WorldMapRoadFileDto
     {
         public RoadDto[]? Roads { get; set; }
+    }
+
+    private sealed class WorldMapTerrainGridDto
+    {
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public Dictionary<string, TerrainProfileDto>? Legend { get; set; }
+        public string[]? Rows { get; set; }
+    }
+
+    private sealed class TerrainProfileDto
+    {
+        public string? Kind { get; set; }
+        public string? DisplayName { get; set; }
+        public double SpeedMultiplier { get; set; } = 1.0;
+        public double FuelUseMultiplier { get; set; } = 1.0;
     }
 
     private sealed class ProjectionDto

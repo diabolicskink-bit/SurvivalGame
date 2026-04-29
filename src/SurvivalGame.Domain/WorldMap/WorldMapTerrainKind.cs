@@ -6,5 +6,17 @@ public enum WorldMapTerrainKind
     FrontRange,
     Mountains,
     Plateau,
-    Water
+    Water,
+    ShortgrassPrairie,
+    HighPlains,
+    FrontRangeCorridor,
+    Foothills,
+    MountainForest,
+    AlpinePeaks,
+    MountainValley,
+    WesternPlateau,
+    Canyonlands,
+    DesertScrub,
+    River,
+    Reservoir
 }

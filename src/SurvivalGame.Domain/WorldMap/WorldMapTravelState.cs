@@ -145,7 +145,7 @@ public sealed class WorldMapTravelState
         }
 
         var travelCost = worldMap?.GetTravelCost(Position, travelMethod)
-            ?? new WorldMapTravelCost(1.0, 1.0, WorldMapTerrainKind.Plains, IsNearRoad: false);
+            ?? new WorldMapTravelCost(1.0, 1.0, WorldMapTerrainKind.Plains, "Plains", IsNearRoad: false);
         var effectiveSpeed = travelMethod.SpeedMapUnitsPerSecond * travelCost.SpeedMultiplier;
         var effectiveFuelUse = travelMethod.FuelUsePerMapUnit * travelCost.FuelUseMultiplier;
 

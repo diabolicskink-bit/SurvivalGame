@@ -22,6 +22,9 @@ public partial class WorldMapView : Control
 
     private WorldMapTravelState? _travelState;
     private WorldMapDefinition? _worldMap;
+    private Texture2D? _backgroundTexture;
+    private string? _backgroundTexturePath;
+    private bool _backgroundTextureLoadAttempted;
 
     public event Action<WorldMapPosition>? DestinationSelected;
 
@@ -71,7 +74,11 @@ public partial class WorldMapView : Control
         }
 
         var viewport = CreateCurrentViewport();
-        DrawTerrainRegions(mapRect, viewport);
+        if (!DrawAtlasBackground(mapRect, viewport))
+        {
+            DrawTerrainRegions(mapRect, viewport);
+        }
+
         DrawRoads(mapRect, viewport);
         DrawRect(mapRect, BorderColor, filled: false, width: 2.0f);
         DrawPointsOfInterest(mapRect, viewport);
@@ -82,6 +89,72 @@ public partial class WorldMapView : Control
         }
 
         DrawPartyMarker(MapToScreen(_travelState.Position, mapRect, viewport));
+    }
+
+    private bool DrawAtlasBackground(Rect2 mapRect, WorldMapViewport viewport)
+    {
+        if (_worldMap is null || !TryGetBackgroundTexture(out var texture))
+        {
+            return false;
+        }
+
+        var sourceRect = new Rect2(
+            new Vector2(
+                (float)(viewport.Origin.X / _worldMap.MapWidth * texture.GetWidth()),
+                (float)(viewport.Origin.Y / _worldMap.MapHeight * texture.GetHeight())
+            ),
+            new Vector2(
+                (float)(viewport.Width / _worldMap.MapWidth * texture.GetWidth()),
+                (float)(viewport.Height / _worldMap.MapHeight * texture.GetHeight())
+            )
+        );
+
+        DrawTextureRectRegion(texture, mapRect, sourceRect, new Color(1, 1, 1, 0.98f));
+        return true;
+    }
+
+    private bool TryGetBackgroundTexture(out Texture2D texture)
+    {
+        texture = null!;
+        var path = _worldMap?.BackgroundTexture;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        if (!string.Equals(_backgroundTexturePath, path, StringComparison.Ordinal))
+        {
+            _backgroundTexturePath = path;
+            _backgroundTexture = null;
+            _backgroundTextureLoadAttempted = false;
+        }
+
+        if (!_backgroundTextureLoadAttempted)
+        {
+            _backgroundTexture = LoadTexture(path);
+            _backgroundTextureLoadAttempted = true;
+        }
+
+        if (_backgroundTexture is null)
+        {
+            return false;
+        }
+
+        texture = _backgroundTexture;
+        return true;
+    }
+
+    private static Texture2D? LoadTexture(string texturePath)
+    {
+        if (ResourceLoader.Exists(texturePath))
+        {
+            return GD.Load<Texture2D>(texturePath);
+        }
+
+        var image = Image.LoadFromFile(ProjectSettings.GlobalizePath(texturePath));
+        return image is null || image.IsEmpty()
+            ? null
+            : ImageTexture.CreateFromImage(image);
     }
 
     private void DrawTerrainRegions(Rect2 mapRect, WorldMapViewport viewport)
