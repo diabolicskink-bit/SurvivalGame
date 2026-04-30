@@ -1,147 +1,210 @@
 # Task Log
 
-Curated milestone history for current game state and architecture. Cleanup-only notes, one-off fixes, and detailed implementation churn are intentionally omitted unless they changed playable behavior, content, or important domain ownership.
+Curated milestone history for current game state and architecture. This log answers what important player-facing, content, or architecture state changed, and when.
+
+## How To Use This Log
+
+- Read this for milestone history and durable project memory.
+- Use `docs/CURRENT_SCOPE.md` for exact current included and not-included scope.
+- Use `docs/ARCHITECTURAL_DEBT.md` for future work and known architecture pressure.
+- Use `docs/MECHANICS_BACKLOG.md` for deferred player-facing mechanics and systems.
+- Use Git commits and tests for full implementation detail.
+
+## Admission Rule
+
+- Add entries for player-facing behavior, content/data milestones, architecture ownership changes, resolved or created major tracker systems, or significant visual/content asset work.
+- Skip routine bug fixes, tiny cleanup, pure investigations, plans, and review-only notes unless they change durable project state.
+- Keep entries to 2-4 bullets focused on what is now true. Include preserved scope or non-changes only when they prevent likely confusion.
+
+## 2026-04-30 - Tile-Wall Render Model Extraction
+
+- Changed: Extracted procedural tile-wall kind detection, neighbor masks, render bounds, floor-contact sorting, orientation, and 2.5D geometry into Godot-local `TileWallRenderModel`.
+- Changed: `MapEntityLayer` now consumes prepared tile-wall render data while keeping the existing draw calls for wall faces, windows, wooden doors, and glass doors.
+- Preserved: Local-map JSON, collision, hover/tooltips, edge-based fence rendering, and current prototype/gas/farmhouse wall visuals stayed unchanged.
+
+## 2026-04-30 - World Background Docs Consolidation
+
+- Changed: Retitled `docs/BACKGROUND.md` to World Background and kept it focused on setting, tone, Failover guidance, Colorado anchors, site families, threats, and faction seeds.
+- Changed: Moved reusable content decision rules and world-guidance maintenance rules into `docs/WORLD_AUTHORING_GUIDE.md`.
+- Changed: Removed the separate world-doc maintenance file because it duplicated broader documentation governance.
+- Preserved: World background docs remain inspirational guidance only; they do not authorize new mechanics, architecture changes, or scope expansion.
+
+## 2026-04-30 - 2.5D Tile-Wall Architecture Direction
+
+- Changed: Promoted procedural 2.5D tile-object walls as the near-term building-wall direction in architecture guidance and tracker docs.
+- Changed: Split remaining wall architecture work into logical tracker slices: tile-wall render model extraction, edge-based building wall retirement, future Godot TileMap/Terrain compatibility, and remaining fence/gap edge semantics.
+- Changed: Added mechanics backlog slices for 2.5D fence/gate/gap visuals and tile-wall material variants.
+- Preserved: Current paddock fences, gates, and broken fence gaps remain edge structures until their representation is deliberately revisited.
+
+## 2026-04-30 - Tracker Split Planning Rule
+
+- Changed: Updated `ARCH-*` and `MECH-*` guidance so implementation planning can identify an item as too broad and propose smaller replacement items before work begins.
+- Changed: Added stable-ID handling for accepted splits: create new items and either narrow or supersede the original with links to the replacements.
+- Preserved: Split proposals remain planning/triage only and do not authorize architecture refactors or mechanics by themselves.
+
+## 2026-04-30 - Tracker Notes Fields
+
+- Changed: Added `Notes` fields to every `ARCH-*` and `MECH-*` tracker item so useful implementation context can be preserved during ordinary work.
+- Changed: Updated tracker and AI guidance so future sessions append dated notes when there is real information to record and update canonical fields when learning changes priority, direction, dependencies, next action, or completion signals.
+- Preserved: Notes are tracker memory only; they do not authorize architecture refactors or new mechanics.
+
+## 2026-04-30 - Farmhouse Tile-Wall Visual Conversion
+
+- Changed: Converted Abandoned Farmhouse farmhouse and shed building walls/windows from edge structures to legacy tile-world-object walls so they render with the procedural 2.5D tile-wall renderer.
+- Changed: Left passable farmhouse/shed doorways as open gaps for this visual pass and kept paddock fencing, gates, and broken fence gaps as edge structures.
+- Preserved: Authored map schema, existing wall sprite assets, farm object content, and current movement/collision systems stayed unchanged.
+
+## 2026-04-30 - Mechanics Backlog Tracker
+
+- Changed: Added `docs/MECHANICS_BACKLOG.md` as a living tracker for deferred player-facing mechanics and systems with stable `MECH-*` IDs.
+- Changed: Seeded the backlog with 10 single-system entries from current scope and design docs, including cover shooting modifiers, drag-to-move inventory, item rotation, recipe-backed local map generation, thirst, hunger, fatigue, save/load snapshots, basic hostile NPC behavior, and vehicle cargo capacity.
+- Changed: Updated AI guidance so future sessions auto-capture meaningful mechanics that are identified but intentionally excluded from current implementation plans.
+- Preserved: The backlog is memory and triage only; it does not add implemented scope.
+
+## 2026-04-30 - Living Background Docs V1
+
+- Changed: `docs/BACKGROUND.md` now acts as the readable hub for a lightweight living world guidance system.
+- Changed: Added `docs/WORLD_AUTHORING_GUIDE.md` for AI-facing content templates and practical authoring rules.
+- Preserved: Background and world-authoring docs remain inspirational guidance only; `docs/CURRENT_SCOPE.md` and `docs/DESIGN_GOALS.md` still control current scope and long-term system direction.
+
+## 2026-04-30 - Living Design Goals Guidance
+
+- Changed: `docs/DESIGN_GOALS.md` now acts as a living end-state design document for durable long-term direction, not a static north-star note.
+- Changed: Added AI planning guidance for high-impact alternatives, early-slice end-state questions, durable design-goal updates, and local exceptions.
+- Preserved: Current scope still lives in `docs/CURRENT_SCOPE.md`, while future architecture and system-work pressure stays in `docs/ARCHITECTURAL_DEBT.md`.
+
+## 2026-04-30 - Application Session Boundary
+
+- Added `SurvivalGame.Application` as a non-Godot application layer for content path wiring, catalog loading, campaign/session creation, starting item seeding, action pipeline setup, and local site session packaging.
+- Replaced the Godot-side prototype session factory with a thin `GodotSessionFactory` adapter that only resolves `res://data` and delegates to the application layer.
+- Added application tests that create sessions from ordinary filesystem data paths, verify committed local sites and starting items, and cover standalone local-site creation plus unknown-POI fallback.
+- Archived `ARCH-1` as resolved in the architectural debt tracker.
+
+## 2026-04-30 - Task Log Curation Rules
+
+- Changed: Added explicit task-log usage and admission rules so future entries stay curated rather than becoming a full changelog.
+- Changed: Tightened `AGENTS.md` expectations so the task log is considered after tasks and sweeps, but updated only when durable project state changed.
+- Preserved: Git remains the detailed change history; `CURRENT_SCOPE.md` and `ARCHITECTURAL_DEBT.md` remain the sources of truth for current scope and future architecture work.
+
+## 2026-04-30 - Tile Wall Coverage Cleanup
+
+- Changed: Made procedural 2.5D tile-wall geometry cover the full wall-owned tile footprint so underlying floor/grid tiles do not show around exposed wall edges.
+- Changed: Kept small connected-edge overlap and removed seam-prone drop shadows and outline strokes.
+- Preserved: Tile-wall collision, passable glass door behavior, authored map data, sprite assets, and farmhouse edge-structure rendering stayed unchanged.
 
 ## 2026-04-30 - Low-Rise 2.5D Tile Walls
 
-- Replaced the legacy tile-wall object renderer with a low-rise procedural 2.5D wall treatment for walls, wooden doors, windows, and glass doors.
-- Tile-wall render bounds now account for the upward wall face so wall tops do not cull early at local viewport edges.
-- Kept tile-wall collision, hover data, authored map JSON, sprite assets, and farmhouse edge-structure rendering unchanged.
-
-## 2026-04-30 - Refactor Roadmap Migration
-
-- Migrated the actionable issues from the legacy architecture refactor roadmap into `docs/ARCHITECTURAL_DEBT.md` as `ARCH-1` through `ARCH-9`.
-- Removed the stale roadmap and one-off plan documents so the architectural debt tracker is the single living system for this work.
-- Preserved the old roadmap's guardrails in the tracker without changing current playable scope or implementing refactors.
+- Changed: Replaced legacy tile-wall object rendering with low-rise procedural 2.5D walls, wooden doors, windows, and glass doors.
+- Changed: Expanded tile-wall render bounds so raised wall faces do not cull early at local viewport edges.
+- Preserved: Existing collision, hover data, authored maps, sprite assets, and farmhouse edge-structure rendering stayed unchanged.
 
 ## 2026-04-30 - Architectural Debt Tracker
 
-- Added `docs/ARCHITECTURAL_DEBT.md` as a living architecture debt index with stable `ARCH-*` IDs, priority/status fields, and initial application, world-travel, and runtime-state entries.
-- Expanded each initial `ARCH-*` item with priority rationales, resolution paths, and concrete completion signals.
-- Updated `AGENTS.md` so future AI sessions check and maintain the tracker during sweeps, refactors, and architecture-related work.
-- The tracker is process guidance only and does not implement or authorize new gameplay scope.
-
-## 2026-04-30 - Architecture Refactor Roadmap
-
-- Added `docs/ARCHITECTURE_REFACTOR_PLAN.md` as a durable roadmap for future application-layer, command-pipeline, UI layout, item-model, renderer, and content-validation refactors.
-- Expanded the roadmap with a file/folder tree review covering project ownership, Godot presentation layout, domain folder boundaries, prototype naming, tests, and runtime data placement.
-- The roadmap was later migrated into `docs/ARCHITECTURAL_DEBT.md` and removed; it did not change current playable scope or implement new gameplay systems.
+- Changed: Added `docs/ARCHITECTURAL_DEBT.md` as the living architecture debt index with stable `ARCH-*` IDs, priorities, statuses, guardrails, and resolution signals.
+- Changed: Migrated the useful architecture roadmap work into the tracker and removed stale one-off planning docs.
+- Changed: Updated project guidance so sweeps, refactors, and architecture work check and maintain the tracker.
+- Preserved: The tracker records future architecture pressure only; it does not authorize new gameplay scope.
 
 ## 2026-04-30 - Weapon Inventory Art
 
-- Added generated transparent item sprite art for the 5.56 burst carbine and wired `carbine_556` to `item_carbine_556`.
-- Replaced the hunting rifle and 9mm pistol item sprites with newly generated transparent inventory art.
-- Replaced the AK-47 item sprite with a tight transparent cutout and added generated transparent item sprite art for the missing .22 rifle.
-- Inventory grid items now render available item sprite art inside their occupied cells instead of only showing category-colored text boxes.
+- Changed: Added or replaced transparent item sprites for the 5.56 carbine, hunting rifle, 9mm pistol, AK-style rifle, and .22 rifle.
+- Changed: Inventory grid items now render available item sprite art inside occupied cells instead of only category-colored text boxes.
+- Preserved: Sprite work stayed tied to existing item ids and gameplay-readable inventory presentation.
 
 ## 2026-04-30 - Local Map Mouse Wheel Zoom
 
-- Local gameplay board mouse wheel zoom now switches between 18x12, 21x14, 27x18, 33x22, and 39x26 visible-tile viewports, with 27x18 remaining the default tactical view.
-- Zoom is player-centered, visual/camera-only, and does not change local map state, movement, targeting, firearm range, accuracy, or line-of-fire rules.
-- Local map rendering, hover/click conversion, layout sizing, and ground item sprite scale now follow the current zoom level.
+- Changed: Local gameplay now supports mouse-wheel viewport zoom levels of 18x12, 21x14, 27x18, 33x22, and 39x26 visible tiles.
+- Changed: Rendering, hover/click conversion, layout sizing, and ground item sprite scale follow the current zoom level.
+- Preserved: Zoom is visual and camera-only; it does not change local map state, movement, targeting, firearm range, accuracy, or line-of-fire rules.
 
 ## 2026-04-29 - Firearm Accuracy V1
 
-- Added explicit per-weapon effective/max accuracy values and required per-mod accuracy bonuses to firearm JSON content.
-- Rescaled current firearm ranges around the default 27x18 local viewport so pistols/shotguns are short-range, carbines/rifles cover most of the board, and scoped long guns can exceed a single default viewport.
-- Targeted player firearm shots now consume ammunition/time after validation, roll hit or miss from modified range/accuracy stats, and apply damage only on hit.
-- Weapon detail and inspect text now show base/modified accuracy and weapon mod accuracy effects.
+- Changed: Firearm data now defines explicit effective/max accuracy values, and weapon mods define accuracy bonuses.
+- Changed: Targeted firearm shots consume ammunition and time after validation, roll hit or miss from modified range/accuracy stats, and apply damage only on hit.
+- Changed: Weapon detail and inspect text show base and modified accuracy plus weapon mod accuracy effects.
+- Preserved: Firearm ranges remain scaled around the default 27x18 local viewport.
 
 ## 2026-04-29 - Wider World Map Roads And Bend Joins
 
-- World map roads now render at three times their previous lane-aware visual width.
-- Road surfaces, casing, center dividers, and lane separators draw as connected bend-aware polylines with rounded joins, reducing visible clashes at corners.
+- Changed: World map roads render wider than before with lane-aware casing, surfaces, center dividers, and lane separators.
+- Changed: Road polylines use bend-aware rounded joins to reduce visual clashes at corners.
 
 ## 2026-04-29 - Inventory Hover Text Width Fix
 
-- Fixed inventory/equipment hover detail popups so item text keeps a stable readable width instead of wrapping into a narrow vertical column.
-- Added minimum content sizing to the shared selected-item detail panel used by inventory hover details.
+- Changed: Inventory and equipment hover detail popups keep a stable readable width instead of wrapping into narrow columns.
+- Changed: The shared selected-item detail panel has minimum content sizing for hover details.
 
 ## 2026-04-29 - Travel Anchors, Cargo, And Fuel Containers
 
-- Vehicle and pushbike local-site entry can place a matching travel anchor object; leaving a site with those travel methods requires returning adjacent to the active anchor.
-- Campaign travel cargo persists stack and stateful items outside the player inventory, with adjacent-anchor take/stow actions that still respect inventory grid limits.
-- Stateful `fuel_can` items hold up to 5.0 fuel, can be filled from non-depleting pump/drum fuel sources, and can pour partial fuel into the shared vehicle fuel state.
-- Vehicle fuel transfer is fuel-can based; the legacy direct refuel action is not exposed as an available action.
-- Local map data, world object data, item data, and tests cover the anchor/cargo/fuel-can loop.
+- Changed: Vehicle and pushbike site entries place matching local travel anchors, and leaving with those methods requires returning adjacent to the active anchor.
+- Changed: Campaign travel cargo persists stack and stateful items outside the player inventory, with adjacent-anchor take/stow actions that still respect inventory grid limits.
+- Changed: Stateful `fuel_can` items hold fuel, fill from non-depleting fuel sources, and pour partial fuel into the shared vehicle fuel state.
+- Preserved: Vehicle fuel transfer is fuel-can based; the legacy direct refuel action is not exposed as an available action.
 
 ## 2026-04-29 - Firearms, Fire Modes, Weapon Mods, And Line Of Fire
 
-- Firearm data now covers 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, .22 rifle, and 5.56 burst carbine, with matching ammunition and feed devices.
-- Weapons define range, accepted ammunition, feed compatibility, supported fire modes, and burst metadata where relevant.
-- Stack-backed and stateful weapons preserve loaded feed state, inserted magazines, installed weapon mods, and current fire mode.
-- Fire-mode toggling costs 0 ticks and is exposed only for weapons with more than one supported mode.
-- Targeted shooting uses the equipped weapon's current mode: single shot consumes 1 round, deals modified ammunition damage, and costs 100 ticks; burst consumes 3 rounds, deals one deterministic 2x modified single-shot damage packet, and costs 150 ticks.
-- Targeted shooting checks domain line of fire after target/range validation and before ammo, health, or time mutation. Sight-blocking structure edges and intermediate sight-blocking world objects block the shot with a clear message.
-- Weapon mods are stateful item attachments with slot and weapon-family compatibility; current red dot, hunting scope, and match barrel mods can modify range and/or damage.
-- Prototype Test Fire remains a one-round firearm action and does not use burst mode or line-of-fire.
+- Changed: Firearm content covers current prototype weapons, ammunition, feed devices, fire modes, ranges, compatibility, burst metadata, and stateful weapon mods.
+- Changed: Stack-backed and stateful weapons preserve loaded feed state, inserted magazines, installed mods, and current fire mode.
+- Changed: Targeted shooting uses the equipped weapon's current mode, validates line of fire before ammo/time mutation, and supports single-shot and burst outcomes.
+- Preserved: Prototype Test Fire remains a one-round action and does not use burst mode or line-of-fire.
 
 ## 2026-04-29 - Colorado World Map And Travel Layer
 
-- The run starts on a data-backed scaled Colorado World Map with a tactical atlas background, generated terrain-cost grid, generated major-road geometry, curated city/town markers, landmark POIs, and local-site POIs.
-- World Map travel supports walking, pushbike, and vehicle methods, smooth click-to-travel destinations, shared world time, vehicle fuel use, and first-pass road/terrain travel modifiers.
-- Vehicle travel stops cleanly at zero fuel; walking and pushbike remain available without fuel.
-- Route 18 Gas Station and Abandoned Farmhouse route to dedicated authored local sites; other current POIs fall back to the default prototype local site.
-- Generated Colorado roads are simplified for overworld readability and render with lane-aware road bands while preserving route metadata for travel sampling.
+- Changed: New runs start on a data-backed scaled Colorado world map with atlas background, terrain-cost grid, major-road geometry, city/town markers, landmark POIs, and local-site POIs.
+- Changed: World map travel supports walking, pushbike, and vehicle methods with smooth click destinations, shared world time, vehicle fuel use, and first-pass road/terrain modifiers.
+- Changed: Route 18 Gas Station and Abandoned Farmhouse route to dedicated authored local sites; other current POIs fall back to the default prototype site.
+- Preserved: Generated Colorado roads are simplified for overworld readability while preserving route metadata for travel sampling.
 
 ## 2026-04-26 - Authored Local Sites, Structures, And Static World Objects
 
-- Local site maps are authored JSON under `data/local_maps/`, including the default prototype site, Route 18 Gas Station, and Abandoned Farmhouse.
-- Route 18 Gas Station is a 40x28 fixed site with forecourt, pump island, parking, convenience store interior, back room, restroom, blocked scenery, fuel pumps, and searchable store fixtures.
-- Abandoned Farmhouse is a 64x44 fixed rural site with farmhouse rooms, verandah, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, rural surfaces, placed loot, and farm equipment.
-- Edge-based structures model walls, doors, windows, fences, gates, and gaps on tile boundaries. Movement and line-of-fire rules query crossed edges instead of treating walls as tile objects.
-- Static world objects support movement blocking, sight blocking, rectangular footprints, cardinal facing, visual-only sprite render metadata, and stable placement instance ids.
-- Multi-tile objects such as vehicles, tanks, machinery, and large props occupy every data-defined footprint tile for collision, hover, and line-of-fire checks.
+- Changed: Local site maps are authored JSON under `data/local_maps/`, including the default prototype site, Route 18 Gas Station, and Abandoned Farmhouse.
+- Changed: Edge-based structures model walls, doors, windows, fences, gates, and gaps on tile boundaries; movement and line-of-fire query crossed edges.
+- Changed: Static world objects support movement/sight blocking, rectangular footprints, facing, visual-only sprite render metadata, and stable placement instance ids.
+- Preserved: Multi-tile objects occupy every data-defined footprint tile for collision, hover, and line-of-fire checks.
 
 ## 2026-04-26 - World Object Containers And Loot
 
-- World-object definitions can declare searchable container profiles, while placements can define fixed loot and future loot table ids.
-- Container runtime state is realized lazily per local site when searched, so unsearched containers remain placement/config data.
-- Search Container and Take Container Item Stack actions go through the domain action pipeline, advance time, preserve remaining contents, and respect inventory grid capacity.
-- The default prototype site, gas station fixtures, and farmhouse placements include first-pass searchable or fixed-loot examples.
+- Changed: World-object definitions can declare searchable container profiles, while placements can define fixed loot and future loot table ids.
+- Changed: Container runtime state is realized lazily per local site when searched, so unsearched containers remain placement/config data.
+- Changed: Search and take actions go through the domain action pipeline, advance time, preserve remaining contents, and respect inventory grid capacity.
 
 ## 2026-04-26 - NPCs, Targeting, And Automated Turret Hazard
 
-- NPC content is JSON-backed with reusable definitions for name, species, tags, health, movement blocking, map color, optional sprite data, and simple behavior profile.
-- Runtime NPCs have separate instance ids, positions, health, and blocking state.
-- Clicking an NPC selects it as the current target and exposes Shoot through the action UI.
-- Equipped firearm shots can damage NPCs, disabled NPCs visually grey out, and disabled automated turrets stop firing.
-- Route 18 Gas Station has an automated turret NPC at tile 30,12. After successful time-costing local actions, automated turret behavior checks crossed 75-tick intervals, fires within 5 tiles, and deals 10 direct player health damage per shot.
+- Changed: NPC content is JSON-backed with reusable definitions, while runtime NPCs have separate instance ids, positions, health, and blocking state.
+- Changed: Clicking an NPC selects it as the current target and exposes Shoot through the action UI.
+- Changed: Equipped firearm shots can damage NPCs; disabled NPCs visually grey out and disabled automated turrets stop firing.
+- Changed: Route 18 Gas Station includes an automated turret hazard that fires after crossed time intervals while the player is within range.
 
 ## 2026-04-26 - Inventory, Equipment, Stateful Items, And Item UI
 
-- Player inventory combines stack counts with a fixed 20x10 physical grid for grid-using items.
-- Loose ammunition is grid-exempt and appears in a separate Ammo inventory mode; magazines/feed devices remain physical grid items.
-- Equipment slots cover main hand, off hand, head, body, legs, feet, and back, with type-path validation for equippable items.
-- Stateful items represent specific objects that must preserve identity or internal state, such as loaded magazines, equipped firearms, installed mods, backpacks-with-contents, travel cargo contents, and fuel cans.
-- Supported item locations include player inventory, equipment, ground at a local site, inserted into another item, contained inside another item, and campaign travel cargo.
-- Inventory and equipment UI support hover details plus right-click contextual actions routed through domain action requests.
+- Changed: Player inventory combines stack counts with a fixed physical grid, while loose ammunition is grid-exempt and shown in a separate Ammo mode.
+- Changed: Equipment slots cover current body/hand/back slots with type-path validation for equippable items.
+- Changed: Stateful items preserve identity and internal state for loaded magazines, equipped firearms, installed mods, backpacks-with-contents, travel cargo contents, and fuel cans.
+- Changed: Inventory and equipment UI support hover details plus right-click contextual actions routed through domain action requests.
 
 ## 2026-04-26 - Local Map Rendering And Visual Readability
 
-- Local gameplay renders through a clipped tile viewport over full local map state; larger maps clamp near edges and smaller maps are centered with padding.
-- Map rendering and hover details include surfaces, ground item markers, stateful ground items, edge-based structures, world objects, NPCs, and the player marker.
-- A single Y-sorted entity layer draws world objects, NPCs, and the player; visual sprite overflow does not change collision, hover, targeting, or placement ownership.
-- Surface sprites exist for early prototype terrain such as grass, carpet, concrete, ceramic tile, and ice, with fallback map colors for newer surfaces.
-- Transparent gameplay sprites are wired for key items/world objects/NPCs, including weapons, fuel pump/store fixtures, tree, boulder, abandoned vehicle, automated turret, single bed, storage crate, tractor wreck, and farm trailer.
+- Changed: Local gameplay renders a clipped tile viewport over full local map state, including padding for maps smaller than the viewport.
+- Changed: Map rendering and hover details include surfaces, ground item markers, stateful ground items, edge structures, world objects, NPCs, and the player marker.
+- Changed: A single Y-sorted entity layer draws world objects, NPCs, and the player while sprite overflow remains visual-only.
+- Changed: Key item, world object, NPC, and surface sprite assets are wired into the local map with fallback map colors where needed.
 
 ## 2026-04-26 - Campaign State, Action Pipeline, And Time
 
-- `CampaignState` owns the persistent run state: shared world time, player state, stateful items, world map travel, vehicle fuel, active mode/site id, registered local sites, travel cargo, and local site preservation.
-- Each `LocalSiteState` keeps its own local map, ground items, world objects, NPC roster, container state, display metadata, entry position, and last local player position across world-map/local transitions.
-- The domain action pipeline dispatches movement, inventory, equipment, inspection, firearm, interaction, travel cargo, fuel, and world-object container actions through handlers.
-- Successful local actions advance the shared tick clock according to action cost; failed actions generally cost 0 ticks.
-- Current important local tick costs include: Move 100, Wait 100, Pick Up 50, Take from Container 50, Search Container default 75, ammo load 10 per round, feed insert/remove 25, fire-mode toggle 0, single shot 100, burst shot 150, and vehicle refuel 100.
+- Changed: `CampaignState` owns persistent run state, including shared time, player state, stateful items, world map travel, vehicle fuel, mode/site id, local sites, and travel cargo.
+- Changed: `LocalSiteState` preserves each site's map, ground items, world objects, NPC roster, container state, display metadata, entry position, and last player position.
+- Changed: The domain action pipeline dispatches movement, inventory, equipment, inspection, firearm, interaction, travel cargo, fuel, and container actions through handlers.
+- Changed: Successful local actions advance shared ticks according to action cost, while failed actions generally cost 0 ticks.
 
 ## 2026-04-25 - Local Gameplay Foundation
 
-- The playable prototype has a Godot main menu, New Run flow, local gameplay shell, grid movement, player marker, message log, status panels, and Escape/menu flow.
-- Domain state owns grid bounds, player position, surfaces, ground items, inventory, equipment, vitals, world time, local map state, NPCs, structures, world objects, firearms, and action validation/resolution.
-- Local movement uses discrete tile steps, boundary checks, surface display, structure-edge blocking, world-object blocking, and NPC blocking.
-- Player vitals currently track health, hunger, thirst, fatigue, sleep debt, pain, and body temperature; only direct prototype health damage is simulated.
+- Changed: The playable prototype has a Godot main menu, New Run flow, local gameplay shell, grid movement, player marker, message log, status panels, and Escape/menu flow.
+- Changed: Domain state owns grid bounds, player position, surfaces, ground items, inventory, equipment, vitals, world time, local map state, NPCs, structures, world objects, firearms, and action validation/resolution.
+- Changed: Local movement uses discrete tile steps with boundary checks, surface display, structure-edge blocking, world-object blocking, and NPC blocking.
+- Preserved: Player vitals exist as tracked state, but only direct prototype health damage is simulated.
 
 ## 2026-04-24 - Repository And Domain Foundation
 
-- Godot-facing scenes/scripts live under `src/Godot/`; plain C# simulation/domain code lives under `src/SurvivalGame.Domain/`; automated domain tests live under `tests/SurvivalGame.Domain.Tests/`.
-- Runtime content data is JSON-backed under `data/`, including items, firearms, surfaces, world objects, structures, NPCs, local maps, and world map definitions.
-- Core domain primitives include grid bounds/positions, item ids/definitions/catalogs, type paths, inventory containers, equipment slots, local maps, campaign state, world map travel, and action requests/results.
+- Changed: Godot-facing scenes/scripts live under `src/Godot/`; plain C# simulation/domain code lives under `src/SurvivalGame.Domain/`; automated domain tests live under `tests/SurvivalGame.Domain.Tests/`.
+- Changed: Runtime content data is JSON-backed under `data/`, including items, firearms, surfaces, world objects, structures, NPCs, local maps, and world map definitions.
+- Changed: Core domain primitives include grid bounds/positions, item ids/definitions/catalogs, type paths, inventory containers, equipment slots, local maps, campaign state, world map travel, and action requests/results.

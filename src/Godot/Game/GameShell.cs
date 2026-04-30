@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SurvivalGame.Application;
 using SurvivalGame.Domain;
 
 public partial class GameShell : Control
@@ -89,7 +90,7 @@ public partial class GameShell : Control
 
     public event Action? ReturnToWorldMapRequested;
 
-    public PrototypeGameplaySession? Session { get; set; }
+    public LocalSiteSession? Session { get; set; }
 
     public bool ShowsReturnToWorldMap { get; set; }
 
@@ -104,7 +105,7 @@ public partial class GameShell : Control
         _playerController = GetNode<PlayerController>("Board/PlayerController");
 
         var isStandaloneSession = Session is null;
-        var session = Session ?? PrototypeSessionFactory.CreateGameplaySession();
+        var session = Session ?? GodotSessionFactory.CreateStandaloneLocalSiteSession();
         _itemCatalog = session.ItemCatalog;
         _firearmCatalog = session.FirearmCatalog;
         _surfaceCatalog = session.SurfaceCatalog;

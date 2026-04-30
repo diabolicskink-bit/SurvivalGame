@@ -44,14 +44,14 @@ public sealed class FarmhouseSiteTests
     {
         var site = LoadSite(PrototypeLocalSites.FarmsteadSiteId);
 
-        AssertStructure(site, new GridPosition(26, 28), StructureEdgeDirection.South, "open_wooden_door");
-        AssertStructure(site, new GridPosition(40, 22), StructureEdgeDirection.North, "screen_door");
-        AssertStructure(site, new GridPosition(17, 13), StructureEdgeDirection.North, "farmhouse_wall");
-        AssertStructure(site, new GridPosition(32, 13), StructureEdgeDirection.North, "broken_window");
-        AssertStructure(site, new GridPosition(54, 15), StructureEdgeDirection.North, "open_wooden_door");
-        AssertStructure(site, new GridPosition(25, 17), StructureEdgeDirection.West, "interior_doorway");
-        AssertStructure(site, new GridPosition(29, 20), StructureEdgeDirection.West, "interior_doorway");
-        AssertStructure(site, new GridPosition(35, 22), StructureEdgeDirection.South, "interior_doorway");
+        AssertObject(site, new GridPosition(17, 13), "wall");
+        AssertObject(site, new GridPosition(32, 13), "window");
+        AssertObject(site, new GridPosition(46, 15), "wall");
+        AssertNoObject(site, new GridPosition(26, 28));
+        AssertNoObject(site, new GridPosition(40, 22));
+        AssertNoObject(site, new GridPosition(54, 15));
+        AssertNoObject(site, new GridPosition(25, 17));
+        AssertNoObject(site, new GridPosition(35, 22));
         AssertObject(site, new GridPosition(47, 16), "workbench");
         AssertObject(site, new GridPosition(58, 16), "metal_shelf");
         AssertObject(site, new GridPosition(44, 9), "water_tank");
@@ -93,6 +93,11 @@ public sealed class FarmhouseSiteTests
         Assert.True(throughFrontDoor.Succeeded);
         Assert.Equal(new GridPosition(26, 28), frontDoorState.Player.Position);
 
+        var interiorDoorwayState = CreateState(site, new GridPosition(24, 17));
+        var throughInteriorDoorway = pipeline.Execute(new MoveActionRequest(GridOffset.Right), interiorDoorwayState);
+        Assert.True(throughInteriorDoorway.Succeeded);
+        Assert.Equal(new GridPosition(25, 17), interiorDoorwayState.Player.Position);
+
         var gateState = CreateState(site, new GridPosition(44, 35));
         var throughGate = pipeline.Execute(new MoveActionRequest(GridOffset.Up), gateState);
         Assert.True(throughGate.Succeeded);
@@ -132,6 +137,11 @@ public sealed class FarmhouseSiteTests
     {
         Assert.True(site.WorldObjects.TryGetObjectAt(position, out var objectId));
         Assert.Equal(new WorldObjectId(expectedObjectId), objectId);
+    }
+
+    private static void AssertNoObject(PrototypeLocalSite site, GridPosition position)
+    {
+        Assert.False(site.WorldObjects.TryGetObjectAt(position, out _));
     }
 
     private static void AssertStructure(

@@ -1,157 +1,30 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Godot;
 using SurvivalGame.Domain;
 
-public sealed class PrototypeGameplaySession
+namespace SurvivalGame.Application;
+
+public static class GameSessionFactory
 {
-    public PrototypeGameplaySession(
-        LocalSiteState localSite,
-        ItemCatalog itemCatalog,
-        FirearmCatalog firearmCatalog,
-        TileSurfaceCatalog surfaceCatalog,
-        WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
-        NpcCatalog npcCatalog,
-        GameActionPipeline actionPipeline,
-        WorldObjectInstanceId? activeTravelAnchorInstanceId = null
-    )
+    public static LocalSiteSession CreateStandaloneLocalSiteSession(
+        GameContentPaths paths,
+        VehicleFuelState? vehicleFuelState = null)
     {
-        LocalSite = localSite;
-        GameState = localSite.GameState;
-        SiteDisplayName = localSite.DisplayName;
-        EntryPosition = localSite.EntryPosition;
-        ItemCatalog = itemCatalog;
-        FirearmCatalog = firearmCatalog;
-        SurfaceCatalog = surfaceCatalog;
-        WorldObjectCatalog = worldObjectCatalog;
-        StructureCatalog = structureCatalog;
-        NpcCatalog = npcCatalog;
-        ActionPipeline = actionPipeline;
-        ActiveTravelAnchorInstanceId = activeTravelAnchorInstanceId;
-    }
-
-    public LocalSiteState LocalSite { get; }
-
-    public PrototypeGameState GameState { get; }
-
-    public string SiteDisplayName { get; }
-
-    public GridPosition EntryPosition { get; }
-
-    public ItemCatalog ItemCatalog { get; }
-
-    public FirearmCatalog FirearmCatalog { get; }
-
-    public TileSurfaceCatalog SurfaceCatalog { get; }
-
-    public WorldObjectCatalog WorldObjectCatalog { get; }
-
-    public StructureCatalog StructureCatalog { get; }
-
-    public NpcCatalog NpcCatalog { get; }
-
-    public GameActionPipeline ActionPipeline { get; }
-
-    public WorldObjectInstanceId? ActiveTravelAnchorInstanceId { get; }
-}
-
-public sealed class PrototypeCampaignSession
-{
-    public PrototypeCampaignSession(
-        CampaignState campaignState,
-        ItemCatalog itemCatalog,
-        FirearmCatalog firearmCatalog,
-        TileSurfaceCatalog surfaceCatalog,
-        WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
-        NpcCatalog npcCatalog,
-        GameActionPipeline actionPipeline
-    )
-    {
-        CampaignState = campaignState;
-        ItemCatalog = itemCatalog;
-        FirearmCatalog = firearmCatalog;
-        SurfaceCatalog = surfaceCatalog;
-        WorldObjectCatalog = worldObjectCatalog;
-        StructureCatalog = structureCatalog;
-        NpcCatalog = npcCatalog;
-        ActionPipeline = actionPipeline;
-    }
-
-    public CampaignState CampaignState { get; }
-
-    public ItemCatalog ItemCatalog { get; }
-
-    public FirearmCatalog FirearmCatalog { get; }
-
-    public TileSurfaceCatalog SurfaceCatalog { get; }
-
-    public WorldObjectCatalog WorldObjectCatalog { get; }
-
-    public StructureCatalog StructureCatalog { get; }
-
-    public NpcCatalog NpcCatalog { get; }
-
-    public GameActionPipeline ActionPipeline { get; }
-
-    public PrototypeGameplaySession CreateGameplaySession(SiteId siteId)
-    {
-        var localSite = CampaignState.GetLocalSite(siteId);
-        var activeAnchor = TravelAnchorService.EnsureAnchor(
-            localSite,
-            CampaignState.WorldMap.CurrentTravelMethod,
-            WorldObjectCatalog
-        );
-        if (activeAnchor is not null)
-        {
-            localSite.GameState.SetActiveTravelAnchor(activeAnchor.Value.InstanceId);
-            if (TravelAnchorService.TryFindEntryPosition(
-                localSite.GameState,
-                activeAnchor.Value.InstanceId,
-                WorldObjectCatalog,
-                out var entryPosition))
-            {
-                localSite.GameState.SetPlayerPosition(entryPosition);
-            }
-        }
-        else
-        {
-            localSite.GameState.ClearActiveTravelAnchor();
-        }
-
-        return new PrototypeGameplaySession(
-            localSite,
-            ItemCatalog,
-            FirearmCatalog,
-            SurfaceCatalog,
-            WorldObjectCatalog,
-            StructureCatalog,
-            NpcCatalog,
-            ActionPipeline,
-            activeAnchor?.InstanceId
-        );
-    }
-}
-
-public static class PrototypeSessionFactory
-{
-    public static PrototypeGameplaySession CreateGameplaySession(VehicleFuelState? vehicleFuelState = null)
-    {
-        var campaignSession = CreateCampaignSession(vehicleFuelState);
+        var campaignSession = CreateCampaignSession(paths, vehicleFuelState);
         var localSite = campaignSession.CampaignState.EnterLocalSite(PrototypeLocalSites.DefaultSiteId);
-        return campaignSession.CreateGameplaySession(localSite.Id);
+        return campaignSession.CreateLocalSiteSession(localSite.Id);
     }
 
-    public static PrototypeCampaignSession CreateCampaignSession(VehicleFuelState? vehicleFuelState = null)
+    public static CampaignSession CreateCampaignSession(
+        GameContentPaths paths,
+        VehicleFuelState? vehicleFuelState = null)
     {
-        var itemCatalog = LoadItemCatalog();
-        var firearmCatalog = LoadFirearmCatalog();
-        var surfaceCatalog = LoadSurfaceCatalog();
-        var worldObjectCatalog = LoadWorldObjectCatalog();
-        var structureCatalog = LoadStructureCatalog();
-        var npcCatalog = LoadNpcCatalog();
+        ArgumentNullException.ThrowIfNull(paths);
+
+        var itemCatalog = new ItemDefinitionLoader().LoadDirectory(paths.Items);
+        var firearmCatalog = new FirearmDefinitionLoader().LoadDirectory(paths.Firearms);
+        var surfaceCatalog = new TileSurfaceDefinitionLoader().LoadDirectory(paths.Surfaces);
+        var worldObjectCatalog = new WorldObjectDefinitionLoader().LoadDirectory(paths.WorldObjects);
+        var structureCatalog = new StructureDefinitionLoader().LoadDirectory(paths.Structures);
+        var npcCatalog = new NpcDefinitionLoader().LoadDirectory(paths.Npcs);
         var vehicleFuel = vehicleFuelState ?? new VehicleFuelState(
             PrototypeTravelMethods.VehicleFuelCapacity,
             PrototypeTravelMethods.VehicleStartingFuel
@@ -168,7 +41,14 @@ public static class PrototypeSessionFactory
         );
         var campaignState = new CampaignState(time, player, statefulItems, worldMapState, vehicleFuel);
 
-        var localSites = LoadLocalSites(surfaceCatalog, worldObjectCatalog, structureCatalog, itemCatalog, npcCatalog);
+        var localSites = new LocalSiteDefinitionLoader().LoadDirectory(
+            paths.LocalMaps,
+            surfaceCatalog,
+            worldObjectCatalog,
+            structureCatalog,
+            itemCatalog,
+            npcCatalog
+        );
 
         LocalSiteState? defaultLocalSite = null;
         foreach (var site in localSites)
@@ -186,7 +66,7 @@ public static class PrototypeSessionFactory
             throw new InvalidOperationException($"Required local site '{PrototypeLocalSites.DefaultSiteId}' was not loaded.");
         }
 
-        AddPrototypeStartingItems(defaultLocalSite.GameState, itemCatalog, firearmCatalog);
+        AddStartingItems(defaultLocalSite.GameState, itemCatalog, firearmCatalog);
 
         var actionPipeline = new GameActionPipeline(
             itemCatalog,
@@ -198,7 +78,7 @@ public static class PrototypeSessionFactory
             campaignState.TravelCargo
         );
 
-        return new PrototypeCampaignSession(
+        return new CampaignSession(
             campaignState,
             itemCatalog,
             firearmCatalog,
@@ -246,7 +126,7 @@ public static class PrototypeSessionFactory
         );
     }
 
-    private static void AddPrototypeStartingItems(
+    private static void AddStartingItems(
         PrototypeGameState gameState,
         ItemCatalog itemCatalog,
         FirearmCatalog firearmCatalog)
@@ -262,10 +142,10 @@ public static class PrototypeSessionFactory
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeBuckshot, 20);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo12GaugeSlug, 10);
         AddStack(gameState, itemCatalog, PrototypeFirearms.Ammo22LrStandard, 100);
-        AddPrototypeStatefulItems(gameState, itemCatalog, firearmCatalog);
+        AddStartingStatefulItems(gameState, itemCatalog, firearmCatalog);
     }
 
-    private static void AddPrototypeStatefulItems(
+    private static void AddStartingStatefulItems(
         PrototypeGameState gameState,
         ItemCatalog itemCatalog,
         FirearmCatalog firearmCatalog)
@@ -365,59 +245,4 @@ public static class PrototypeSessionFactory
     {
         return !itemCatalog.TryGet(itemId, out var item) || InventoryGridRules.UsesGrid(item);
     }
-
-    private static ItemCatalog LoadItemCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/items");
-        return new ItemDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static FirearmCatalog LoadFirearmCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/firearms");
-        return new FirearmDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static TileSurfaceCatalog LoadSurfaceCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/surfaces");
-        return new TileSurfaceDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static WorldObjectCatalog LoadWorldObjectCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/world_objects");
-        return new WorldObjectDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static StructureCatalog LoadStructureCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/structures");
-        return new StructureDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static NpcCatalog LoadNpcCatalog()
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/npcs");
-        return new NpcDefinitionLoader().LoadDirectory(dataPath);
-    }
-
-    private static IReadOnlyList<PrototypeLocalSite> LoadLocalSites(
-        TileSurfaceCatalog surfaceCatalog,
-        WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
-        ItemCatalog itemCatalog,
-        NpcCatalog npcCatalog)
-    {
-        var dataPath = ProjectSettings.GlobalizePath("res://data/local_maps");
-        return new LocalSiteDefinitionLoader().LoadDirectory(
-            dataPath,
-            surfaceCatalog,
-            worldObjectCatalog,
-            structureCatalog,
-            itemCatalog,
-            npcCatalog
-        );
-    }
-
 }

@@ -8,11 +8,13 @@
   <ItemGroup>
     <Compile Remove="src\SurvivalGame.Domain\**\*.cs" />
     <Compile Remove="src\SurvivalGame.Prototype\**\*.cs" />
+    <Compile Remove="src\SurvivalGame.Application\**\*.cs" />
     <Compile Remove="tests\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="src\SurvivalGame.Domain\SurvivalGame.Domain.csproj" />
     <ProjectReference Include="src\SurvivalGame.Prototype\SurvivalGame.Prototype.csproj" />
+    <ProjectReference Include="src\SurvivalGame.Application\SurvivalGame.Application.csproj" />
   </ItemGroup>
 </Project>

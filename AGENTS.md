@@ -16,6 +16,12 @@ Survival is driven by resource logistics, grounded tactical combat, and local-si
 
 Use `docs/BACKGROUND.md` as soft setting and tone guidance, and `docs/DESIGN_GOALS.md` as long-term system direction. These docs should guide naming, content, and implementation choices, but they do not authorize expanding current scope. The scope guardrails below and `docs/CURRENT_SCOPE.md` remain the source of truth for what is implemented now.
 
+For content, tone, worldbuilding, naming, site, item, NPC, sprite, or environmental-storytelling work, read `docs/BACKGROUND.md` and `docs/WORLD_AUTHORING_GUIDE.md` before choosing content direction. `docs/WORLD_AUTHORING_GUIDE.md` owns reusable content templates, authoring checks, and maintenance rules for the world background docs. These world docs are inspirational guidance only and do not authorize unrequested gameplay systems or content scope.
+
+`docs/DESIGN_GOALS.md` is a living end-state design document. Follow its AI planning protocol when work involves high-impact design choices, early slices of future systems, or meaningful tradeoffs between a locally convenient implementation and the intended long-term game. Surface meaningful alternatives and ask focused questions before locking plans when the answer would affect long-term direction, architecture, scope, or player-facing system shape.
+
+Record durable future game-design direction in `docs/DESIGN_GOALS.md`. Record future architecture pressure in `docs/ARCHITECTURAL_DEBT.md`. Record deferred player-facing mechanics and systems in `docs/MECHANICS_BACKLOG.md`. Do not use any of these documents as permission to add unrequested gameplay scope.
+
 ## Core Architecture
 
 Godot is the presentation, input, UI, rendering, audio, and scene composition layer.
@@ -37,6 +43,7 @@ Godot should display and interact with simulation state. It should not become th
 - `src/Godot/Game/LocalMapView/` contains visible map/grid/input-view scripts.
 - `src/Godot/Game/UI/` contains gameplay overlay controls.
 - `src/Godot/Game/Prototype/` contains temporary Godot-side helpers that should migrate to domain code when the matching simulation concept becomes real.
+- `src/SurvivalGame.Application/` contains plain C# application/session bootstrapping, content path wiring, and run session construction.
 - `src/SurvivalGame.Domain/` contains plain C# simulation/domain code, grouped by concept.
 - `src/SurvivalGame.Domain/WorldMap/` contains broad world map travel, positions, points of interest, and travel rules.
 - `src/SurvivalGame.Domain/Actors/` contains player, NPC, creature, and actor state models.
@@ -123,7 +130,7 @@ Before creating a sprite:
 - Use the existing sprite id pattern: `surface_<id>`, `item_<id>`, `npc_<id>`, `world_object_<id>`, or `structure_<style>_<piece>_<orientation>_<variant>`.
 - Treat the footprint as gameplay truth. A sprite can visually overflow a tile through `spriteRender`, but collision, hover, targeting, and placement must still match the intended footprint.
 - Decide whether the sprite's canonical north-facing shape or a particular placed orientation defines the footprint. Store the canonical footprint on the definition, then use placement `facing` for rotated map instances. For example, a north-facing `2 x 3` vehicle can be placed east-facing to occupy an effective `3 x 2` area.
-- Walls, doors, windows, fences, gates, and gaps should generally be authored as edge-based structures, not tile world objects. Tile world objects are for things occupying tile area, such as furniture, trees, vehicles, tanks, machinery, and clutter.
+- Building walls and windows should generally use the current procedural 2.5D tile-object wall path. Edge-based structures remain for current fences, gates, gaps, and legacy cleanup until the wall/fence representation work is resolved. Tile world objects are also for things occupying tile area, such as furniture, trees, vehicles, tanks, machinery, and clutter.
 
 Sprite art direction:
 
@@ -141,7 +148,7 @@ Footprints, scale, and orientation:
 - If the visible sprite should fill its physical footprint, set the data footprint and let the renderer size the sprite from it.
 - If the sprite should visually extend beyond its physical tile, keep the footprint small and add `spriteRender` metadata for visual-only size, offset, and sort offset.
 - Do not use transparent padding to fake positioning or scale. Use `spriteRender` offsets instead.
-- Structure sprites are 2.5D edge pieces anchored to the lower edge of the crossed tile boundary. Provide distinct front and side pieces instead of rotating one wall sprite when material direction, wall face, windows, or doors should look different.
+- Structure sprites, where still used, are 2.5D edge pieces anchored to the lower edge of the crossed tile boundary. Current building walls use procedural 2.5D tile-object rendering instead; keep future wall assets compatible with that tile-wall direction unless a specific task changes the representation.
 
 Generated sprite workflow:
 
@@ -216,9 +223,27 @@ Use `docs/ARCHITECTURAL_DEBT.md` as the living index for architecture debt and i
 
 Check the tracker when doing sweeps, refactors, architecture work, or code changes that touch known boundaries between Godot presentation, application/session coordination, and domain simulation.
 
-When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. When work changes a tracked issue, update its status, priority, next action, or notes. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
+When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. When work changes a tracked issue, update its status, priority, next action, or other canonical fields. Append dated `Notes` entries for factual implementation context, constraints, risks, or observations that are useful but too detailed for the core fields. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
+
+When planning implementation for an existing `ARCH-*` item, assess whether it is too broad for one safe behavior-preserving change. If so, propose a split into smaller `ARCH-*` items and a recommended first slice before implementing.
 
 Keep the tracker compact and ordered by priority first, then ID. Use it as memory and triage, not as permission to expand current gameplay scope.
+
+## Mechanics Backlog
+
+Use `docs/MECHANICS_BACKLOG.md` as the living backlog for deferred player-facing mechanics and systems. Refer to tracked items by stable IDs such as `MECH-1`.
+
+When a plan identifies meaningful gameplay, UI, simulation, world, survival, combat, NPC, item, inventory, vehicle, or procedural-generation mechanics that are intentionally excluded from the current task, add or update a `MECH-*` item so the idea is not lost.
+
+Each `MECH-*` item should be one implementable system or one small vertical slice. Split bundled feature families before recording them; for example, hunger, thirst, fatigue, sleep, pain, body temperature, and survival decay should not share one ID.
+
+When planning implementation for an existing `MECH-*` item, assess whether it is too broad for one playable slice. If so, propose a split into smaller `MECH-*` items and a recommended first slice before implementing.
+
+When general work reveals useful context for a tracked mechanic, append a dated `Notes` entry. If the discovery changes priority, dependencies, first playable slice, completion signal, or another canonical field, update that field too.
+
+Do not add `MECH-*` entries for tiny implementation details, one-off content, architecture debt, or design principles. Use `ARCH-*` for architecture pressure, `MECH-*` for future mechanics, `docs/CURRENT_SCOPE.md` for implemented scope, and `docs/DESIGN_GOALS.md` for long-term design direction.
+
+When a tracked mechanic is implemented, mark it `Implemented`, update `docs/CURRENT_SCOPE.md`, and add a task-log entry when it changes durable project state.
 
 ## Maintenance Sweeps
 
@@ -241,7 +266,7 @@ During a sweep:
 - If a larger refactor is warranted, keep it gameplay/domain behavior-preserving and verify it with focused tests.
 - Do not treat existing test shape, helper APIs, fixtures, or expectations as compatibility boundaries; update tests to match the chosen implementation.
 - Work with existing architecture and naming patterns instead of introducing new abstractions by default.
-- Update `docs/TASK_LOG.md` after the sweep. Update architecture or scope docs only when the sweep changes documented structure or guidance.
+- Consider updating `docs/TASK_LOG.md` after the sweep, but add an entry only when the sweep changes durable player-facing behavior, content/data, architecture ownership, or documented project state. Update architecture or scope docs only when the sweep changes documented structure or guidance.
 
 When completing a sweep, summarise:
 
@@ -282,11 +307,15 @@ Update relevant docs when making meaningful changes:
 
 - `AGENTS.md` only when project-wide AI/developer guidance changes.
 - `docs/BACKGROUND.md` when setting, tone, or creative north-star guidance changes.
+- `docs/WORLD_AUTHORING_GUIDE.md` when reusable AI content-authoring templates, naming guidance, site guidance, worldbuilding patterns, or world-guidance maintenance rules change.
 - `docs/DESIGN_GOALS.md` when long-term gameplay or system direction changes.
 - `docs/ARCHITECTURE.md` when project structure or major architecture changes.
 - `docs/ARCHITECTURAL_DEBT.md` when architecture debt is found, changed, actively addressed, resolved, or superseded.
+- `docs/MECHANICS_BACKLOG.md` when deferred player-facing mechanics are identified, changed, planned, actively implemented, implemented, or superseded.
 - `docs/CURRENT_SCOPE.md` when project scope changes.
-- `docs/TASK_LOG.md` after each implemented task.
+- `docs/TASK_LOG.md` after an implemented task only when it meets the task-log admission rule: player-facing behavior, content/data milestones, architecture ownership changes, resolved or created major tracker systems, significant visual/content asset work, or another durable documented project-state change.
+
+`docs/TASK_LOG.md` is curated milestone memory, not a full changelog. Skip routine bug fixes, tiny cleanup, pure investigations, plans, and review-only notes unless they change durable project state. Prefer `docs/CURRENT_SCOPE.md` for exact current scope, `docs/ARCHITECTURAL_DEBT.md` for future architecture work, `docs/MECHANICS_BACKLOG.md` for deferred mechanics, and Git commits/tests for full implementation detail.
 
 ## Future Codex Output Expectations
 

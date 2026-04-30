@@ -51,8 +51,11 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Equal(new GridPosition(4, 41), farmstead.StartPosition);
         Assert.Equal(PrototypeSurfaces.Dirt, farmstead.Surfaces.GetSurfaceId(farmstead.StartPosition));
         Assert.Equal(PrototypeSurfaces.WeatheredWood, farmstead.Surfaces.GetSurfaceId(new GridPosition(26, 30)));
-        Assert.True(farmstead.Structures.TryGetEdgeAt(new GridPosition(26, 28), StructureEdgeDirection.South, out var frontDoor));
-        Assert.Equal(new StructureId("open_wooden_door"), frontDoor.StructureId);
+        Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(17, 13), out var farmhouseWall));
+        Assert.Equal(new WorldObjectId("wall"), farmhouseWall);
+        Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(32, 13), out var farmhouseWindow));
+        Assert.Equal(new WorldObjectId("window"), farmhouseWindow);
+        Assert.False(farmstead.Structures.TryGetEdgeAt(new GridPosition(26, 28), StructureEdgeDirection.South, out _));
         Assert.True(farmstead.Structures.TryGetEdgeAt(new GridPosition(44, 34), StructureEdgeDirection.South, out var paddockGate));
         Assert.Equal(new StructureId("open_farm_gate"), paddockGate.StructureId);
         Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(42, 7), out var tank));

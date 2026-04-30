@@ -1,8 +1,33 @@
 # Design Goals
 
-This document describes the intended long-term game direction. It is not a current implementation checklist and does not override `docs/CURRENT_SCOPE.md` or the scope guardrails in `AGENTS.md`.
+This document describes the intended long-term game direction. It is a living end-state design document for future AI and developer sessions: when durable design direction becomes clearer, update this file so future work keeps pointing at the same game.
 
-Use this file when choosing between implementation approaches, naming systems, shaping data models, or deciding whether a proposed feature points toward the intended game. Implement new systems only when the user explicitly asks for them.
+It is not a current implementation checklist and does not override `docs/CURRENT_SCOPE.md` or the scope guardrails in `AGENTS.md`. Implement new systems only when the user explicitly asks for them.
+
+## How To Use This Document
+
+- Use this file for long-term design direction, naming, content direction, system tradeoffs, and end-state intent.
+- Use `docs/CURRENT_SCOPE.md` for exact current scope and `AGENTS.md` for scope guardrails.
+- Use `docs/BACKGROUND.md` for setting, tone, and content flavor.
+- Use `docs/ARCHITECTURAL_DEBT.md` for future architecture pressure.
+- Use `docs/MECHANICS_BACKLOG.md` for deferred player-facing mechanics and systems.
+- Use Git history, task summaries, tests, and `docs/TASK_LOG.md` for implementation history.
+
+## Living Document Protocol
+
+- Update this file only when long-term game direction changes or when a clarified end-state goal should guide future work.
+- Do not update it for current implementation status, ordinary task summaries, bug fixes, local exceptions, or one-off feature details.
+- Keep updates principle-based and focused on the intended future game shape. If a durable end-state goal becomes clearer, add or adjust concise guidance under the relevant section.
+- Use compact `End-State Direction` notes only when they clarify the intended future game better than normal prose. Avoid dated decision logs unless the decision changes the lasting design picture.
+- If a user chooses a local approach that conflicts with existing design goals, update this file only when the choice is a durable pivot. Otherwise, treat it as a local exception for the task summary or PR.
+
+## AI Planning Protocol
+
+- Before planning high-impact design choices, gather current repo and docs context first.
+- Surface meaningful alternatives when a choice affects long-term direction, architecture, scope, or player-facing system shape. Name how each option aligns or conflicts with these goals.
+- If an early slice is requested and the end-state goal is unclear, ask focused questions until the slice can point in the right long-term direction.
+- Record newly clarified durable end-state goals here. Record future architecture work in `docs/ARCHITECTURAL_DEBT.md` and deferred player-facing mechanics in `docs/MECHANICS_BACKLOG.md` instead.
+- Prefer choices that create readable logistics, practical resource tradeoffs, local-site risk, grounded tactical decisions, and domain-owned simulation. Avoid hidden realism, generic apocalypse flavor, unrequested scope, or systems the player cannot inspect or act on.
 
 ## Core Loop
 
@@ -73,4 +98,3 @@ Procedural generation should support believable places. It should not create arb
 The interface should make complex survival decisions understandable. The player should be able to inspect what matters: current travel method, fuel, time, inventory constraints, ammunition state, weapon state, health, local threats, nearby objects, action costs, and failure reasons.
 
 Readability matters more than hidden realism. If a system affects player choice, the UI should expose enough state, feedback, and language for the player to reason about it.
-

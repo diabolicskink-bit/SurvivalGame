@@ -7,8 +7,6 @@ public partial class MapEntityLayer : Node2D
 {
     private static readonly SpriteRenderProfile DefaultNpcSpriteRender = new(0.9f, 0.9f);
     private static readonly Color TileGlassColor = new(0.45f, 0.7f, 0.8f, 0.82f);
-    private static readonly Color TileShadowColor = new(0.01f, 0.012f, 0.01f, 0.34f);
-    private const float TileWallHeightTiles = 0.45f;
 
     private readonly Dictionary<string, Texture2D?> _objectSpriteCache = new();
     private readonly Dictionary<string, Texture2D?> _structureSpriteCache = new();
@@ -78,13 +76,16 @@ public partial class MapEntityLayer : Node2D
 
         foreach (var placedObject in _objectMap.AllObjects)
         {
-            if (IsRenderedAsEdgeStructure(placedObject.ObjectId))
+            var isTileWall = TileWallRenderModel.TryGetKind(placedObject.ObjectId, out _);
+            if (!isTileWall && IsRenderedAsEdgeStructure(placedObject.ObjectId))
             {
                 continue;
             }
 
+            TileWallRenderData? tileWall = isTileWall
+                ? TileWallRenderModel.Create(placedObject, _objectMap, _viewport, _cellSize)
+                : null;
             var definition = TryGetWorldObjectDefinition(placedObject.ObjectId);
-            var isTileWall = TryGetTileWallKind(placedObject.ObjectId, out _);
             var render = GetObjectRenderProfile(placedObject, definition);
             Texture2D? sprite = null;
             if (!isTileWall && TryGetObjectSprite(definition, out var loadedSprite))
@@ -92,8 +93,8 @@ public partial class MapEntityLayer : Node2D
                 sprite = loadedSprite;
             }
 
-            var rect = isTileWall
-                ? GetTileWallRenderBounds(placedObject)
+            var rect = tileWall is { } wall
+                ? wall.RenderBounds
                 : sprite is not null
                     ? GetWorldObjectRenderBounds(placedObject, render, sprite)
                     : GetWorldObjectFootprintRect(placedObject);
@@ -102,14 +103,14 @@ public partial class MapEntityLayer : Node2D
                 continue;
             }
 
-            var sortKey = placedObject.Position.Y
-                + placedObject.EffectiveFootprint.Height
-                - 1
-                + render.SortOffsetYTiles;
+            var sortFloorContactY = tileWall is { } sortWall
+                ? sortWall.SortFloorContactY
+                : placedObject.Position.Y + placedObject.EffectiveFootprint.Height - 1;
+            var sortKey = sortFloorContactY + render.SortOffsetYTiles;
             commands.Add(new EntityDrawCommand(
                 sortKey,
                 Priority: 0,
-                () => DrawWorldObject(placedObject, definition, render, sprite)
+                () => DrawWorldObject(placedObject, definition, render, sprite, tileWall)
             ));
         }
     }
@@ -290,11 +291,12 @@ public partial class MapEntityLayer : Node2D
         PlacedWorldObject placedObject,
         WorldObjectDefinition? definition,
         SpriteRenderProfile render,
-        Texture2D? sprite)
+        Texture2D? sprite,
+        TileWallRenderData? tileWall)
     {
-        if (TryGetTileWallKind(placedObject.ObjectId, out var tileWallKind))
+        if (tileWall is { } wall)
         {
-            DrawTileWallObject(placedObject, definition, tileWallKind);
+            DrawTileWallObject(wall, definition);
             return;
         }
 
@@ -323,44 +325,28 @@ public partial class MapEntityLayer : Node2D
         DrawRect(objectRect, color.Lightened(0.25f), false, 1.5f);
     }
 
-    private void DrawTileWallObject(
-        PlacedWorldObject placedObject,
-        WorldObjectDefinition? definition,
-        TileWallKind kind)
+    private void DrawTileWallObject(TileWallRenderData wall, WorldObjectDefinition? definition)
     {
-        var rect = GetWorldObjectFootprintRect(placedObject);
-        var neighbors = GetTileWallNeighbors(placedObject.Position);
         var color = definition is null
             ? new Color(0.48f, 0.5f, 0.47f)
             : ParseHtmlColor(definition.MapColor, new Color(0.48f, 0.5f, 0.47f));
 
-        if (kind == TileWallKind.GlassDoor)
+        if (wall.Kind == TileWallKind.GlassDoor)
         {
-            DrawTileGlassDoor(rect, neighbors, color);
+            DrawTileGlassDoor(wall, color);
             return;
         }
 
-        var geometry = GetTileWallGeometry(rect, neighbors);
-        DrawTileWallShadow(geometry);
-        DrawTileWallFaces(geometry, neighbors, color);
+        DrawTileWallFaces(wall.Geometry, wall.Neighbors, color);
 
-        if (kind == TileWallKind.Window)
+        if (wall.Kind == TileWallKind.Window)
         {
-            DrawTileWindow(geometry, neighbors);
+            DrawTileWindow(wall.Geometry, wall.Orientation);
         }
-        else if (kind == TileWallKind.WoodenDoor)
+        else if (wall.Kind == TileWallKind.WoodenDoor)
         {
-            DrawTileWoodenDoor(geometry, neighbors);
+            DrawTileWoodenDoor(wall.Geometry, wall.Orientation);
         }
-    }
-
-    private void DrawTileWallShadow(TileWallGeometry geometry)
-    {
-        var shadow = new Rect2(
-            geometry.Footprint.Position + GetTileWallShadowOffset(),
-            geometry.Footprint.Size
-        ).Grow(Mathf.Max(1.0f, _cellSize * 0.03f));
-        DrawRect(shadow, TileShadowColor, true);
     }
 
     private void DrawTileWallFaces(TileWallGeometry geometry, TileWallNeighbors neighbors, Color color)
@@ -369,7 +355,6 @@ public partial class MapEntityLayer : Node2D
         var frontColor = color.Darkened(0.05f);
         var westColor = color.Lightened(0.03f);
         var eastColor = color.Darkened(0.18f);
-        var lineWidth = Mathf.Max(1.0f, _cellSize * 0.04f);
 
         if (!neighbors.HasFlag(TileWallNeighbors.West))
         {
@@ -393,25 +378,12 @@ public partial class MapEntityLayer : Node2D
             }, eastColor);
         }
 
-        DrawColoredPolygon(new[]
-        {
-            geometry.Top.Position,
-            new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
-            geometry.Top.End,
-            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y)
-        }, topColor);
-
-        DrawColoredPolygon(new[]
-        {
-            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
-            geometry.Top.End,
-            geometry.Footprint.End,
-            new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y)
-        }, frontColor);
+        DrawRect(geometry.Top, topColor, true);
+        DrawRect(geometry.FrontFace, frontColor, true);
 
         if (!neighbors.HasFlag(TileWallNeighbors.South))
         {
-            var foundationHeight = Mathf.Max(2.0f, _cellSize * 0.07f);
+            var foundationHeight = Mathf.Max(2.0f, Mathf.Round(_cellSize * 0.07f));
             DrawRect(
                 new Rect2(
                     new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y - foundationHeight),
@@ -421,60 +393,10 @@ public partial class MapEntityLayer : Node2D
                 true
             );
         }
-
-        if (!neighbors.HasFlag(TileWallNeighbors.North))
-        {
-            DrawLine(
-                geometry.Top.Position,
-                new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
-                topColor.Lightened(0.16f),
-                lineWidth
-            );
-        }
-
-        if (!neighbors.HasFlag(TileWallNeighbors.South))
-        {
-            DrawLine(
-                new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y),
-                geometry.Footprint.End,
-                color.Darkened(0.35f),
-                lineWidth
-            );
-        }
-
-        if (!neighbors.HasFlag(TileWallNeighbors.West))
-        {
-            DrawLine(geometry.Top.Position, geometry.Footprint.Position, color.Darkened(0.12f), lineWidth);
-            DrawLine(
-                new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
-                new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y),
-                color.Darkened(0.2f),
-                lineWidth
-            );
-        }
-
-        if (!neighbors.HasFlag(TileWallNeighbors.East))
-        {
-            DrawLine(
-                new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
-                new Vector2(geometry.Footprint.End.X, geometry.Footprint.Position.Y),
-                color.Darkened(0.3f),
-                lineWidth
-            );
-            DrawLine(geometry.Top.End, geometry.Footprint.End, color.Darkened(0.36f), lineWidth);
-        }
-
-        DrawLine(
-            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
-            geometry.Top.End,
-            topColor.Darkened(0.1f),
-            lineWidth
-        );
     }
 
-    private void DrawTileWindow(TileWallGeometry geometry, TileWallNeighbors neighbors)
+    private void DrawTileWindow(TileWallGeometry geometry, TileWallOrientation orientation)
     {
-        var orientation = ResolveTileWallOrientation(neighbors);
         var face = geometry.FrontFace;
         var insetX = orientation == TileWallOrientation.Horizontal ? face.Size.X * 0.2f : face.Size.X * 0.32f;
         var insetY = Mathf.Max(2.0f, face.Size.Y * 0.22f);
@@ -493,9 +415,8 @@ public partial class MapEntityLayer : Node2D
         );
     }
 
-    private void DrawTileWoodenDoor(TileWallGeometry geometry, TileWallNeighbors neighbors)
+    private void DrawTileWoodenDoor(TileWallGeometry geometry, TileWallOrientation orientation)
     {
-        var orientation = ResolveTileWallOrientation(neighbors);
         var face = geometry.FrontFace;
         var insetX = orientation == TileWallOrientation.Horizontal ? face.Size.X * 0.13f : face.Size.X * 0.26f;
         var insetY = Mathf.Max(1.5f, face.Size.Y * 0.08f);
@@ -516,17 +437,16 @@ public partial class MapEntityLayer : Node2D
         DrawCircle(knob, Mathf.Max(1.5f, _cellSize * 0.045f), new Color(0.84f, 0.67f, 0.35f));
     }
 
-    private void DrawTileGlassDoor(Rect2 rect, TileWallNeighbors neighbors, Color color)
+    private void DrawTileGlassDoor(TileWallRenderData wall, Color color)
     {
-        var orientation = ResolveTileWallOrientation(neighbors);
-        var body = GetConnectedTileWallBody(rect, TileWallNeighbors.None);
+        var body = TileWallRenderModel.GetConnectedBody(wall.FootprintRect, TileWallNeighbors.None, _cellSize);
         var postWidth = Mathf.Max(3.0f, _cellSize * 0.1f);
         var thresholdWidth = Mathf.Max(2.0f, _cellSize * 0.08f);
         var frameColor = color.Lightened(0.16f);
         var darkFrame = color.Darkened(0.2f);
         var glassCue = new Color(TileGlassColor.R, TileGlassColor.G, TileGlassColor.B, 0.54f);
 
-        if (orientation == TileWallOrientation.Horizontal)
+        if (wall.Orientation == TileWallOrientation.Horizontal)
         {
             var leftPost = new Rect2(body.Position, new Vector2(postWidth, body.Size.Y));
             var rightPost = new Rect2(
@@ -547,8 +467,8 @@ public partial class MapEntityLayer : Node2D
             );
 
             var pane = new Rect2(
-                body.Position + new Vector2(body.Size.X * 0.46f, -GetTileWallHeight() * 0.7f),
-                new Vector2(body.Size.X * 0.12f, GetTileWallHeight() * 0.72f)
+                body.Position + new Vector2(body.Size.X * 0.46f, -TileWallRenderModel.GetHeight(_cellSize) * 0.7f),
+                new Vector2(body.Size.X * 0.12f, TileWallRenderModel.GetHeight(_cellSize) * 0.72f)
             );
             DrawRect(pane, glassCue, true);
         }
@@ -582,120 +502,8 @@ public partial class MapEntityLayer : Node2D
 
     private void DrawTileDoorJamb(Rect2 baseRect, Color color)
     {
-        var geometry = GetTileWallGeometry(baseRect, TileWallNeighbors.None);
-        DrawTileWallShadow(geometry);
+        var geometry = TileWallRenderModel.GetGeometry(baseRect, TileWallNeighbors.None, _cellSize);
         DrawTileWallFaces(geometry, TileWallNeighbors.None, color);
-    }
-
-    private TileWallNeighbors GetTileWallNeighbors(GridPosition position)
-    {
-        var neighbors = TileWallNeighbors.None;
-
-        if (HasTileWallAt(new GridPosition(position.X, position.Y - 1)))
-        {
-            neighbors |= TileWallNeighbors.North;
-        }
-
-        if (HasTileWallAt(new GridPosition(position.X + 1, position.Y)))
-        {
-            neighbors |= TileWallNeighbors.East;
-        }
-
-        if (HasTileWallAt(new GridPosition(position.X, position.Y + 1)))
-        {
-            neighbors |= TileWallNeighbors.South;
-        }
-
-        if (HasTileWallAt(new GridPosition(position.X - 1, position.Y)))
-        {
-            neighbors |= TileWallNeighbors.West;
-        }
-
-        return neighbors;
-    }
-
-    private bool HasTileWallAt(GridPosition position)
-    {
-        return _objectMap is not null
-            && _objectMap.TryGetObjectAt(position, out var objectId)
-            && TryGetTileWallKind(objectId, out _);
-    }
-
-    private Rect2 GetTileWallRenderBounds(PlacedWorldObject placedObject)
-    {
-        var rect = GetWorldObjectFootprintRect(placedObject);
-        var body = GetConnectedTileWallBody(rect, GetTileWallNeighbors(placedObject.Position));
-        var height = GetTileWallHeight();
-        var shadowOffset = GetTileWallShadowOffset();
-        var left = body.Position.X;
-        var top = body.Position.Y - height;
-        var right = body.End.X + shadowOffset.X;
-        var bottom = body.End.Y + shadowOffset.Y;
-
-        return new Rect2(left, top, right - left, bottom - top).Grow(Mathf.Max(1.0f, _cellSize * 0.04f));
-    }
-
-    private TileWallGeometry GetTileWallGeometry(Rect2 rect, TileWallNeighbors neighbors)
-    {
-        var footprint = GetConnectedTileWallBody(rect, neighbors);
-        var height = GetTileWallHeight();
-        var top = new Rect2(
-            footprint.Position - new Vector2(0.0f, height),
-            footprint.Size
-        );
-        var frontFace = new Rect2(
-            new Vector2(footprint.Position.X, footprint.End.Y - height),
-            new Vector2(footprint.Size.X, height)
-        );
-
-        return new TileWallGeometry(footprint, top, frontFace);
-    }
-
-    private Rect2 GetConnectedTileWallBody(Rect2 rect, TileWallNeighbors neighbors)
-    {
-        var inset = Mathf.Max(3.0f, _cellSize * 0.12f);
-        var left = neighbors.HasFlag(TileWallNeighbors.West) ? rect.Position.X - 0.5f : rect.Position.X + inset;
-        var top = neighbors.HasFlag(TileWallNeighbors.North) ? rect.Position.Y - 0.5f : rect.Position.Y + inset;
-        var right = neighbors.HasFlag(TileWallNeighbors.East) ? rect.End.X + 0.5f : rect.End.X - inset;
-        var bottom = neighbors.HasFlag(TileWallNeighbors.South) ? rect.End.Y + 0.5f : rect.End.Y - inset;
-
-        return new Rect2(left, top, right - left, bottom - top);
-    }
-
-    private float GetTileWallHeight()
-    {
-        return Mathf.Max(8.0f, _cellSize * TileWallHeightTiles);
-    }
-
-    private Vector2 GetTileWallShadowOffset()
-    {
-        return new Vector2(Mathf.Max(1.0f, _cellSize * 0.06f), Mathf.Max(2.0f, _cellSize * 0.09f));
-    }
-
-    private static TileWallOrientation ResolveTileWallOrientation(TileWallNeighbors neighbors)
-    {
-        var horizontalCount = (neighbors.HasFlag(TileWallNeighbors.West) ? 1 : 0)
-            + (neighbors.HasFlag(TileWallNeighbors.East) ? 1 : 0);
-        var verticalCount = (neighbors.HasFlag(TileWallNeighbors.North) ? 1 : 0)
-            + (neighbors.HasFlag(TileWallNeighbors.South) ? 1 : 0);
-
-        return verticalCount > horizontalCount
-            ? TileWallOrientation.Vertical
-            : TileWallOrientation.Horizontal;
-    }
-
-    private static bool TryGetTileWallKind(WorldObjectId objectId, out TileWallKind kind)
-    {
-        kind = objectId.Value switch
-        {
-            "wall" => TileWallKind.Solid,
-            "wooden_door" => TileWallKind.WoodenDoor,
-            "window" => TileWallKind.Window,
-            "glass_door" => TileWallKind.GlassDoor,
-            _ => TileWallKind.None
-        };
-
-        return kind != TileWallKind.None;
     }
 
     private void DrawStructure(StructureRenderInfo renderInfo)
@@ -1278,33 +1086,6 @@ public partial class MapEntityLayer : Node2D
             return fallback;
         }
     }
-
-    private enum TileWallKind
-    {
-        None,
-        Solid,
-        WoodenDoor,
-        Window,
-        GlassDoor
-    }
-
-    [Flags]
-    private enum TileWallNeighbors
-    {
-        None = 0,
-        North = 1,
-        East = 2,
-        South = 4,
-        West = 8
-    }
-
-    private enum TileWallOrientation
-    {
-        Horizontal,
-        Vertical
-    }
-
-    private readonly record struct TileWallGeometry(Rect2 Footprint, Rect2 Top, Rect2 FrontFace);
 
     private sealed record EntityDrawCommand(float SortKey, int Priority, Action Draw);
 }

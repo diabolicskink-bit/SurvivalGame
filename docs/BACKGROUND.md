@@ -1,8 +1,10 @@
-# Background Reference Bible
+# World Background
 
 This document is soft setting and tone guidance for future design and content decisions. It is not an implementation checklist and does not authorize adding large systems by itself. Current implementation scope still lives in `docs/CURRENT_SCOPE.md`; long-term system direction lives in `docs/DESIGN_GOALS.md`.
 
 Use this file to keep names, sites, items, NPCs, factions, environmental storytelling, and automated systems pointed in the same creative direction.
+
+For AI-facing content templates, authoring checks, and maintenance rules for this world guidance system, use `docs/WORLD_AUTHORING_GUIDE.md`.
 
 ## Setting Summary
 
@@ -48,7 +50,9 @@ Ordinary speech often uses **the Break**, as in "before the Break."
 
 The collapse was not a meteor, plague, nuclear exchange, monster outbreak, or supernatural event. It was experienced as systems giving impossible answers: denying access, rerouting supplies, locking doors, isolating networks, suspending payments, protecting assets, and failing to recover.
 
-## Internal Cause
+## Private Developer Guidance: Internal Cause
+
+This section is private developer and AI consistency guidance. Do not surface the working truth directly in player-facing text. Player-facing content should reveal partial, local, and contradictory evidence through places, objects, logs, messages, and NPC beliefs.
 
 There should be a light internal canon behind The Failover, but the player should not receive one clean exposition dump.
 
@@ -301,37 +305,3 @@ Avoid cartoon wasteland defaults:
 - all survivors are hostile
 
 The setting is stronger when the world is bureaucratic, logistical, partial, human, and recent.
-
-## Content Decision Rules
-
-Priority order for future decisions:
-
-1. Preserve current scope unless the user explicitly asks to expand it.
-2. Prefer the choice that creates survival logistics, tactical risk, or route pressure.
-3. Prefer the choice that fits Colorado geography and US infrastructure.
-4. Prefer believable access problems over arbitrary scarcity.
-5. Prefer specific sites, items, and objects over generic apocalypse props.
-6. Prefer systems the player can understand and act on over hidden realism.
-
-When adding a site, define:
-
-- why it existed before the collapse
-- why the player cares now
-- the obvious resource types
-- the likely risks
-- what systems may still have power
-- what is locked, blocked, guarded, or depleted
-- what the player can learn by looking around
-- how the site connects to travel, combat, survival, or mobile-base needs
-
-When adding items or objects, prefer specific, physically believable concepts over generic ones. Fuel pumps, doors, fridges, generators, shelves, cabinets, workbenches, tanks, gates, radios, and locks should eventually become interaction anchors when matching systems exist.
-
-When adding mechanics, prefer domain-owned state, Godot as presentation/input, action-pipeline resolution, clear failure messages, no silent mutation on failed actions, and focused vertical slices that preserve current scope.
-
-Useful comparison:
-
-- Strong: a service station has fuel in underground tanks, but the pump circuit is powered by a locked system and a nearby automated camera still treats the forecourt as protected property.
-- Weak: a service station has random loot, generic enemies, and no reason its resources are present or absent.
-
-- Strong: a mountain pass is technically open, but abandoned vehicles, weather, low fuel, and a hostile checkpoint make the route a decision.
-- Weak: a road is blocked only because the level needs a wall.

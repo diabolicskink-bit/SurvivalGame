@@ -1,4 +1,5 @@
 using Godot;
+using SurvivalGame.Application;
 using SurvivalGame.Domain;
 
 public partial class GameSessionShell : Control
@@ -7,13 +8,13 @@ public partial class GameSessionShell : Control
     private const string WorldMapScenePath = "res://src/Godot/WorldMap/WorldMapScreen.tscn";
     private const string GameShellScenePath = "res://src/Godot/Game/GameShell.tscn";
 
-    private PrototypeCampaignSession _campaignSession = null!;
+    private CampaignSession _campaignSession = null!;
     private Control? _currentScreen;
 
     public override void _Ready()
     {
         SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _campaignSession = PrototypeSessionFactory.CreateCampaignSession();
+        _campaignSession = GodotSessionFactory.CreateCampaignSession();
 
         ShowWorldMap();
     }
@@ -36,7 +37,7 @@ public partial class GameSessionShell : Control
     private void ShowWorldMap()
     {
         ClearCurrentScreen();
-        _campaignSession.CampaignState.ReturnToWorldMap();
+        _campaignSession.ReturnToWorldMap();
 
         var scene = ResourceLoader.Load<PackedScene>(WorldMapScenePath);
         var worldMap = scene.Instantiate<WorldMapScreen>();
@@ -48,11 +49,7 @@ public partial class GameSessionShell : Control
 
     private void OnEnterSiteRequested(WorldMapPointOfInterest site)
     {
-        var requestedSiteId = new SiteId(site.LocalSiteId ?? site.Id);
-        var siteId = _campaignSession.CampaignState.ContainsLocalSite(requestedSiteId)
-            ? requestedSiteId
-            : PrototypeLocalSites.DefaultSiteId;
-        var localSite = _campaignSession.CampaignState.EnterLocalSite(siteId);
+        var localSite = _campaignSession.EnterLocalSite(site);
         ShowLocalSite(localSite.Id);
     }
 
@@ -62,7 +59,7 @@ public partial class GameSessionShell : Control
 
         var scene = ResourceLoader.Load<PackedScene>(GameShellScenePath);
         var localGame = scene.Instantiate<GameShell>();
-        localGame.Session = _campaignSession.CreateGameplaySession(siteId);
+        localGame.Session = _campaignSession.CreateLocalSiteSession(siteId);
         localGame.ShowsReturnToWorldMap = true;
         localGame.ReturnToWorldMapRequested += ShowWorldMap;
         AddChild(localGame);

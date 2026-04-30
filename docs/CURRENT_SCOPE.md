@@ -3,7 +3,7 @@
 ## Included
 
 - Main menu with title, subtitle, New Run, and Quit actions.
-- New Run opens a prototype run session at the world map travel screen.
+- New Run opens a run session at the world map travel screen.
 - World Map travel screen with a data-backed Colorado tactical atlas background.
 - World Map has a 10400w x 7600h scaled Colorado full map while the visible view is 1200w x 760h.
 - World Map camera follows the travel party and clamps at full-map edges.
@@ -15,11 +15,11 @@
 - World Map movement is smooth map-unit movement, not tile/grid movement.
 - Current world map travel method is displayed.
 - Current sampled world-map terrain is displayed.
-- Prototype travel methods include walking, pushbike, and vehicle.
+- Current travel methods include walking, pushbike, and vehicle.
 - Travel speed depends on the selected travel method plus first-pass road proximity and generated terrain-grid cost modifiers.
 - World Map time is displayed using the shared elapsed world tick clock.
 - Travelling on the world map advances world time.
-- Vehicle travel displays and consumes prototype fuel.
+- Vehicle travel displays and consumes current vehicle fuel.
 - Vehicle travel fuel use is modified by the current world-map road/terrain sample.
 - Walking and pushbike travel do not require or consume fuel.
 - If vehicle fuel reaches zero, vehicle travel stops and a clear message is shown.
@@ -28,7 +28,7 @@
 - Enter Site switches from the world map into a local gameplay scene.
 - Route 18 Gas Station enters a dedicated fixed gas station local site.
 - Abandoned Farmhouse enters a dedicated fixed farmstead local site.
-- Other current world map points of interest enter the default prototype local site.
+- Other current world map points of interest enter the default local site.
 - The local gameplay scene can return to the world map.
 - Returning to the world map preserves world map position, time, travel method, and vehicle fuel.
 - Returning to the world map preserves player inventory, equipment, and firearm/ammunition/feed-device state because local site sessions share the same player and stateful item store.
@@ -48,7 +48,7 @@
 - Authored local site maps can define optional vehicle and pushbike `arrivalAnchors`.
 - Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
 - Abandoned Farmhouse is a fixed authored 64x44 local map with a south-west dirt track entry, front yard, detailed farmhouse, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, and scrub/fence perimeter.
-- Abandoned Farmhouse uses edge-based structures for its farmhouse walls, doors, windows, shed walls/openings, paddock fencing, gates, and broken fence gaps.
+- Procedural 2.5D tile-object walls and windows are the near-term building-wall direction. Abandoned Farmhouse uses them for its farmhouse and shed buildings; open doorways are currently map gaps, while paddock fencing, gates, and broken fence gaps remain edge-based structures.
 - The gas station local site spawns the player near the forecourt/store entrance.
 - The farmhouse local site spawns the player on the south-west dirt track.
 - Gameplay shell scene with a simple placeholder top-down grid.
@@ -155,8 +155,8 @@
 - The prototype starts with specific stateful weapons, magazines, weapon mods, and a backpack-with-contents example for manual testing.
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
-- JSON-backed prototype structure definitions under `data/structures/` for edge-based walls, doors, windows, fences, gates, and gaps.
-- JSON-backed prototype world objects include domestic furniture, gas station fixtures, workshop clutter, utility fixtures, water tanks, paddock objects, and rural machinery/vehicle wreckage. Older tile-based wall/door/fence object definitions remain available for compatibility.
+- JSON-backed prototype structure definitions under `data/structures/` remain for current edge-based fences, gates, broken fence gaps, and legacy wall/door/window cleanup.
+- JSON-backed prototype world objects include procedural 2.5D tile walls/windows, domestic furniture, gas station fixtures, workshop clutter, utility fixtures, water tanks, paddock objects, and rural machinery/vehicle wreckage.
 - Sparse authored structure edge placements can specify north/east/south/west tile edges; movement checks the crossed edge before tile-object collision.
 - World object definitions can include a rectangular simulation footprint, defaulting to `1 x 1`, plus visual-only `spriteRender` metadata.
 - Sparse authored world object placements can specify north/east/south/west facing; east/west placements rotate rectangular footprints by swapping width and height.
