@@ -8,6 +8,7 @@ public partial class MapEntityLayer : Node2D
     private static readonly SpriteRenderProfile DefaultNpcSpriteRender = new(0.9f, 0.9f);
     private static readonly Color TileGlassColor = new(0.45f, 0.7f, 0.8f, 0.82f);
     private static readonly Color TileShadowColor = new(0.01f, 0.012f, 0.01f, 0.34f);
+    private const float TileWallHeightTiles = 0.45f;
 
     private readonly Dictionary<string, Texture2D?> _objectSpriteCache = new();
     private readonly Dictionary<string, Texture2D?> _structureSpriteCache = new();
@@ -91,9 +92,11 @@ public partial class MapEntityLayer : Node2D
                 sprite = loadedSprite;
             }
 
-            var rect = sprite is not null
-                ? GetWorldObjectRenderBounds(placedObject, render, sprite)
-                : GetWorldObjectFootprintRect(placedObject);
+            var rect = isTileWall
+                ? GetTileWallRenderBounds(placedObject)
+                : sprite is not null
+                    ? GetWorldObjectRenderBounds(placedObject, render, sprite)
+                    : GetWorldObjectFootprintRect(placedObject);
             if (!IntersectsViewport(rect))
             {
                 continue;
@@ -337,100 +340,147 @@ public partial class MapEntityLayer : Node2D
             return;
         }
 
-        var body = GetConnectedTileWallBody(rect, neighbors);
-
-        DrawRect(new Rect2(body.Position + GetTileWallShadowOffset(), body.Size), TileShadowColor, true);
-        DrawRect(body, color.Darkened(0.06f), true);
-        DrawTileWallCapAndFoundation(body, neighbors, color);
-        DrawTileWallExposedEdges(body, neighbors, color);
+        var geometry = GetTileWallGeometry(rect, neighbors);
+        DrawTileWallShadow(geometry);
+        DrawTileWallFaces(geometry, neighbors, color);
 
         if (kind == TileWallKind.Window)
         {
-            DrawTileWindow(body, neighbors);
+            DrawTileWindow(geometry, neighbors);
         }
         else if (kind == TileWallKind.WoodenDoor)
         {
-            DrawTileWoodenDoor(body, neighbors);
+            DrawTileWoodenDoor(geometry, neighbors);
         }
     }
 
-    private void DrawTileWallCapAndFoundation(Rect2 body, TileWallNeighbors neighbors, Color color)
+    private void DrawTileWallShadow(TileWallGeometry geometry)
     {
-        var capHeight = Mathf.Max(4.0f, body.Size.Y * 0.36f);
-        var foundationHeight = Mathf.Max(3.0f, body.Size.Y * 0.22f);
-        var edgeStripWidth = Mathf.Max(2.0f, _cellSize * 0.07f);
+        var shadow = new Rect2(
+            geometry.Footprint.Position + GetTileWallShadowOffset(),
+            geometry.Footprint.Size
+        ).Grow(Mathf.Max(1.0f, _cellSize * 0.03f));
+        DrawRect(shadow, TileShadowColor, true);
+    }
 
-        if (!neighbors.HasFlag(TileWallNeighbors.North))
-        {
-            var capRect = new Rect2(body.Position, new Vector2(body.Size.X, capHeight));
-            DrawRect(capRect, color.Lightened(0.16f), true);
-            DrawLine(capRect.Position, new Vector2(capRect.End.X, capRect.Position.Y), color.Lightened(0.3f), 1.25f);
-        }
-
-        if (!neighbors.HasFlag(TileWallNeighbors.South))
-        {
-            var foundationRect = new Rect2(
-                new Vector2(body.Position.X, body.End.Y - foundationHeight),
-                new Vector2(body.Size.X, foundationHeight)
-            );
-            DrawRect(foundationRect, color.Darkened(0.22f), true);
-        }
+    private void DrawTileWallFaces(TileWallGeometry geometry, TileWallNeighbors neighbors, Color color)
+    {
+        var topColor = color.Lightened(0.18f);
+        var frontColor = color.Darkened(0.05f);
+        var westColor = color.Lightened(0.03f);
+        var eastColor = color.Darkened(0.18f);
+        var lineWidth = Mathf.Max(1.0f, _cellSize * 0.04f);
 
         if (!neighbors.HasFlag(TileWallNeighbors.West))
         {
-            DrawRect(
-                new Rect2(body.Position, new Vector2(edgeStripWidth, body.Size.Y)),
-                color.Lightened(0.08f),
-                true
-            );
+            DrawColoredPolygon(new[]
+            {
+                geometry.Top.Position,
+                new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
+                new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y),
+                geometry.Footprint.Position
+            }, westColor);
         }
 
         if (!neighbors.HasFlag(TileWallNeighbors.East))
         {
+            DrawColoredPolygon(new[]
+            {
+                new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
+                geometry.Top.End,
+                geometry.Footprint.End,
+                new Vector2(geometry.Footprint.End.X, geometry.Footprint.Position.Y)
+            }, eastColor);
+        }
+
+        DrawColoredPolygon(new[]
+        {
+            geometry.Top.Position,
+            new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
+            geometry.Top.End,
+            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y)
+        }, topColor);
+
+        DrawColoredPolygon(new[]
+        {
+            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
+            geometry.Top.End,
+            geometry.Footprint.End,
+            new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y)
+        }, frontColor);
+
+        if (!neighbors.HasFlag(TileWallNeighbors.South))
+        {
+            var foundationHeight = Mathf.Max(2.0f, _cellSize * 0.07f);
             DrawRect(
                 new Rect2(
-                    new Vector2(body.End.X - edgeStripWidth, body.Position.Y),
-                    new Vector2(edgeStripWidth, body.Size.Y)
+                    new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y - foundationHeight),
+                    new Vector2(geometry.Footprint.Size.X, foundationHeight)
                 ),
-                color.Darkened(0.18f),
+                color.Darkened(0.28f),
                 true
             );
         }
-    }
-
-    private void DrawTileWallExposedEdges(Rect2 body, TileWallNeighbors neighbors, Color color)
-    {
-        var lineWidth = Mathf.Max(1.0f, _cellSize * 0.045f);
 
         if (!neighbors.HasFlag(TileWallNeighbors.North))
         {
-            DrawLine(body.Position, new Vector2(body.End.X, body.Position.Y), color.Lightened(0.24f), lineWidth);
+            DrawLine(
+                geometry.Top.Position,
+                new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
+                topColor.Lightened(0.16f),
+                lineWidth
+            );
         }
 
         if (!neighbors.HasFlag(TileWallNeighbors.South))
         {
-            DrawLine(new Vector2(body.Position.X, body.End.Y), body.End, color.Darkened(0.32f), lineWidth);
+            DrawLine(
+                new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y),
+                geometry.Footprint.End,
+                color.Darkened(0.35f),
+                lineWidth
+            );
         }
 
         if (!neighbors.HasFlag(TileWallNeighbors.West))
         {
-            DrawLine(body.Position, new Vector2(body.Position.X, body.End.Y), color.Darkened(0.08f), lineWidth);
+            DrawLine(geometry.Top.Position, geometry.Footprint.Position, color.Darkened(0.12f), lineWidth);
+            DrawLine(
+                new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
+                new Vector2(geometry.Footprint.Position.X, geometry.Footprint.End.Y),
+                color.Darkened(0.2f),
+                lineWidth
+            );
         }
 
         if (!neighbors.HasFlag(TileWallNeighbors.East))
         {
-            DrawLine(new Vector2(body.End.X, body.Position.Y), body.End, color.Darkened(0.32f), lineWidth);
+            DrawLine(
+                new Vector2(geometry.Top.End.X, geometry.Top.Position.Y),
+                new Vector2(geometry.Footprint.End.X, geometry.Footprint.Position.Y),
+                color.Darkened(0.3f),
+                lineWidth
+            );
+            DrawLine(geometry.Top.End, geometry.Footprint.End, color.Darkened(0.36f), lineWidth);
         }
+
+        DrawLine(
+            new Vector2(geometry.Top.Position.X, geometry.Top.End.Y),
+            geometry.Top.End,
+            topColor.Darkened(0.1f),
+            lineWidth
+        );
     }
 
-    private void DrawTileWindow(Rect2 body, TileWallNeighbors neighbors)
+    private void DrawTileWindow(TileWallGeometry geometry, TileWallNeighbors neighbors)
     {
         var orientation = ResolveTileWallOrientation(neighbors);
-        var insetX = orientation == TileWallOrientation.Horizontal ? body.Size.X * 0.2f : body.Size.X * 0.31f;
-        var insetY = orientation == TileWallOrientation.Horizontal ? body.Size.Y * 0.31f : body.Size.Y * 0.2f;
+        var face = geometry.FrontFace;
+        var insetX = orientation == TileWallOrientation.Horizontal ? face.Size.X * 0.2f : face.Size.X * 0.32f;
+        var insetY = Mathf.Max(2.0f, face.Size.Y * 0.22f);
         var glassRect = new Rect2(
-            body.Position + new Vector2(insetX, insetY),
-            body.Size - new Vector2(insetX * 2.0f, insetY * 2.0f)
+            face.Position + new Vector2(insetX, insetY),
+            face.Size - new Vector2(insetX * 2.0f, insetY * 2.0f)
         );
 
         DrawRect(glassRect, TileGlassColor, true);
@@ -443,14 +493,15 @@ public partial class MapEntityLayer : Node2D
         );
     }
 
-    private void DrawTileWoodenDoor(Rect2 body, TileWallNeighbors neighbors)
+    private void DrawTileWoodenDoor(TileWallGeometry geometry, TileWallNeighbors neighbors)
     {
         var orientation = ResolveTileWallOrientation(neighbors);
-        var insetX = orientation == TileWallOrientation.Horizontal ? body.Size.X * 0.13f : body.Size.X * 0.24f;
-        var insetY = orientation == TileWallOrientation.Horizontal ? body.Size.Y * 0.22f : body.Size.Y * 0.13f;
+        var face = geometry.FrontFace;
+        var insetX = orientation == TileWallOrientation.Horizontal ? face.Size.X * 0.13f : face.Size.X * 0.26f;
+        var insetY = Mathf.Max(1.5f, face.Size.Y * 0.08f);
         var doorRect = new Rect2(
-            body.Position + new Vector2(insetX, insetY),
-            body.Size - new Vector2(insetX * 2.0f, insetY * 2.0f)
+            face.Position + new Vector2(insetX, insetY),
+            face.Size - new Vector2(insetX * 2.0f, insetY * 2.0f)
         );
         var wood = new Color(0.52f, 0.33f, 0.18f);
         var panelInset = Mathf.Max(2.0f, _cellSize * 0.08f);
@@ -468,43 +519,72 @@ public partial class MapEntityLayer : Node2D
     private void DrawTileGlassDoor(Rect2 rect, TileWallNeighbors neighbors, Color color)
     {
         var orientation = ResolveTileWallOrientation(neighbors);
-        var frameWidth = Mathf.Max(3.0f, _cellSize * 0.11f);
-        var thresholdWidth = Mathf.Max(2.0f, _cellSize * 0.07f);
-        var frameColor = color.Lightened(0.12f);
-        var darkFrame = color.Darkened(0.18f);
+        var body = GetConnectedTileWallBody(rect, TileWallNeighbors.None);
+        var postWidth = Mathf.Max(3.0f, _cellSize * 0.1f);
+        var thresholdWidth = Mathf.Max(2.0f, _cellSize * 0.08f);
+        var frameColor = color.Lightened(0.16f);
+        var darkFrame = color.Darkened(0.2f);
+        var glassCue = new Color(TileGlassColor.R, TileGlassColor.G, TileGlassColor.B, 0.54f);
 
         if (orientation == TileWallOrientation.Horizontal)
         {
-            var postY = rect.Position.Y + (_cellSize * 0.18f);
-            var postHeight = _cellSize * 0.64f;
-            var thresholdY = rect.Position.Y + (_cellSize * 0.5f) - (thresholdWidth / 2.0f);
+            var leftPost = new Rect2(body.Position, new Vector2(postWidth, body.Size.Y));
+            var rightPost = new Rect2(
+                new Vector2(body.End.X - postWidth, body.Position.Y),
+                new Vector2(postWidth, body.Size.Y)
+            );
+            DrawTileDoorJamb(leftPost, frameColor);
+            DrawTileDoorJamb(rightPost, darkFrame);
 
-            DrawRect(new Rect2(rect.Position.X, postY, frameWidth, postHeight), frameColor, true);
-            DrawRect(new Rect2(rect.End.X - frameWidth, postY, frameWidth, postHeight), darkFrame, true);
-            DrawRect(new Rect2(rect.Position.X + frameWidth, thresholdY, rect.Size.X - (frameWidth * 2.0f), thresholdWidth), darkFrame, true);
+            var thresholdY = body.End.Y - thresholdWidth;
+            DrawRect(
+                new Rect2(
+                    new Vector2(leftPost.End.X, thresholdY),
+                    new Vector2(rightPost.Position.X - leftPost.End.X, thresholdWidth)
+                ),
+                darkFrame,
+                true
+            );
 
             var pane = new Rect2(
-                rect.Position + new Vector2(rect.Size.X * 0.54f, rect.Size.Y * 0.22f),
-                new Vector2(rect.Size.X * 0.1f, rect.Size.Y * 0.56f)
+                body.Position + new Vector2(body.Size.X * 0.46f, -GetTileWallHeight() * 0.7f),
+                new Vector2(body.Size.X * 0.12f, GetTileWallHeight() * 0.72f)
             );
-            DrawRect(pane, new Color(TileGlassColor.R, TileGlassColor.G, TileGlassColor.B, 0.58f), true);
+            DrawRect(pane, glassCue, true);
         }
         else
         {
-            var postX = rect.Position.X + (_cellSize * 0.18f);
-            var postWidth = _cellSize * 0.64f;
-            var thresholdX = rect.Position.X + (_cellSize * 0.5f) - (thresholdWidth / 2.0f);
+            var topPost = new Rect2(body.Position, new Vector2(body.Size.X, postWidth));
+            var bottomPost = new Rect2(
+                new Vector2(body.Position.X, body.End.Y - postWidth),
+                new Vector2(body.Size.X, postWidth)
+            );
+            DrawTileDoorJamb(topPost, frameColor);
+            DrawTileDoorJamb(bottomPost, darkFrame);
 
-            DrawRect(new Rect2(postX, rect.Position.Y, postWidth, frameWidth), frameColor, true);
-            DrawRect(new Rect2(postX, rect.End.Y - frameWidth, postWidth, frameWidth), darkFrame, true);
-            DrawRect(new Rect2(thresholdX, rect.Position.Y + frameWidth, thresholdWidth, rect.Size.Y - (frameWidth * 2.0f)), darkFrame, true);
+            var thresholdX = body.Position.X + (body.Size.X / 2.0f) - (thresholdWidth / 2.0f);
+            DrawRect(
+                new Rect2(
+                    new Vector2(thresholdX, topPost.End.Y),
+                    new Vector2(thresholdWidth, bottomPost.Position.Y - topPost.End.Y)
+                ),
+                darkFrame,
+                true
+            );
 
             var pane = new Rect2(
-                rect.Position + new Vector2(rect.Size.X * 0.22f, rect.Size.Y * 0.54f),
-                new Vector2(rect.Size.X * 0.56f, rect.Size.Y * 0.1f)
+                body.Position + new Vector2(body.Size.X * 0.22f, body.Size.Y * 0.46f),
+                new Vector2(body.Size.X * 0.56f, body.Size.Y * 0.12f)
             );
-            DrawRect(pane, new Color(TileGlassColor.R, TileGlassColor.G, TileGlassColor.B, 0.58f), true);
+            DrawRect(pane, glassCue, true);
         }
+    }
+
+    private void DrawTileDoorJamb(Rect2 baseRect, Color color)
+    {
+        var geometry = GetTileWallGeometry(baseRect, TileWallNeighbors.None);
+        DrawTileWallShadow(geometry);
+        DrawTileWallFaces(geometry, TileWallNeighbors.None, color);
     }
 
     private TileWallNeighbors GetTileWallNeighbors(GridPosition position)
@@ -541,6 +621,36 @@ public partial class MapEntityLayer : Node2D
             && TryGetTileWallKind(objectId, out _);
     }
 
+    private Rect2 GetTileWallRenderBounds(PlacedWorldObject placedObject)
+    {
+        var rect = GetWorldObjectFootprintRect(placedObject);
+        var body = GetConnectedTileWallBody(rect, GetTileWallNeighbors(placedObject.Position));
+        var height = GetTileWallHeight();
+        var shadowOffset = GetTileWallShadowOffset();
+        var left = body.Position.X;
+        var top = body.Position.Y - height;
+        var right = body.End.X + shadowOffset.X;
+        var bottom = body.End.Y + shadowOffset.Y;
+
+        return new Rect2(left, top, right - left, bottom - top).Grow(Mathf.Max(1.0f, _cellSize * 0.04f));
+    }
+
+    private TileWallGeometry GetTileWallGeometry(Rect2 rect, TileWallNeighbors neighbors)
+    {
+        var footprint = GetConnectedTileWallBody(rect, neighbors);
+        var height = GetTileWallHeight();
+        var top = new Rect2(
+            footprint.Position - new Vector2(0.0f, height),
+            footprint.Size
+        );
+        var frontFace = new Rect2(
+            new Vector2(footprint.Position.X, footprint.End.Y - height),
+            new Vector2(footprint.Size.X, height)
+        );
+
+        return new TileWallGeometry(footprint, top, frontFace);
+    }
+
     private Rect2 GetConnectedTileWallBody(Rect2 rect, TileWallNeighbors neighbors)
     {
         var inset = Mathf.Max(3.0f, _cellSize * 0.12f);
@@ -550,6 +660,11 @@ public partial class MapEntityLayer : Node2D
         var bottom = neighbors.HasFlag(TileWallNeighbors.South) ? rect.End.Y + 0.5f : rect.End.Y - inset;
 
         return new Rect2(left, top, right - left, bottom - top);
+    }
+
+    private float GetTileWallHeight()
+    {
+        return Mathf.Max(8.0f, _cellSize * TileWallHeightTiles);
     }
 
     private Vector2 GetTileWallShadowOffset()
@@ -1188,6 +1303,8 @@ public partial class MapEntityLayer : Node2D
         Horizontal,
         Vertical
     }
+
+    private readonly record struct TileWallGeometry(Rect2 Footprint, Rect2 Top, Rect2 FrontFace);
 
     private sealed record EntityDrawCommand(float SortKey, int Priority, Action Draw);
 }

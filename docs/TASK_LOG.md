@@ -2,6 +2,12 @@
 
 Curated milestone history for current game state and architecture. Cleanup-only notes, one-off fixes, and detailed implementation churn are intentionally omitted unless they changed playable behavior, content, or important domain ownership.
 
+## 2026-04-30 - Low-Rise 2.5D Tile Walls
+
+- Replaced the legacy tile-wall object renderer with a low-rise procedural 2.5D wall treatment for walls, wooden doors, windows, and glass doors.
+- Tile-wall render bounds now account for the upward wall face so wall tops do not cull early at local viewport edges.
+- Kept tile-wall collision, hover data, authored map JSON, sprite assets, and farmhouse edge-structure rendering unchanged.
+
 ## 2026-04-30 - Refactor Roadmap Migration
 
 - Migrated the actionable issues from the legacy architecture refactor roadmap into `docs/ARCHITECTURAL_DEBT.md` as `ARCH-1` through `ARCH-9`.
