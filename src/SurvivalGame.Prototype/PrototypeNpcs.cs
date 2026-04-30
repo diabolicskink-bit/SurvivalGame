@@ -12,4 +12,5 @@ public static class PrototypeNpcs
 
     public static readonly NpcId TestDummy = new("test_dummy_01");
     public static readonly NpcId GasStationTurret = new("gas_station_turret_01");
+    public static readonly NpcId GasStationScavenger = new("gas_station_scavenger_01");
 }

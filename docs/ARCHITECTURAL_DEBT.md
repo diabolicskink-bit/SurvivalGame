@@ -29,16 +29,16 @@ Priorities:
 - `P2`: Planned or important improvement.
 - `P3`: Watchlist.
 
-Sizes estimate the likely full resolution effort and blast radius for the tracked item, not just the next action. If an `xl` or `xxl` item is selected for implementation, first look for a smaller behavior-preserving slice or split.
+Sizes estimate the likely full resolution effort and blast radius for the tracked item, not just the next action. If an `XL` or `XXL` item is selected for implementation, first look for a smaller behavior-preserving slice or split.
 
 Sizes:
 
-- `xs`: Tiny doc, test, or one-call-site cleanup.
-- `s`: Narrow change in one small area.
-- `m`: Focused vertical slice across a few files or tests.
-- `l`: Multi-boundary change that should be planned carefully.
-- `xl`: Large multi-system effort that should usually be split.
-- `xxl`: Roadmap-scale pressure that must be split before implementation.
+- `XS`: Tiny doc, test, or one-call-site cleanup.
+- `S`: Narrow change in one small area.
+- `M`: Focused vertical slice across a few files or tests.
+- `L`: Multi-boundary change that should be planned carefully.
+- `XL`: Large multi-system effort that should usually be split.
+- `XXL`: Roadmap-scale pressure that must be split before implementation.
 
 Statuses:
 
@@ -64,7 +64,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-2 - World travel bypasses the command pipeline
 
 - `Priority`: `P1`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This is `P1` because travel is already a central player-facing loop and future consequences will multiply the cost of the current screen-driven flow. It is not `P0` because current travel behavior is still functioning and can be migrated one command at a time.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -81,7 +81,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-10 - Local actions lack structured effect results
 
 - `Priority`: `P1`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This is `P1` because the action pipeline is already the center of local play and future turn phases, reactions, logs, replay, and command unification will need a typed effect boundary. It is not `P0` because current local actions are functioning and the result shape can be expanded incrementally.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -93,12 +93,13 @@ Each active item should include enough direction that a future session can choos
 - `Next Action`: Add structured effects to the smallest local action family, likely wait and move, without changing current messages or tick costs.
 - `Resolved When`: Local action results expose structured effects that UI and follow-up systems can consume, automated hazard reactions no longer depend only on elapsed-tick comparison after mutation, and current player-facing messages remain intact.
 - `Notes`:
-- `Links`: `src/SurvivalGame.Domain/Actions/GameActionPipeline.cs`, `src/SurvivalGame.Domain/Actions/GameActionTypes.cs`, `src/SurvivalGame.Domain/Actions/GameActionContext.cs`, `src/SurvivalGame.Domain/Actions/NpcCombatService.cs`
+  - 2026-04-30: `NpcTurnService` is another post-action follow-up that consumes success and elapsed-tick information from `GameActionResult`; structured effects would let future turn phases react to explicit action outcomes instead of inferred mutation state.
+- `Links`: `src/SurvivalGame.Domain/Actions/GameActionPipeline.cs`, `src/SurvivalGame.Domain/Actions/GameActionTypes.cs`, `src/SurvivalGame.Domain/Actions/GameActionContext.cs`, `src/SurvivalGame.Domain/Actions/NpcCombatService.cs`, `src/SurvivalGame.Domain/Actions/NpcTurnService.cs`
 
 ### ARCH-3 - PrototypeGameState has become real runtime state
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: This is important but less urgent than `ARCH-2` because renaming/reshaping the state should build on the new application/session owner and the future command boundary. The name is misleading now, but the rename should happen with clear runtime ownership rather than as a cosmetic pass.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -115,7 +116,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-4 - Prototype-era project and folder ownership obscures boundaries
 
 - `Priority`: `P2`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This is important because folder layout is starting to encode old implementation history instead of current ownership. It is `P2`, not `P1`, because the remaining fixes should follow real ownership moves, especially the future command boundary work, rather than standalone churn.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -132,7 +133,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-5 - GameShell owns too many gameplay screen responsibilities
 
 - `Priority`: `P2`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This is `P2` because `GameShell` is a maintainability pressure point, but extracting it is safer after the application/session and command boundaries stop pushing simulation coordination into Godot screens.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -149,7 +150,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-6 - Action presentation depends on request-type matching
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: This is `P2` because it affects every new action, but it should follow or travel with command-pipeline work so the presentation model reflects the intended execution boundary.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -166,7 +167,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-7 - Cross-catalog content validation is scattered
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This is `P2` because content volume is already large enough for missing references to matter, but the current loaders work for the prototype and this can be added as a focused safety net.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -183,7 +184,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-8 - Stack items and stateful items create parallel item paths
 
 - `Priority`: `P2`
-- `Size`: `xxl`
+- `Size`: `XXL`
 - `Priority Rationale`: This is `P2` because duplication will grow as gear gains condition, contents, ownership, and damage, but a broad item rewrite would be riskier than feature-driven migration.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -200,7 +201,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-12 - Scene flow is hard-coded across concrete screens
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This is `P2` because screen navigation is still small enough to work today, but save/load, continue, death, transition effects, and global back/escape behavior will become hard to coordinate if every screen owns its own flow decisions.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -217,7 +218,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-13 - Godot UI panels build domain presentation directly
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: This is `P2` because presentation duplication is already visible in inventory, tooltip, selected-item, and firearm panels, but it can be addressed one panel family at a time.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -234,7 +235,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-14 - Content root resolution is duplicated across runtime and tests
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This is `P2` because the project already loads the committed `data/` tree from Godot, prototype helpers, and tests through different path strategies, but a shared abstraction can be added without changing gameplay data.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -251,7 +252,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-18 - Keep tile-wall authoring compatible with future TileMap tooling
 
 - `Priority`: `P2`
-- `Size`: `s`
+- `Size`: `S`
 - `Priority Rationale`: This is `P2` because procedural C# walls are the right immediate path, but Godot TileMap/Terrain or TileSet-based authoring may become a better editor/asset workflow once the wall model settles.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -270,7 +271,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-20 - Data-drive tile-wall render classification
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This is `P2` because the current hard-coded tile-wall id mapping is small and safe, but it will become fragile as wall materials, door states, and site-specific wall variants expand.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -289,7 +290,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-9 - Renderer classes are large integration hubs
 
 - `Priority`: `P3`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This is `P3` because renderer size is real debt, but the old roadmap explicitly deferred renderer splitting until state, command, and layout boundaries are cleaner.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -308,7 +309,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-11 - Local map query rules are reimplemented per feature
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This was `P2` because rule duplication already touched movement, interaction, travel-anchor access, and firearm targeting, but could be resolved in behavior-preserving slices.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -326,7 +327,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-1 - Application/session bootstrapping lives in Godot prototype code
 
 - `Priority`: `P1`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: This was a high-value next refactor because several other architecture improvements needed a non-Godot place to land first. It was not `P0` because the game still ran and the debt could be resolved incrementally.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -341,7 +342,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-15 - 2.5D tile walls need canonical wall ownership
 
 - `Priority`: `P1`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: This was `P1` because the project needed a clear building-wall direction before cleaning up the older edge-wall experiment.
 - `Status`: `Superseded`
 - `Detected`: 2026-04-30
@@ -362,7 +363,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-16 - Extract tile-wall render model from MapEntityLayer
 
 - `Priority`: `P1`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This was `P1` because tile walls became the building-wall direction, and their kind detection, neighbor masks, render bounds, and geometry needed a stable home before more wall content or door state builds on them.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -379,7 +380,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-17 - Retire authored edge-structure usage
 
 - `Priority`: `P1`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: This was `P1` because the project chose tile-object 2.5D walls as the near-term wall direction, and leaving authored edge structures in committed content kept the old representation visually and architecturally alive.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -398,7 +399,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-19 - Delete unused edge-structure code paths
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: This was `P2` because committed content no longer used edge structures, but removing the legacy code path touched loaders, local-site state, movement, line-of-fire, renderer code, and tests.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30

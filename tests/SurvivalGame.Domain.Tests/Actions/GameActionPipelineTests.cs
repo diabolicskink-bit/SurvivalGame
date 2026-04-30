@@ -321,6 +321,134 @@ public sealed class GameActionPipelineTests
     }
 
     [Fact]
+    public void WanderingNpcMovesAfterSuccessfulElapsedAction()
+    {
+        var pipeline = CreatePipeline(randomSource: new SequenceRandomSource(0.25));
+        var npcs = new NpcRoster();
+        npcs.Add(CreateWanderingScavenger(new GridPosition(2, 2)));
+        var state = CreateState(npcs: npcs, startPosition: new GridPosition(0, 0));
+
+        var result = pipeline.Execute(new WaitActionRequest(), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(100, state.Time.ElapsedTicks);
+        Assert.True(state.LocalMap.Npcs.TryGet(PrototypeNpcs.GasStationScavenger, out var scavenger));
+        Assert.Equal(new GridPosition(3, 2), scavenger.Position);
+        Assert.Contains("Wandering Scavenger moves to 3, 2.", result.Messages);
+    }
+
+    [Fact]
+    public void WanderingNpcDoesNotMoveAfterFailedOrZeroTickActions()
+    {
+        var pipeline = CreatePipeline(randomSource: new ThrowingRandomSource());
+        var npcs = new NpcRoster();
+        npcs.Add(CreateWanderingScavenger(new GridPosition(2, 2)));
+        var state = CreateState(npcs: npcs, startPosition: new GridPosition(0, 0));
+        state.Player.Inventory.Add(PrototypeItems.Stone);
+
+        var failedMove = pipeline.Execute(new MoveActionRequest(GridOffset.Left), state);
+        var inspect = pipeline.Execute(new InspectItemActionRequest(PrototypeItems.Stone), state);
+
+        Assert.False(failedMove.Succeeded);
+        Assert.True(inspect.Succeeded);
+        Assert.Equal(0, state.Time.ElapsedTicks);
+        Assert.True(state.LocalMap.Npcs.TryGet(PrototypeNpcs.GasStationScavenger, out var scavenger));
+        Assert.Equal(new GridPosition(2, 2), scavenger.Position);
+        Assert.DoesNotContain(failedMove.Messages, message => message.Contains("moves to"));
+        Assert.DoesNotContain(inspect.Messages, message => message.Contains("moves to"));
+    }
+
+    [Fact]
+    public void NpcTurnsSkipInertPassiveAndDisabledNpcs()
+    {
+        var pipeline = CreatePipeline(randomSource: new ThrowingRandomSource());
+        var npcs = new NpcRoster();
+        var inertNpcId = new NpcId("test_dummy_turn_01");
+        var passiveNpcId = new NpcId("cautious_survivor_01");
+        npcs.Add(new NpcState(
+            inertNpcId,
+            PrototypeNpcs.TestDummyDefinition,
+            "Test Dummy",
+            new GridPosition(2, 2),
+            200,
+            200
+        ));
+        npcs.Add(new NpcState(
+            passiveNpcId,
+            PrototypeNpcs.CautiousSurvivor,
+            "Cautious Survivor",
+            new GridPosition(3, 2),
+            100,
+            100
+        ));
+        npcs.Add(CreateWanderingScavenger(new GridPosition(4, 2), disabled: true));
+        var state = CreateState(npcs: npcs, startPosition: new GridPosition(0, 0), bounds: new GridBounds(6, 6));
+
+        var result = pipeline.Execute(new WaitActionRequest(), state);
+
+        Assert.True(result.Succeeded);
+        Assert.True(state.LocalMap.Npcs.TryGet(inertNpcId, out var inert));
+        Assert.True(state.LocalMap.Npcs.TryGet(passiveNpcId, out var passive));
+        Assert.True(state.LocalMap.Npcs.TryGet(PrototypeNpcs.GasStationScavenger, out var disabledWanderer));
+        Assert.Equal(new GridPosition(2, 2), inert.Position);
+        Assert.Equal(new GridPosition(3, 2), passive.Position);
+        Assert.Equal(new GridPosition(4, 2), disabledWanderer.Position);
+        Assert.DoesNotContain(result.Messages, message => message.Contains("moves to"));
+    }
+
+    [Fact]
+    public void WanderingNpcUsesFallbackDirectionsAroundBlockedCandidates()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), randomSource: new SequenceRandomSource(0));
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(new GridPosition(3, 2), PrototypeWorldObjects.Wall);
+        var npcs = new NpcRoster();
+        npcs.Add(CreateWanderingScavenger(new GridPosition(2, 2)));
+        npcs.Add(new NpcState(
+            new NpcId("blocking_npc_01"),
+            PrototypeNpcs.TestDummyDefinition,
+            "Blocking NPC",
+            new GridPosition(2, 3),
+            200,
+            200
+        ));
+        var state = CreateState(
+            worldObjects: worldObjects,
+            npcs: npcs,
+            startPosition: new GridPosition(2, 1)
+        );
+
+        var result = pipeline.Execute(new WaitActionRequest(), state);
+
+        Assert.True(result.Succeeded);
+        Assert.True(state.LocalMap.Npcs.TryGet(PrototypeNpcs.GasStationScavenger, out var scavenger));
+        Assert.Equal(new GridPosition(1, 2), scavenger.Position);
+        Assert.Contains("Wandering Scavenger moves to 1, 2.", result.Messages);
+    }
+
+    [Fact]
+    public void WanderingNpcDoesNotLogWhenNoCandidateIsAvailable()
+    {
+        var pipeline = CreatePipeline(CreateWorldObjectCatalog(), randomSource: new SequenceRandomSource(0));
+        var worldObjects = new TileObjectMap();
+        worldObjects.Place(new GridPosition(1, 0), PrototypeWorldObjects.Wall);
+        var npcs = new NpcRoster();
+        npcs.Add(CreateWanderingScavenger(new GridPosition(0, 0)));
+        var state = CreateState(
+            worldObjects: worldObjects,
+            npcs: npcs,
+            startPosition: new GridPosition(0, 1)
+        );
+
+        var result = pipeline.Execute(new WaitActionRequest(), state);
+
+        Assert.True(result.Succeeded);
+        Assert.True(state.LocalMap.Npcs.TryGet(PrototypeNpcs.GasStationScavenger, out var scavenger));
+        Assert.Equal(new GridPosition(0, 0), scavenger.Position);
+        Assert.DoesNotContain(result.Messages, message => message.Contains("moves to"));
+    }
+
+    [Fact]
     public void PickupMovesGroundItemsIntoPlayerInventoryAndAdvancesTimeByFiftyTicks()
     {
         var pipeline = CreatePipeline();
@@ -916,7 +1044,8 @@ public sealed class GameActionPipelineTests
         WorldObjectCatalog? worldObjectCatalog = null,
         TravelCargoStore? travelCargo = null,
         VehicleFuelState? vehicleFuelState = null,
-        ItemCatalog? itemCatalog = null)
+        ItemCatalog? itemCatalog = null,
+        IRandomSource? randomSource = null)
     {
         var catalog = itemCatalog ?? CreateItemCatalog();
         return new GameActionPipeline(
@@ -924,7 +1053,8 @@ public sealed class GameActionPipelineTests
             worldObjectCatalog,
             vehicleFuelState: vehicleFuelState,
             npcCatalog: CreateNpcCatalog(),
-            travelCargo: travelCargo
+            travelCargo: travelCargo,
+            randomSource: randomSource
         );
     }
 
@@ -1063,6 +1193,30 @@ public sealed class GameActionPipelineTests
     {
         var catalog = new NpcCatalog();
         catalog.Add(new NpcDefinition(
+            PrototypeNpcs.TestDummyDefinition,
+            "Test Dummy",
+            "",
+            "Training Dummy",
+            maximumHealth: 200,
+            behavior: new NpcBehaviorProfile(NpcBehaviorKind.Inert)
+        ));
+        catalog.Add(new NpcDefinition(
+            PrototypeNpcs.CautiousSurvivor,
+            "Cautious Survivor",
+            "",
+            "Human",
+            maximumHealth: 100,
+            behavior: new NpcBehaviorProfile(NpcBehaviorKind.Passive, perceptionRange: 6)
+        ));
+        catalog.Add(new NpcDefinition(
+            PrototypeNpcs.WanderingScavenger,
+            "Wandering Scavenger",
+            "",
+            "Human",
+            maximumHealth: 95,
+            behavior: new NpcBehaviorProfile(NpcBehaviorKind.Wander, perceptionRange: 7)
+        ));
+        catalog.Add(new NpcDefinition(
             PrototypeNpcs.AutomatedTurretDefinition,
             "Automated turret",
             "",
@@ -1077,6 +1231,18 @@ public sealed class GameActionPipelineTests
         ));
 
         return catalog;
+    }
+
+    private static NpcState CreateWanderingScavenger(GridPosition position, bool disabled = false)
+    {
+        return new NpcState(
+            PrototypeNpcs.GasStationScavenger,
+            PrototypeNpcs.WanderingScavenger,
+            "Wandering Scavenger",
+            position,
+            currentHealth: disabled ? 0 : 95,
+            maximumHealth: 95
+        );
     }
 
     private static NpcRoster CreateAutomatedTurretRoster(GridPosition position, bool disabled = false)
@@ -1111,5 +1277,33 @@ public sealed class GameActionPipelineTests
             npcs ?? new NpcRoster(),
             startPosition ?? new GridPosition(2, 2)
         );
+    }
+
+    private sealed class SequenceRandomSource : IRandomSource
+    {
+        private readonly Queue<double> _values;
+
+        public SequenceRandomSource(params double[] values)
+        {
+            _values = new Queue<double>(values);
+        }
+
+        public double NextUnitDouble()
+        {
+            if (!_values.TryDequeue(out var value))
+            {
+                throw new InvalidOperationException("No random values remain.");
+            }
+
+            return value;
+        }
+    }
+
+    private sealed class ThrowingRandomSource : IRandomSource
+    {
+        public double NextUnitDouble()
+        {
+            throw new InvalidOperationException("Random source should not be used.");
+        }
     }
 }

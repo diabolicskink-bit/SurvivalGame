@@ -223,7 +223,7 @@ Use `docs/ARCHITECTURAL_DEBT.md` as the living index for architecture debt and i
 
 Check the tracker when doing sweeps, refactors, architecture work, or code changes that touch known boundaries between Godot presentation, application/session coordination, and domain simulation.
 
-When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. Include a rough `Size` estimate using `xs`, `s`, `m`, `l`, `xl`, or `xxl`. When work changes a tracked issue, update its status, priority, size, next action, or other canonical fields. Append dated `Notes` entries for factual implementation context, constraints, risks, or observations that are useful but too detailed for the core fields. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
+When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. Include a rough `Size` estimate using `XS`, `S`, `M`, `L`, `XL`, or `XXL`. When work changes a tracked issue, update its status, priority, size, next action, or other canonical fields. Append dated `Notes` entries for factual implementation context, constraints, risks, or observations that are useful but too detailed for the core fields. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
 
 This tracker is proactive memory, not only a response to explicit user requests. During contextual discussion, planning, reviews, sweeps, code exploration, implementation, debugging, or test failure analysis, add or update an `ARCH-*` item whenever a meaningful architecture pressure or improvement opportunity becomes clear enough that future sessions should remember it.
 
@@ -239,7 +239,9 @@ When a plan identifies meaningful gameplay, UI, simulation, world, survival, com
 
 This backlog is proactive memory, not only a response to explicit user requests. During contextual discussion, planning, reviews, sweeps, code exploration, implementation, debugging, or test failure analysis, add or update a `MECH-*` item whenever a deferred player-facing mechanic or system becomes clear enough that future sessions should remember it.
 
-Each `MECH-*` item should be one implementable system or one small vertical slice, and should include a rough `Size` estimate using `xs`, `s`, `m`, `l`, `xl`, or `xxl`. Split bundled feature families before recording them; for example, hunger, thirst, fatigue, sleep, pain, body temperature, and survival decay should not share one ID.
+Match the tracker level to the design slice: record future player-facing slices that were intentionally scoped out, such as NPC patrol territories, hostile pursuit, trading, or action UI affordances. Do not record microscopic implementation options, helper methods, or one-off tuning details unless they reveal a real mechanic.
+
+Each `MECH-*` item should be one implementable system or one small vertical slice, and should include a rough `Size` estimate using `XS`, `S`, `M`, `L`, `XL`, or `XXL`. Split bundled feature families before recording them; for example, hunger, thirst, fatigue, sleep, pain, body temperature, and survival decay should not share one ID.
 
 When planning implementation for an existing `MECH-*` item, assess whether its size is still accurate and whether it is too broad for one playable slice. If so, propose a split into smaller `MECH-*` items and a recommended first slice before implementing.
 

@@ -30,16 +30,16 @@ Priorities:
 - `P2`: Important but dependent, larger, or best after a nearby foundation.
 - `P3`: Long-term watchlist.
 
-Sizes estimate the likely effort and blast radius to reach the tracked `Implemented When` signal, not the whole end-state feature family. If an `xl` or `xxl` item is selected for implementation, first look for a smaller playable slice or split.
+Sizes estimate the likely effort and blast radius to reach the tracked `Implemented When` signal, not the whole end-state feature family. If an `XL` or `XXL` item is selected for implementation, first look for a smaller playable slice or split.
 
 Sizes:
 
-- `xs`: Tiny doc, data, test, or one-call-site change.
-- `s`: Narrow mechanic or UI change in one small area.
-- `m`: Focused playable slice across a few files or tests.
-- `l`: Multi-boundary mechanic that needs careful planning.
-- `xl`: Large multi-system effort that should usually be split.
-- `xxl`: Roadmap-scale mechanic family that must be split before implementation.
+- `XS`: Tiny doc, data, test, or one-call-site change.
+- `S`: Narrow mechanic or UI change in one small area.
+- `M`: Focused playable slice across a few files or tests.
+- `L`: Multi-boundary mechanic that needs careful planning.
+- `XL`: Large multi-system effort that should usually be split.
+- `XXL`: Roadmap-scale mechanic family that must be split before implementation.
 
 Statuses:
 
@@ -54,7 +54,7 @@ Statuses:
 ### MECH-1 - Cover modifier for ranged attacks
 
 - `Priority`: `P1`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: Combat already has ranged attacks, hit chances, line-of-fire blockers, and map structures, so cover is a high-value tactical improvement that can be added as a contained rule.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -71,7 +71,7 @@ Statuses:
 ### MECH-2 - Drag-to-move inventory items
 
 - `Priority`: `P1`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: Inventory pressure is already central to play and the current grid exists, so direct item movement is a near-term usability foundation.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -88,7 +88,7 @@ Statuses:
 ### MECH-5 - Thirst decay and drinking
 
 - `Priority`: `P1`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: Thirst is a core survival pressure and can be introduced as one readable meter with one mitigation action before broader survival simulation.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -105,7 +105,7 @@ Statuses:
 ### MECH-8 - Save/load campaign snapshot
 
 - `Priority`: `P1`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: Persistence is foundational for a larger roguelike run, but the first useful version can be scoped to one campaign snapshot.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`
@@ -122,7 +122,7 @@ Statuses:
 ### MECH-3 - Inventory item rotation
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: Rotation is useful for grid inventory play, but it should follow basic drag-to-move so the interaction model and item identity are already stable.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -139,7 +139,7 @@ Statuses:
 ### MECH-4 - Recipe-backed local site generation
 
 - `Priority`: `P2`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: Procedural local maps are important for replayability, but one recipe-backed site should build on authored examples and validation first.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -156,7 +156,7 @@ Statuses:
 ### MECH-6 - Hunger decay and eating
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: Hunger is core survival pressure, but it should follow the first survival-meter slice so decay, mitigation, and UI patterns are already proven.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -173,7 +173,7 @@ Statuses:
 ### MECH-7 - Fatigue accumulation and rest recovery
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: Fatigue can make travel and action costs matter, but it needs time rules and recovery behavior before it can be fair.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -190,24 +190,25 @@ Statuses:
 ### MECH-9 - Basic hostile NPC turn behavior
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: NPC behavior is central to local-site risk, but the first step should be one simple behavior before factions, dialogue, schedules, or social systems.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
 - `Category`: NPCs, Local Sites
 - `Player-Facing Goal`: Let one non-turret hostile NPC make a simple turn decision that the player can read and react to.
-- `Current State`: NPC definitions, runtime state, blocking, health, sprites, target selection, and a simple automated turret behavior exist. General NPC turn behavior is not implemented.
+- `Current State`: NPC definitions, runtime state, blocking, health, sprites, target selection, a simple automated turret behavior, and neutral one-step wandering for `Wander` NPCs exist. Hostile NPC turn behavior is not implemented.
 - `Why Deferred`: It requires action scheduling, map/perception queries, and clear feedback for what the NPC is doing.
 - `First Playable Slice`: Add one hostile NPC behavior that waits, approaches, or attacks based on player distance and line of sight.
-- `Dependencies`: Turn scheduling, local action effects, perception/map query rules, NPC definitions, and message/UI feedback.
+- `Dependencies`: `NpcTurnService`, turn scheduling, local action effects, perception/map query rules, NPC definitions, and message/UI feedback.
 - `Implemented When`: At least one non-turret NPC can make a domain-owned decision that changes local gameplay and is understandable to the player.
 - `Notes`:
+  - 2026-04-30: Route 18 Gas Station now has a neutral wandering scavenger that moves one cardinal tile after successful positive-tick local actions; this does not implement pursuit, attacks, threat assessment, or hostile decision logic.
 - `Links`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`, `src/SurvivalGame.Domain/Actors/`
 
 ### MECH-10 - Vehicle cargo capacity grid
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: Cargo constraints support the mobile-base fantasy, but they should be introduced as one vehicle inventory rule before repairs, towing, upgrades, or vehicle condition.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -224,7 +225,7 @@ Statuses:
 ### MECH-11 - Interactive doors and doorway visuals
 
 - `Priority`: `P2`
-- `Size`: `xl`
+- `Size`: `XL`
 - `Priority Rationale`: Doorways are important for site readability and tactical movement, but they should build on the 2.5D tile-wall direction and action/result cleanup rather than becoming static art-only markers.
 - `Status`: `Open`
 - `Source`: `2026-04-30 farmhouse tile-wall conversion`
@@ -244,7 +245,7 @@ Statuses:
 ### MECH-12 - Tile-based 2.5D fence, gate, and gap objects
 
 - `Priority`: `P2`
-- `Size`: `m`
+- `Size`: `M`
 - `Priority Rationale`: Fences and gates are wall-like for movement and readability, but they should not become full building walls. They need tile-based 2.5D objects now that authored edge-structure usage has been retired.
 - `Status`: `Open`
 - `Source`: `2026-04-30 2.5D tile-wall direction`
@@ -264,7 +265,7 @@ Statuses:
 ### MECH-13 - Tile-wall material and style variants
 
 - `Priority`: `P2`
-- `Size`: `l`
+- `Size`: `L`
 - `Priority Rationale`: The 2.5D wall shape is now the preferred direction, but different sites need material identity so a farmhouse, gas station, shed, brick shop, and concrete interior do not all read as the same generic wall.
 - `Status`: `Open`
 - `Source`: `2026-04-30 2.5D tile-wall direction`
@@ -281,6 +282,24 @@ Statuses:
   - 2026-04-30: Former detail cues worth preserving for tile-based doors/windows include closed wooden doors, open wooden doors, torn flyscreen/screen doors, open interior doorway thresholds, glass doors, broken windows, and boarded windows.
   - 2026-04-30: Useful future tile-wall style names/concepts include farmhouse weatherboard, generic interior plaster, gas-station plaster/concrete, shed corrugated metal, boarded-over window modules, cracked/broken glass windows, and damaged/aged wall variants.
 - `Links`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`, `data/world_objects/`, `data/local_maps/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
+
+### MECH-14 - NPC patrol routes and movement territories
+
+- `Priority`: `P3`
+- `Size`: `M`
+- `Priority Rationale`: Neutral wandering now proves that NPCs can move through the domain turn pipeline, but believable site behavior needs authored constraints after the first hostile and interaction slices are clearer.
+- `Status`: `Open`
+- `Source`: `2026-04-30 gas station wandering NPC slice`
+- `Category`: NPCs, Local Sites
+- `Player-Facing Goal`: Keep moving NPCs in believable areas or routes so a gas-station scavenger searches the forecourt/store instead of drifting across an entire map without intent.
+- `Current State`: `Wander` NPCs attempt one valid cardinal step after positive-tick player actions. There are no authored patrol waypoints, leash areas, wander territories, schedules, or movement goals.
+- `Why Deferred`: It needs local-map authoring data, validation, debug/test coverage, and a decision on whether route following, soft territories, or schedule-driven movement should come first.
+- `First Playable Slice`: Add an optional authored movement territory or short patrol route for one existing gas-station NPC, with the turn service respecting that constraint while preserving current blocker rules.
+- `Dependencies`: `NpcTurnService`, local map query rules, local-map JSON schema validation, NPC definitions, and movement feedback messages.
+- `Implemented When`: At least one moving NPC follows a visible local route or stays inside an authored territory, invalid route/territory data is rejected, and tests cover blocked candidates plus fallback behavior.
+- `Notes`:
+  - 2026-04-30: The first gas-station scavenger intentionally has no patrol/leash data so the initial slice stays focused on domain-owned movement.
+- `Links`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`, `data/local_maps/`, `src/SurvivalGame.Domain/Actions/NpcTurnService.cs`
 
 ## Archive
 

@@ -24,6 +24,7 @@ public sealed class GameActionPipeline
     private readonly TravelCargoStore? _travelCargo;
     private readonly ItemDescriber _itemDescriber;
     private readonly ActionHandlerRegistry _registry;
+    private readonly NpcTurnService _npcTurnService;
     private readonly NpcCombatService _npcCombatService = new();
 
     public GameActionPipeline(
@@ -47,6 +48,7 @@ public sealed class GameActionPipeline
         _vehicleFuelState = vehicleFuelState;
         _travelCargo = travelCargo;
         _itemDescriber = new ItemDescriber(itemCatalog, firearmCatalog);
+        _npcTurnService = new NpcTurnService(randomSource);
         _registry = new ActionHandlerRegistry(new IActionHandler[]
         {
             new MovementHandler(),
@@ -82,6 +84,7 @@ public sealed class GameActionPipeline
         var startingElapsedTicks = state.Time.ElapsedTicks;
         var context = CreateContext(state);
         var result = handler.Handle(request, context);
+        result = _npcTurnService.ResolveNpcTurns(context, result);
         return _npcCombatService.ResolveAutomatedFire(context, startingElapsedTicks, result);
     }
 

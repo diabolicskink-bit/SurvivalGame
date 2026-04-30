@@ -16,9 +16,15 @@ Curated milestone history for current game state and architecture. This log answ
 - Skip routine bug fixes, tiny cleanup, pure investigations, plans, and review-only notes unless they change durable project state.
 - Keep entries to 2-4 bullets focused on what is now true. Include preserved scope or non-changes only when they prevent likely confusion.
 
+## 2026-04-30 - Gas Station Wandering NPC
+
+- Changed: Added a domain-owned NPC turn slice where `Wander` NPCs attempt one cardinal step after successful positive-tick local actions and log movement when they move.
+- Changed: Route 18 Gas Station now spawns `gas_station_scavenger_01`, a neutral Wandering Scavenger at tile 23,19.
+- Preserved: No hostile pursuit, attacks, pathfinding, dialogue, patrol routes, schedules, factions, or new NPC sprites were added.
+
 ## 2026-04-30 - Tracker Size Estimates
 
-- Changed: Added `Size` fields to all `ARCH-*` and `MECH-*` tracker items using the `xs`, `s`, `m`, `l`, `xl`, and `xxl` scale.
+- Changed: Added `Size` fields to all `ARCH-*` and `MECH-*` tracker items using the `XS`, `S`, `M`, `L`, `XL`, and `XXL` scale.
 - Changed: Updated tracker and AI guidance so size is maintained as a canonical field, separate from priority and status.
 - Preserved: Size estimates are planning and triage only; large items should still be split before implementation.
 

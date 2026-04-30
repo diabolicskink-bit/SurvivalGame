@@ -102,6 +102,12 @@
       "definitionId": "automated_turret",
       "x": 30,
       "y": 12
+    },
+    {
+      "instanceId": "gas_station_scavenger_01",
+      "definitionId": "wandering_scavenger",
+      "x": 23,
+      "y": 19
     }
   ]
 }

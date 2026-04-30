@@ -63,7 +63,8 @@
 - Wait advances world time by 100 ticks.
 - Successful pickup advances world time by 50 ticks.
 - Failed boundary movement and failed pickup on an empty tile advance world time by 0 ticks.
-- Route 18 Gas Station has one fixed automated turret NPC at tile 30,12.
+- Route 18 Gas Station has one fixed automated turret NPC at tile 30,12 and one wandering scavenger NPC at tile 23,19.
+- NPCs with `Wander` behavior attempt one cardinal one-tile move after successful positive-tick local actions, avoid blocked tiles and the player's tile, and log a movement message only when they move.
 - The automated turret NPC checks after successful time-advancing local actions and fires when the player is within 5 tiles.
 - Turret fire triggers once for each crossed 75-tick interval and deals 10 direct health damage per shot.
 - Clickable Wait action button.
@@ -184,6 +185,7 @@
 - Seven prototype NPC definitions currently exist: Test Dummy, Cautious Survivor, Wandering Scavenger, Injured Traveller, Quiet Mechanic, Field Researcher, and Automated Turret.
 - One inert test dummy NPC definition is loaded from JSON and spawned on the prototype map with 200/200 health.
 - One automated turret NPC definition is loaded from JSON and spawned on the Route 18 Gas Station map with a sprite.
+- One wandering scavenger NPC definition is loaded from JSON and spawned on the Route 18 Gas Station map without a dedicated sprite.
 - World objects, NPCs, and the player marker render through one automatic Y-sorted entity layer.
 - Tree leaves and the automated turret sprite can visually overflow adjacent tiles without affecting those tiles.
 - NPCs render on the local map board, use sprite assets when available, and block movement into their tile.
@@ -221,7 +223,8 @@
 - Item effects or equipment stat modifiers.
 - Inventory weight limits, loose ammo capacity limits, ammo pouch UI, equipment containers, nested grid containers, manual rearranging, or item rotation.
 - Hunger, thirst, fatigue, or other survival meters.
-- Active NPC AI, decision planning, perception, memory, factions, dialogue, schedules, melee combat, hostile combat, or reciprocal combat.
+- Hostile NPC AI, decision planning, perception, memory, factions, dialogue, schedules, melee combat, hostile combat, or reciprocal combat.
+- NPC pathfinding, patrol routes, movement territories, long-term goals, or movement animation.
 - Procedural generation.
 - Functional recipe, stamp, chunk streaming, or procedural local map generation.
 - Crafting.
@@ -233,5 +236,5 @@
 - World map road pathfinding, settlements, trading, camping, enemy parties, ambushes, world map weather, or new combat systems.
 - Vehicle upgrades, repairs, storage, or detailed vehicle condition systems.
 - Additional site-specific local maps beyond Route 18 Gas Station and Abandoned Farmhouse; other points of interest still enter the default prototype local gameplay scene.
-- Gas station loot, trading, non-turret NPCs, quests, procedural generation, or repair services.
+- Gas station loot, trading, additional non-turret NPC roles, quests, procedural generation, or repair services.
 - Runtime content editing or mod loading.

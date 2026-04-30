@@ -34,6 +34,9 @@ public sealed class GasStationSiteTests
         Assert.True(site.Npcs.TryGetAt(new GridPosition(30, 12), out var turret));
         Assert.Equal(PrototypeNpcs.GasStationTurret, turret.Id);
         Assert.Equal(PrototypeNpcs.AutomatedTurretDefinition, turret.DefinitionId);
+        Assert.True(site.Npcs.TryGetAt(new GridPosition(23, 19), out var scavenger));
+        Assert.Equal(PrototypeNpcs.GasStationScavenger, scavenger.Id);
+        Assert.Equal(PrototypeNpcs.WanderingScavenger, scavenger.DefinitionId);
     }
 
     [Fact]
