@@ -34,7 +34,8 @@ public sealed class GameActionPipeline
         VehicleFuelState? vehicleFuelState = null,
         NpcCatalog? npcCatalog = null,
         StructureCatalog? structureCatalog = null,
-        TravelCargoStore? travelCargo = null
+        TravelCargoStore? travelCargo = null,
+        IRandomSource? randomSource = null
     )
     {
         ArgumentNullException.ThrowIfNull(itemCatalog);
@@ -45,7 +46,7 @@ public sealed class GameActionPipeline
         _npcCatalog = npcCatalog;
         _firearmActions = firearmCatalog is null
             ? null
-            : new FirearmActionService(firearmCatalog, itemCatalog, worldObjectCatalog, structureCatalog);
+            : new FirearmActionService(firearmCatalog, itemCatalog, worldObjectCatalog, structureCatalog, randomSource);
         _vehicleFuelState = vehicleFuelState;
         _travelCargo = travelCargo;
         _itemDescriber = new ItemDescriber(itemCatalog, firearmCatalog);

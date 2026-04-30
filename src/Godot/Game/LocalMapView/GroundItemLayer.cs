@@ -5,8 +5,8 @@ using SurvivalGame.Domain;
 
 public partial class GroundItemLayer : Node2D
 {
-    private const float SpriteMaxWidth = 28.0f;
-    private const float SpriteMaxHeight = 18.0f;
+    private const float SpriteMaxWidthCellRatio = 0.88f;
+    private const float SpriteMaxHeightCellRatio = 0.56f;
 
     private readonly Dictionary<string, Texture2D?> _spriteCache = new();
     private int _cellSize = 32;
@@ -121,11 +121,13 @@ public partial class GroundItemLayer : Node2D
     private void DrawItemSprite(Vector2 center, Texture2D sprite)
     {
         var textureSize = sprite.GetSize();
-        var scale = Mathf.Min(SpriteMaxWidth / textureSize.X, SpriteMaxHeight / textureSize.Y);
+        var maxSize = new Vector2(_cellSize * SpriteMaxWidthCellRatio, _cellSize * SpriteMaxHeightCellRatio);
+        var scale = Mathf.Min(maxSize.X / textureSize.X, maxSize.Y / textureSize.Y);
         var size = textureSize * scale;
         var rect = new Rect2(center - (size / 2.0f), size);
+        var shadowOffset = new Vector2(_cellSize * 0.06f, _cellSize * 0.09f);
 
-        DrawRect(new Rect2(rect.Position + new Vector2(2, 3), rect.Size), new Color(0.01f, 0.012f, 0.01f, 0.35f), true);
+        DrawRect(new Rect2(rect.Position + shadowOffset, rect.Size), new Color(0.01f, 0.012f, 0.01f, 0.35f), true);
         DrawTextureRect(sprite, rect, false);
     }
 

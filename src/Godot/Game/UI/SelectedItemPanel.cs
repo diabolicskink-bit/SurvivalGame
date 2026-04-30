@@ -191,6 +191,7 @@ public partial class SelectedItemPanel : VBoxContainer
             var fireModes = string.Join(", ", weapon.SupportedFireModes.Select(WeaponFireModeNames.Format));
             AddChild(CreateLabel($"Weapon: accepts {acceptedAmmo}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Range: {weapon.EffectiveRangeTiles} effective / {weapon.MaximumRangeTiles} max tiles", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
+            AddChild(CreateLabel($"Accuracy: {weapon.EffectiveRangeAccuracyPercent}% effective / {weapon.MaximumRangeAccuracyPercent}% max", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Feed type: {weapon.FeedKind}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             AddChild(CreateLabel($"Fire modes: {fireModes}", BodyFontSize, new Color(0.72f, 0.8f, 0.74f)));
             if (weapon.SupportsFireMode(WeaponFireMode.Burst))
@@ -260,6 +261,11 @@ public partial class SelectedItemPanel : VBoxContainer
         var modifiedStats = WeaponModState.GetModifiedStats(weapon, item.Weapon, state.StatefulItems, firearmCatalog);
         AddChild(CreateLabel(
             $"Modified range: {modifiedStats.EffectiveRangeTiles} effective / {modifiedStats.MaximumRangeTiles} max tiles",
+            BodyFontSize,
+            new Color(0.72f, 0.8f, 0.74f)
+        ));
+        AddChild(CreateLabel(
+            $"Modified accuracy: {modifiedStats.EffectiveRangeAccuracyPercent}% effective / {modifiedStats.MaximumRangeAccuracyPercent}% max",
             BodyFontSize,
             new Color(0.72f, 0.8f, 0.74f)
         ));
@@ -436,6 +442,7 @@ public partial class SelectedItemPanel : VBoxContainer
         AddSignedEffect(effects, "effective range", mod.EffectiveRangeBonus);
         AddSignedEffect(effects, "max range", mod.MaximumRangeBonus);
         AddSignedEffect(effects, "damage", mod.DamageBonus);
+        AddSignedEffect(effects, "accuracy", mod.AccuracyBonus);
         return effects.Count == 0 ? "none" : string.Join(", ", effects);
     }
 

@@ -8,8 +8,7 @@ public partial class GameShell : Control
 {
     private const string MainMenuScenePath = "res://src/Godot/MainMenu/MainMenu.tscn";
     private const int BaseCellSize = 32;
-    private const int LocalViewportWidthTiles = 27;
-    private const int LocalViewportHeightTiles = 18;
+    private const int DefaultLocalZoomLevelIndex = 2;
     private const int MinimumCellSize = 18;
     private const float WorldRegionWidthRatio = 0.5f;
     private const float WorldRegionHeightRatio = 2.0f / 3.0f;
@@ -29,6 +28,17 @@ public partial class GameShell : Control
         StructureEdgeDirection.South,
         StructureEdgeDirection.West
     ];
+
+    private static readonly Vector2I[] LocalZoomLevels =
+    [
+        new(18, 12),
+        new(21, 14),
+        new(27, 18),
+        new(33, 22),
+        new(39, 26)
+    ];
+
+    private static readonly Vector2I DefaultLocalViewportSize = LocalZoomLevels[DefaultLocalZoomLevelIndex];
 
     private ItemCatalog _itemCatalog = null!;
     private FirearmCatalog _firearmCatalog = null!;
@@ -69,10 +79,13 @@ public partial class GameShell : Control
     private GridViewport _viewport = GridViewport.Create(
         new GridBounds(1, 1),
         new GridPosition(0, 0),
-        LocalViewportWidthTiles,
-        LocalViewportHeightTiles
+        DefaultLocalViewportSize.X,
+        DefaultLocalViewportSize.Y
     );
     private int _cellSize = BaseCellSize;
+    private int _localZoomLevelIndex = DefaultLocalZoomLevelIndex;
+
+    private Vector2I CurrentLocalViewportSize => LocalZoomLevels[_localZoomLevelIndex];
 
     public event Action? ReturnToWorldMapRequested;
 
@@ -120,7 +133,18 @@ public partial class GameShell : Control
 
     public override void _Input(InputEvent @event)
     {
-        if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
+        if (@event is not InputEventMouseButton mouseEvent || !mouseEvent.Pressed)
+        {
+            return;
+        }
+
+        if (TryHandleLocalMapZoom(mouseEvent))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (mouseEvent.ButtonIndex == MouseButton.Left)
         {
             if (IsPointerOverGameplayUi(mouseEvent.Position))
             {
@@ -805,7 +829,41 @@ public partial class GameShell : Control
     {
         return IsPointerOverControl(_sidePanel, viewportPosition)
             || IsPointerOverControl(_logPanel, viewportPosition)
-            || IsPointerOverControl(_itemActionPopup, viewportPosition);
+            || IsPointerOverControl(_itemActionPopup, viewportPosition)
+            || IsPointerOverControl(_itemInfoPopup, viewportPosition);
+    }
+
+    private bool TryHandleLocalMapZoom(InputEventMouseButton mouseEvent)
+    {
+        if (mouseEvent.ButtonIndex is not (MouseButton.WheelUp or MouseButton.WheelDown))
+        {
+            return false;
+        }
+
+        if (IsPointerOverGameplayUi(mouseEvent.Position) || !IsPointerOverControl(_board, mouseEvent.Position))
+        {
+            return false;
+        }
+
+        var direction = mouseEvent.ButtonIndex == MouseButton.WheelUp ? -1 : 1;
+        SetLocalZoomLevel(_localZoomLevelIndex + direction);
+        return true;
+    }
+
+    private bool SetLocalZoomLevel(int zoomLevelIndex)
+    {
+        var clampedZoomLevelIndex = Math.Clamp(zoomLevelIndex, 0, LocalZoomLevels.Length - 1);
+        if (clampedZoomLevelIndex == _localZoomLevelIndex)
+        {
+            return false;
+        }
+
+        _localZoomLevelIndex = clampedZoomLevelIndex;
+        RefreshViewport();
+        UpdateResponsiveLayout();
+        ConfigureLocalMapView();
+        HideItemTooltip();
+        return true;
     }
 
     private static bool IsPointerOverControl(Control control, Vector2 viewportPosition)
@@ -928,11 +986,12 @@ public partial class GameShell : Control
 
     private void RefreshViewport()
     {
+        var viewportSize = CurrentLocalViewportSize;
         _viewport = GridViewport.Create(
             _mapBounds,
             _gameState.Player.Position,
-            LocalViewportWidthTiles,
-            LocalViewportHeightTiles
+            viewportSize.X,
+            viewportSize.Y
         );
     }
 
@@ -962,18 +1021,19 @@ public partial class GameShell : Control
 
     private void UpdateResponsiveLayout()
     {
-        var viewportSize = GetViewportRect().Size;
+        var screenSize = GetViewportRect().Size;
+        var localViewportSize = CurrentLocalViewportSize;
         var boardAreaWidth = Mathf.Max(
-            MinimumCellSize * LocalViewportWidthTiles,
-            (viewportSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
+            MinimumCellSize * localViewportSize.X,
+            (screenSize.X * WorldRegionWidthRatio) - (LayoutMargin * 2.0f)
         );
         var boardAreaHeight = Mathf.Max(
-            MinimumCellSize * LocalViewportHeightTiles,
-            (viewportSize.Y * WorldRegionHeightRatio) - (LayoutMargin * 2.0f)
+            MinimumCellSize * localViewportSize.Y,
+            (screenSize.Y * WorldRegionHeightRatio) - (LayoutMargin * 2.0f)
         );
         var fittedCellSize = Mathf.FloorToInt(Mathf.Min(
-            boardAreaWidth / LocalViewportWidthTiles,
-            boardAreaHeight / LocalViewportHeightTiles
+            boardAreaWidth / localViewportSize.X,
+            boardAreaHeight / localViewportSize.Y
         ));
         var nextCellSize = Mathf.Max(
             MinimumCellSize,
@@ -986,7 +1046,7 @@ public partial class GameShell : Control
             ConfigureLocalMapView();
         }
 
-        var boardPixelSize = new Vector2(LocalViewportWidthTiles * _cellSize, LocalViewportHeightTiles * _cellSize);
+        var boardPixelSize = new Vector2(localViewportSize.X * _cellSize, localViewportSize.Y * _cellSize);
         _board.Position = new Vector2(MinimumBoardMargin, MinimumBoardMargin);
         _board.Size = boardPixelSize;
 
@@ -994,7 +1054,7 @@ public partial class GameShell : Control
         var boardBottom = _board.Position.Y + boardPixelSize.Y;
         var logTop = boardBottom + 14.0f;
         var widePanelLeft = boardRight + LayoutMargin;
-        var widePanelRight = viewportSize.X - LayoutMargin;
+        var widePanelRight = screenSize.X - LayoutMargin;
         var widePanelWidth = widePanelRight - widePanelLeft;
 
         if (widePanelWidth >= MinimumWidePanelWidth)
@@ -1002,21 +1062,21 @@ public partial class GameShell : Control
             _sidePanel.OffsetLeft = widePanelLeft;
             _sidePanel.OffsetTop = LayoutMargin;
             _sidePanel.OffsetRight = widePanelRight;
-            _sidePanel.OffsetBottom = Mathf.Max(620.0f, viewportSize.Y - LayoutMargin);
+            _sidePanel.OffsetBottom = Mathf.Max(620.0f, screenSize.Y - LayoutMargin);
         }
         else
         {
-            var panelWidth = Mathf.Min(SidePanelWidth, Mathf.Max(280.0f, viewportSize.X * 0.32f));
-            _sidePanel.OffsetLeft = viewportSize.X - panelWidth - LayoutMargin;
+            var panelWidth = Mathf.Min(SidePanelWidth, Mathf.Max(280.0f, screenSize.X * 0.32f));
+            _sidePanel.OffsetLeft = screenSize.X - panelWidth - LayoutMargin;
             _sidePanel.OffsetTop = LayoutMargin;
-            _sidePanel.OffsetRight = viewportSize.X - LayoutMargin;
-            _sidePanel.OffsetBottom = Mathf.Max(620.0f, viewportSize.Y - LayoutMargin);
+            _sidePanel.OffsetRight = screenSize.X - LayoutMargin;
+            _sidePanel.OffsetBottom = Mathf.Max(620.0f, screenSize.Y - LayoutMargin);
         }
 
         _logPanel.OffsetLeft = _board.Position.X;
         _logPanel.OffsetTop = logTop;
         _logPanel.OffsetRight = boardRight;
-        _logPanel.OffsetBottom = Mathf.Max(logTop + 128.0f, viewportSize.Y - LayoutMargin);
+        _logPanel.OffsetBottom = Mathf.Max(logTop + 128.0f, screenSize.Y - LayoutMargin);
     }
 
     private void OnActionSelected(AvailableAction action)

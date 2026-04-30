@@ -40,9 +40,10 @@
 - Travel cargo can hold stack items and stateful items without capacity or grid limits in this prototype pass.
 - Taking stack or stateful items from travel cargo still respects the player's inventory grid capacity.
 - Local site sessions preserve their own map bounds, surfaces, world objects, ground stacks, and NPC roster.
-- Local gameplay boards render a fixed 27w x 18h tile viewport over the active local site's full map.
-- Local gameplay boards clip map/entity rendering to the visible 27w x 18h tile viewport.
-- Larger local maps clamp the viewport near map edges; smaller local maps are centered inside the fixed viewport with dark padding.
+- Local gameplay boards render a mouse-wheel zoomable tile viewport over the active local site's full map, with 18w x 12h, 21w x 14h, 27w x 18h, 33w x 22h, and 39w x 26h visible-tile levels.
+- The default local gameplay viewport is 27w x 18h tiles.
+- Local gameplay boards clip map/entity rendering to the current visible tile viewport.
+- Larger local maps clamp the viewport near map edges; smaller local maps are centered inside the current viewport with dark padding.
 - Authored local site maps are loaded from JSON under `data/local_maps/`.
 - Authored local site maps can define optional vehicle and pushbike `arrivalAnchors`.
 - Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
@@ -116,11 +117,13 @@
 - Baseball cap and running shoes prototype item stacks placed on the map for pickup and equip testing.
 - Domain-level firearm, ammunition, feed-device, and weapon-mod definitions loaded from JSON under `data/firearms/`.
 - Firearm definitions for 9mm pistol, AK-style rifle, .308 hunting rifle, 12 gauge shotgun, .22 rifle, and 5.56 burst carbine.
-- Firearm weapon definitions include prototype effective and maximum ranges measured in tiles, supported fire modes, and first-pass burst metadata where relevant.
+- Firearm weapon definitions include prototype effective and maximum ranges measured in tiles, required effective and maximum accuracy percentages, supported fire modes, and first-pass burst metadata where relevant.
+- Current firearm ranges are scaled for the default 27x18 local viewport; local map zoom is visual/camera-only and does not change firearm ranges: 9mm pistol 4/10, AK-style rifle 9/20, .308 hunting rifle 12/26, 12 gauge shotgun 3/8, .22 rifle 8/18, and 5.56 burst carbine 10/22 effective/max tiles.
+- Current firearm accuracy endpoints are explicit per weapon: 9mm pistol 72/12, AK-style rifle 76/18, .308 hunting rifle 87/35, 12 gauge shotgun 86/10, .22 rifle 82/24, and 5.56 burst carbine 80/22 effective/max percent.
 - Ammunition definitions include prototype damage values.
 - Ammunition definitions for 9mm standard, 9mm hollow point, 7.62x39mm standard, 5.56x45mm standard, .308 standard, 12 gauge buckshot, 12 gauge slug, and .22 LR rounds.
 - Feed-device definitions for 9mm standard pistol magazine, 9mm extended pistol magazine, 5.56 30-round magazine, AK 30-round magazine, and AK damaged 20-round magazine.
-- Weapon mod definitions for red dot sight, hunting scope, and match barrel.
+- Weapon mod definitions for red dot sight, hunting scope, and match barrel include required accuracy bonuses.
 - Runtime loaded state for feed devices, inserted detachable magazines, and built-in weapon feeds.
 - Runtime current fire mode for stack-backed and stateful weapons, defaulting to single shot.
 - Runtime installed state for stateful weapon mods, with one mod per weapon mod slot.
@@ -132,7 +135,7 @@
 - Fire-mode toggling currently costs 0 ticks; successful single shots cost 100 ticks; successful 3-round bursts cost 150 ticks.
 - Weapon mod installation and removal each currently cost 50 ticks.
 - Item hover details show weapon/feed loaded state for firearm-related items.
-- Weapon hover details show prototype effective and maximum range, supported/current fire mode, installed mods, modified range, and mod damage bonus where relevant.
+- Weapon hover details show prototype effective and maximum range, accuracy endpoints, supported/current fire mode, installed mods, modified range, modified accuracy, and mod damage bonus where relevant.
 - Starting inventory includes firearm, ammunition, feed-device, and weapon-mod examples for manual testing.
 - First-pass stateful item model for specific items that need identity.
 - Stateful items have stable runtime ids, item definition ids, quantity, condition, location, optional contained items, and optional firearm/feed state.
@@ -144,8 +147,9 @@
 - Clicking an NPC selects it as the current target and reveals a Shoot action in the global action panel.
 - Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's modified maximum tile range.
 - Targeted shooting performs a first-pass line-of-fire check against sight-blocking structure edges and intermediate occupied world-object tiles before consuming ammunition or advancing time.
-- Successful single-shot shooting consumes one round, applies ammunition damage plus installed weapon mod damage bonuses to the target NPC, advances world time by 100 ticks, and updates the NPC health bar.
-- Successful burst shooting currently requires and consumes 3 loaded rounds from a burst-mode weapon, applies a deterministic 2x modified single-shot damage packet to the target NPC, advances world time by 150 ticks, and updates the NPC health bar.
+- Valid targeted shooting consumes ammunition and advances time, then rolls hit chance from modified weapon accuracy using Chebyshev distance, effective/max endpoints, linear falloff between them, and a final 5%-95% chance clamp.
+- Single-shot shooting consumes one round, rolls once, applies ammunition damage plus installed weapon mod damage bonuses only on hit, advances world time by 100 ticks, and updates the NPC health bar.
+- Burst shooting currently requires and consumes 3 loaded rounds from a burst-mode weapon, rolls once for the current 2x modified single-shot damage packet, advances world time by 150 ticks, and updates the NPC health bar.
 - Loaded state is preserved when a stateful magazine is inserted, removed, dropped, picked back up, or inspected.
 - Installed weapon mod state is preserved on the stateful weapon while the mod item is inserted and restored to inventory when removed.
 - The prototype starts with specific stateful weapons, magazines, weapon mods, and a backpack-with-contents example for manual testing.
@@ -206,9 +210,9 @@
 - Generic item use actions.
 - Equipment replacement actions.
 - Equipment item effects or stat modifiers.
-- Accuracy, recoil, sound propagation, jamming, durability, weapon condition, armor, cover bonuses, miss chances, hit locations, penetration, ricochet, or advanced ballistics beyond the current line-of-fire blocker check.
+- Recoil, sound propagation, jamming, durability, weapon condition, armor, cover bonuses, hit locations, penetration, ricochet, or advanced ballistics beyond the current line-of-fire blocker and first-pass hit/miss check.
 - Stack-backed weapon mod support; weapon mods are currently stateful item attachments only.
-- Weapon mod crafting, durability, tools, installation failure chance, suppressors, recoil effects, accuracy effects, or save/load persistence.
+- Weapon mod crafting, durability, tools, installation failure chance, suppressors, recoil effects, situational accuracy effects, or save/load persistence.
 - Mixed ammunition inside a single feed device; unload before switching ammunition variants.
 - Full migration of all inventory content to stateful items; simple identical content still uses stack counts.
 - Full container UI or transfer actions for placing items into/taking items out of containers.

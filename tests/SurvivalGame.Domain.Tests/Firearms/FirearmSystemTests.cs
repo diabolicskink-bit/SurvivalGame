@@ -24,12 +24,19 @@ public sealed class FirearmSystemTests
     {
         var catalog = LoadFirearmCatalog();
 
-        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Pistol9mm), effective: 8, maximum: 20);
-        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.Ak47), effective: 24, maximum: 60);
-        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.HuntingRifle), effective: 32, maximum: 80);
-        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Shotgun12Gauge), effective: 6, maximum: 18);
-        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Rifle22), effective: 18, maximum: 45);
-        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Carbine556), effective: 22, maximum: 55);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Pistol9mm), effective: 4, maximum: 10);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.Ak47), effective: 9, maximum: 20);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeItems.HuntingRifle), effective: 12, maximum: 26);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Shotgun12Gauge), effective: 3, maximum: 8);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Rifle22), effective: 8, maximum: 18);
+        AssertWeaponRange(catalog.GetWeapon(PrototypeFirearms.Carbine556), effective: 10, maximum: 22);
+
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeFirearms.Pistol9mm), effective: 72, maximum: 12);
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeItems.Ak47), effective: 76, maximum: 18);
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeItems.HuntingRifle), effective: 87, maximum: 35);
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeFirearms.Shotgun12Gauge), effective: 86, maximum: 10);
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeFirearms.Rifle22), effective: 82, maximum: 24);
+        AssertWeaponAccuracy(catalog.GetWeapon(PrototypeFirearms.Carbine556), effective: 80, maximum: 22);
     }
 
     [Fact]
@@ -80,12 +87,89 @@ public sealed class FirearmSystemTests
         Assert.Equal(PrototypeFirearms.OpticSlot, redDot.Slot);
         Assert.True(redDot.IsCompatibleWith(pistol));
         Assert.Equal(3, redDot.EffectiveRangeBonus);
+        Assert.Equal(10, redDot.AccuracyBonus);
         Assert.Equal(PrototypeFirearms.OpticSlot, huntingScope.Slot);
         Assert.True(huntingScope.IsCompatibleWith(huntingRifle));
         Assert.False(huntingScope.IsCompatibleWith(pistol));
         Assert.Equal(16, huntingScope.MaximumRangeBonus);
+        Assert.Equal(8, huntingScope.AccuracyBonus);
         Assert.Equal(PrototypeFirearms.BarrelSlot, matchBarrel.Slot);
         Assert.Equal(5, matchBarrel.DamageBonus);
+        Assert.Equal(5, matchBarrel.AccuracyBonus);
+    }
+
+    [Fact]
+    public void ModifiedWeaponStatsCalculateHitChanceByDistance()
+    {
+        var catalog = LoadFirearmCatalog();
+        var pistol = catalog.GetWeapon(PrototypeFirearms.Pistol9mm);
+        var stats = ModifiedWeaponStats.From(pistol, Array.Empty<WeaponModDefinition>());
+
+        Assert.Equal(72, stats.GetHitChancePercent(distanceTiles: 3));
+        Assert.Equal(42, stats.GetHitChancePercent(distanceTiles: 7));
+        Assert.Equal(12, stats.GetHitChancePercent(distanceTiles: 10));
+    }
+
+    [Fact]
+    public void FirearmDefinitionLoaderRequiresExplicitAccuracyValues()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "weapons.json"),
+                """
+                [
+                  {
+                    "itemId": "test_rifle",
+                    "name": "Test rifle",
+                    "weaponFamily": "test_rifle",
+                    "acceptedAmmoSizes": ["test"],
+                    "feedKind": "InternalMagazine",
+                    "effectiveRangeTiles": 4,
+                    "maximumRangeTiles": 10,
+                    "builtInCapacity": 1
+                  }
+                ]
+                """
+            );
+
+            var error = Assert.Throws<InvalidDataException>(() => new FirearmDefinitionLoader().LoadDirectory(directory));
+            Assert.Contains("missing effective range accuracy percent", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FirearmDefinitionLoaderRequiresExplicitWeaponModAccuracyBonus()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "weapon_mods.json"),
+                """
+                [
+                  {
+                    "itemId": "test_mod",
+                    "name": "test mod",
+                    "slot": "optic",
+                    "compatibleWeaponFamilies": ["test_rifle"]
+                  }
+                ]
+                """
+            );
+
+            var error = Assert.Throws<InvalidDataException>(() => new FirearmDefinitionLoader().LoadDirectory(directory));
+            Assert.Contains("missing accuracy bonus", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]
@@ -571,7 +655,7 @@ public sealed class FirearmSystemTests
     [Fact]
     public void ShootingNpcWithEquippedLoadedStatefulWeaponConsumesAmmoDamagesNpcAndAdvancesTime()
     {
-        var pipeline = CreatePipeline();
+        var pipeline = CreatePipeline(randomSource: FixedRandomSource.Hit);
         var firearms = LoadFirearmCatalog();
         var npcs = new NpcRoster();
         var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
@@ -599,14 +683,50 @@ public sealed class FirearmSystemTests
         Assert.Equal(GameActionPipeline.ShootTickCost, state.Time.ElapsedTicks);
         Assert.Equal(4, magazine.FeedDevice.LoadedCount);
         Assert.Equal(175, target.Health.Current);
-        Assert.Contains("Fired single shot at Test Dummy with 9mm pistol using 9mm standard rounds for 25 damage.", result.Messages);
+        Assert.Contains("Hit Test Dummy with 9mm pistol using 9mm standard rounds for 25 damage (72% hit chance).", result.Messages);
         Assert.Contains("Test Dummy health: 175/200.", result.Messages);
+    }
+
+    [Fact]
+    public void ShootingNpcMissConsumesAmmoAdvancesTimeWithoutDamagingTarget()
+    {
+        var pipeline = CreatePipeline(randomSource: FixedRandomSource.Miss);
+        var firearms = LoadFirearmCatalog();
+        var npcs = new NpcRoster();
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
+        npcs.Add(target);
+        var state = CreateState(npcs: npcs);
+        var pistol = state.StatefulItems.Create(
+            PrototypeFirearms.Pistol9mm,
+            1,
+            StatefulItemLocation.Equipment(EquipmentSlotId.MainHand),
+            firearms
+        );
+        var magazine = state.StatefulItems.Create(
+            PrototypeFirearms.Magazine9mmStandard,
+            1,
+            StatefulItemLocation.Inserted(pistol.Id),
+            firearms
+        );
+        magazine.FeedDevice!.Load(firearms.GetAmmunition(PrototypeFirearms.Ammo9mmStandard), 5);
+        pistol.Weapon!.InsertFeedDevice(magazine.Id);
+
+        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(GameActionPipeline.ShootTickCost, result.ElapsedTicks);
+        Assert.Equal(GameActionPipeline.ShootTickCost, state.Time.ElapsedTicks);
+        Assert.Equal(4, magazine.FeedDevice.LoadedCount);
+        Assert.Equal(200, target.Health.Current);
+        Assert.False(target.IsDisabled);
+        Assert.Contains("Missed Test Dummy with 9mm pistol using 9mm standard rounds (72% hit chance).", result.Messages);
+        Assert.Contains("Test Dummy health: 200/200.", result.Messages);
     }
 
     [Fact]
     public void BurstShootingConsumesThreeRoundsDealsBurstDamageDisablesNpcAndAdvancesBurstTime()
     {
-        var pipeline = CreatePipeline();
+        var pipeline = CreatePipeline(randomSource: FixedRandomSource.Hit);
         var firearms = LoadFirearmCatalog();
         var npcs = new NpcRoster();
         var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 80, 80);
@@ -636,7 +756,7 @@ public sealed class FirearmSystemTests
         Assert.Equal(2, magazine.FeedDevice.LoadedCount);
         Assert.Equal(0, target.Health.Current);
         Assert.True(target.IsDisabled);
-        Assert.Contains("Fired 3-round burst at Test Dummy with 5.56 burst carbine using 5.56x45mm standard rounds for 80 damage.", result.Messages);
+        Assert.Contains("Hit Test Dummy with 5.56 burst carbine using 5.56x45mm standard rounds for 80 damage (80% hit chance).", result.Messages);
         Assert.Contains("Test Dummy is disabled.", result.Messages);
     }
 
@@ -691,7 +811,7 @@ public sealed class FirearmSystemTests
             "wall",
             blocksSight: true
         ));
-        var pipeline = CreatePipeline(structureCatalog: structureCatalog);
+        var pipeline = CreatePipeline(structureCatalog: structureCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
         var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
@@ -723,7 +843,7 @@ public sealed class FirearmSystemTests
             blocksMovement: true,
             blocksSight: false
         ));
-        var pipeline = CreatePipeline(structureCatalog: structureCatalog);
+        var pipeline = CreatePipeline(structureCatalog: structureCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
         var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
@@ -750,7 +870,7 @@ public sealed class FirearmSystemTests
             "Obstacle",
             blocksSight: true
         ));
-        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
+        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
         var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
@@ -780,7 +900,7 @@ public sealed class FirearmSystemTests
             blocksMovement: true,
             blocksSight: false
         ));
-        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
+        var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
         var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
@@ -938,12 +1058,12 @@ public sealed class FirearmSystemTests
     [Fact]
     public void InstalledWeaponModExtendsShootingMaximumRange()
     {
-        var pipeline = CreatePipeline();
+        var pipeline = CreatePipeline(randomSource: FixedRandomSource.Hit);
         var firearms = LoadFirearmCatalog();
         var npcs = new NpcRoster();
-        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(87, 2), 200, 200);
+        var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(36, 2), 200, 200);
         npcs.Add(target);
-        var state = CreateState(new GridBounds(100, 5), npcs, startPosition: new GridPosition(2, 2));
+        var state = CreateState(new GridBounds(50, 5), npcs, startPosition: new GridPosition(2, 2));
         var rifle = state.StatefulItems.Create(
             PrototypeItems.HuntingRifle,
             1,
@@ -964,13 +1084,13 @@ public sealed class FirearmSystemTests
         Assert.True(installResult.Succeeded);
         Assert.True(shootResult.Succeeded);
         Assert.Equal(130, target.Health.Current);
-        Assert.Contains("Fired single shot at Test Dummy with .308 hunting rifle using .308 standard rounds for 70 damage.", shootResult.Messages);
+        Assert.Contains("Hit Test Dummy with .308 hunting rifle using .308 standard rounds for 70 damage (62% hit chance).", shootResult.Messages);
     }
 
     [Fact]
     public void InstalledWeaponModIncreasesShootingDamage()
     {
-        var pipeline = CreatePipeline();
+        var pipeline = CreatePipeline(randomSource: FixedRandomSource.Hit);
         var firearms = LoadFirearmCatalog();
         var npcs = new NpcRoster();
         var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(3, 2), 200, 200);
@@ -1003,7 +1123,7 @@ public sealed class FirearmSystemTests
         Assert.True(installResult.Succeeded);
         Assert.True(shootResult.Succeeded);
         Assert.Equal(170, target.Health.Current);
-        Assert.Contains("Fired single shot at Test Dummy with 9mm pistol using 9mm standard rounds for 30 damage.", shootResult.Messages);
+        Assert.Contains("Hit Test Dummy with 9mm pistol using 9mm standard rounds for 30 damage (77% hit chance).", shootResult.Messages);
     }
 
     [Fact]
@@ -1027,11 +1147,15 @@ public sealed class FirearmSystemTests
         pipeline.Execute(new InstallStatefulWeaponModActionRequest(pistol.Id, matchBarrel.Id), state);
 
         var result = pipeline.Execute(new InspectStatefulItemActionRequest(pistol.Id), state);
+        var modResult = pipeline.Execute(new InspectStatefulItemActionRequest(matchBarrel.Id), state);
 
         Assert.True(result.Succeeded);
-        Assert.Contains(result.Messages, message => message.Contains("Modified range: 10 effective / 24 max tiles"));
+        Assert.Contains(result.Messages, message => message.Contains("Modified range: 6 effective / 14 max tiles"));
+        Assert.Contains(result.Messages, message => message.Contains("Modified accuracy: 77% effective / 17% max"));
         Assert.Contains(result.Messages, message => message.Contains("Damage bonus: +5"));
         Assert.Contains(result.Messages, message => message.Contains("Mods: barrel: Match barrel"));
+        Assert.True(modResult.Succeeded);
+        Assert.Contains(modResult.Messages, message => message.Contains("accuracy +5"));
     }
 
     [Fact]
@@ -1078,7 +1202,7 @@ public sealed class FirearmSystemTests
     [Fact]
     public void ShootingNpcRejectsTargetsOutsideWeaponMaximumRangeWithoutConsumingAmmo()
     {
-        var pipeline = CreatePipeline();
+        var pipeline = CreatePipeline(randomSource: new ThrowingRandomSource());
         var firearms = LoadFirearmCatalog();
         var npcs = new NpcRoster();
         var target = new NpcState(PrototypeNpcs.TestDummy, "Test Dummy", new GridPosition(25, 2), 200, 200);
@@ -1105,24 +1229,30 @@ public sealed class FirearmSystemTests
         Assert.Equal(0, state.Time.ElapsedTicks);
         Assert.Equal(5, magazine.FeedDevice.LoadedCount);
         Assert.Equal(200, target.Health.Current);
-        Assert.Contains("Test Dummy is out of range for 9mm pistol (23/20 tiles).", result.Messages);
+        Assert.Contains("Test Dummy is out of range for 9mm pistol (23/10 tiles).", result.Messages);
     }
 
     private static GameActionPipeline CreatePipeline(
         WorldObjectCatalog? worldObjectCatalog = null,
-        StructureCatalog? structureCatalog = null)
+        StructureCatalog? structureCatalog = null,
+        IRandomSource? randomSource = null)
     {
         return new GameActionPipeline(
             new ItemCatalog(),
             worldObjectCatalog: worldObjectCatalog,
             firearmCatalog: LoadFirearmCatalog(),
-            structureCatalog: structureCatalog
+            structureCatalog: structureCatalog,
+            randomSource: randomSource
         );
     }
 
-    private static GameActionPipeline CreatePipelineWithItemCatalog()
+    private static GameActionPipeline CreatePipelineWithItemCatalog(IRandomSource? randomSource = null)
     {
-        return new GameActionPipeline(LoadItemCatalog(), firearmCatalog: LoadFirearmCatalog());
+        return new GameActionPipeline(
+            LoadItemCatalog(),
+            firearmCatalog: LoadFirearmCatalog(),
+            randomSource: randomSource
+        );
     }
 
     private static PrototypeGameState CreateState(
@@ -1243,9 +1373,49 @@ public sealed class FirearmSystemTests
         throw new DirectoryNotFoundException("Could not locate data/firearms from the test output directory.");
     }
 
+    private static string CreateTemporaryDirectory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"survivalgame-firearms-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
     private static void AssertWeaponRange(WeaponDefinition weapon, int effective, int maximum)
     {
         Assert.Equal(effective, weapon.EffectiveRangeTiles);
         Assert.Equal(maximum, weapon.MaximumRangeTiles);
+    }
+
+    private static void AssertWeaponAccuracy(WeaponDefinition weapon, int effective, int maximum)
+    {
+        Assert.Equal(effective, weapon.EffectiveRangeAccuracyPercent);
+        Assert.Equal(maximum, weapon.MaximumRangeAccuracyPercent);
+    }
+
+    private sealed class FixedRandomSource : IRandomSource
+    {
+        public static FixedRandomSource Hit => new(0.0);
+
+        public static FixedRandomSource Miss => new(0.99);
+
+        private readonly double _value;
+
+        private FixedRandomSource(double value)
+        {
+            _value = value;
+        }
+
+        public double NextUnitDouble()
+        {
+            return _value;
+        }
+    }
+
+    private sealed class ThrowingRandomSource : IRandomSource
+    {
+        public double NextUnitDouble()
+        {
+            throw new InvalidOperationException("Accuracy should not be rolled for failed validation.");
+        }
     }
 }

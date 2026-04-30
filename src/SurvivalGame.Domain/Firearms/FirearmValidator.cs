@@ -590,6 +590,8 @@ internal sealed class FirearmValidator
                 target,
                 ammunition,
                 requiredRounds,
+                distance,
+                equippedFirearm.Stats,
                 damage
             )
         );

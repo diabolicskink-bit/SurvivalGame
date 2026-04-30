@@ -11,6 +11,7 @@ public partial class InventoryGridView : Control
     private const int ItemFontSize = 12;
     private const float CellGap = 1f;
 
+    private readonly Dictionary<string, Texture2D?> _spriteCache = new();
     private readonly List<GridVisualItem> _items = new();
     private SelectedItemRef? _hoveredItem;
 
@@ -63,6 +64,7 @@ public partial class InventoryGridView : Control
             _items.Add(new GridVisualItem(
                 selectedRef,
                 FormatStack(stack, itemCatalog),
+                GetItemSpriteId(stack.ItemId, itemCatalog),
                 placement.Position,
                 placement.Size,
                 GetItemColor(stack.ItemId, itemCatalog),
@@ -97,6 +99,7 @@ public partial class InventoryGridView : Control
             _items.Add(new GridVisualItem(
                 selectedRef,
                 FormatStatefulItem(item, itemCatalog),
+                GetItemSpriteId(item.ItemId, itemCatalog),
                 placement.Position,
                 placement.Size,
                 GetItemColor(item.ItemId, itemCatalog),
@@ -158,15 +161,26 @@ public partial class InventoryGridView : Control
     private void DrawItem(GridVisualItem item, GridMetrics metrics)
     {
         var rect = GetItemRect(item, metrics).Grow(-2f);
-        var fill = item.Selected
-            ? item.Color.Lightened(0.18f)
-            : item.Color;
+        var hasSprite = TryGetItemSprite(item.SpriteId, out var sprite);
+        var fill = hasSprite
+            ? new Color(0.075f, 0.087f, 0.082f, 0.96f)
+            : item.Selected
+                ? item.Color.Lightened(0.18f)
+                : item.Color;
         var border = item.Selected
             ? new Color(0.92f, 0.95f, 0.82f)
-            : new Color(0.22f, 0.30f, 0.27f);
+            : hasSprite
+                ? item.Color.Lightened(0.16f)
+                : new Color(0.22f, 0.30f, 0.27f);
 
         DrawRect(rect, fill, filled: true);
         DrawRect(rect, border, filled: false, width: item.Selected ? 2f : 1f);
+
+        if (hasSprite)
+        {
+            DrawItemSprite(sprite, rect);
+            return;
+        }
 
         var textPosition = rect.Position + new Vector2(5, Math.Min(16, rect.Size.Y - 5));
         DrawString(
@@ -178,6 +192,60 @@ public partial class InventoryGridView : Control
             fontSize: ItemFontSize,
             modulate: new Color(0.92f, 0.96f, 0.9f)
         );
+    }
+
+    private bool TryGetItemSprite(string? spriteId, out Texture2D sprite)
+    {
+        sprite = null!;
+        if (string.IsNullOrWhiteSpace(spriteId))
+        {
+            return false;
+        }
+
+        if (!_spriteCache.TryGetValue(spriteId, out var cachedSprite))
+        {
+            var spritePath = $"res://data/sprites/items/{spriteId}.png";
+            cachedSprite = LoadSpriteTexture(spritePath);
+            _spriteCache[spriteId] = cachedSprite;
+        }
+
+        if (cachedSprite is null)
+        {
+            return false;
+        }
+
+        sprite = cachedSprite;
+        return true;
+    }
+
+    private static Texture2D? LoadSpriteTexture(string spritePath)
+    {
+        if (ResourceLoader.Exists(spritePath))
+        {
+            return GD.Load<Texture2D>(spritePath);
+        }
+
+        var image = Image.LoadFromFile(ProjectSettings.GlobalizePath(spritePath));
+        return image is null || image.IsEmpty()
+            ? null
+            : ImageTexture.CreateFromImage(image);
+    }
+
+    private void DrawItemSprite(Texture2D sprite, Rect2 itemRect)
+    {
+        var spriteArea = itemRect.Grow(-4f);
+        if (spriteArea.Size.X <= 0 || spriteArea.Size.Y <= 0)
+        {
+            return;
+        }
+
+        var size = GetAspectFitSize(sprite.GetSize(), spriteArea.Size);
+        var rect = new Rect2(
+            spriteArea.Position + ((spriteArea.Size - size) / 2f),
+            size
+        );
+
+        DrawTextureRect(sprite, rect, false);
     }
 
     private Rect2 GetItemRect(GridVisualItem item, GridMetrics metrics)
@@ -279,6 +347,19 @@ public partial class InventoryGridView : Control
             : InventoryItemSize.Default;
     }
 
+    private static string? GetItemSpriteId(ItemId itemId, ItemCatalog itemCatalog)
+    {
+        return itemCatalog.TryGet(itemId, out var definition)
+            ? definition.SpriteId
+            : null;
+    }
+
+    private static Vector2 GetAspectFitSize(Vector2 textureSize, Vector2 maxSize)
+    {
+        var scale = Mathf.Min(maxSize.X / textureSize.X, maxSize.Y / textureSize.Y);
+        return textureSize * scale;
+    }
+
     private static Color GetItemColor(ItemId itemId, ItemCatalog itemCatalog)
     {
         if (!itemCatalog.TryGet(itemId, out var item))
@@ -304,6 +385,7 @@ public partial class InventoryGridView : Control
     private sealed record GridVisualItem(
         SelectedItemRef Ref,
         string Label,
+        string? SpriteId,
         InventoryGridPosition Position,
         InventoryItemSize Size,
         Color Color,

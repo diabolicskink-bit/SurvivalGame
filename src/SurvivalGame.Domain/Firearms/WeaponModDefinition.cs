@@ -7,6 +7,7 @@ public sealed record WeaponModDefinition
         string name,
         WeaponModSlotId slot,
         IEnumerable<string> compatibleWeaponFamilies,
+        int accuracyBonus,
         int effectiveRangeBonus = 0,
         int maximumRangeBonus = 0,
         int damageBonus = 0
@@ -45,6 +46,7 @@ public sealed record WeaponModDefinition
         EffectiveRangeBonus = effectiveRangeBonus;
         MaximumRangeBonus = maximumRangeBonus;
         DamageBonus = damageBonus;
+        AccuracyBonus = accuracyBonus;
     }
 
     public ItemId ItemId { get; }
@@ -61,6 +63,8 @@ public sealed record WeaponModDefinition
 
     public int DamageBonus { get; }
 
+    public int AccuracyBonus { get; }
+
     public bool IsCompatibleWith(WeaponDefinition weapon)
     {
         ArgumentNullException.ThrowIfNull(weapon);
@@ -70,5 +74,6 @@ public sealed record WeaponModDefinition
     public bool HasAnyEffect =>
         EffectiveRangeBonus != 0
         || MaximumRangeBonus != 0
-        || DamageBonus != 0;
+        || DamageBonus != 0
+        || AccuracyBonus != 0;
 }

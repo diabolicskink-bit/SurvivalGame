@@ -2,6 +2,26 @@
 
 Curated milestone history for current game state and architecture. Cleanup-only notes, one-off fixes, and detailed implementation churn are intentionally omitted unless they changed playable behavior, content, or important domain ownership.
 
+## 2026-04-30 - Weapon Inventory Art
+
+- Added generated transparent item sprite art for the 5.56 burst carbine and wired `carbine_556` to `item_carbine_556`.
+- Replaced the hunting rifle and 9mm pistol item sprites with newly generated transparent inventory art.
+- Replaced the AK-47 item sprite with a tight transparent cutout and added generated transparent item sprite art for the missing .22 rifle.
+- Inventory grid items now render available item sprite art inside their occupied cells instead of only showing category-colored text boxes.
+
+## 2026-04-30 - Local Map Mouse Wheel Zoom
+
+- Local gameplay board mouse wheel zoom now switches between 18x12, 21x14, 27x18, 33x22, and 39x26 visible-tile viewports, with 27x18 remaining the default tactical view.
+- Zoom is player-centered, visual/camera-only, and does not change local map state, movement, targeting, firearm range, accuracy, or line-of-fire rules.
+- Local map rendering, hover/click conversion, layout sizing, and ground item sprite scale now follow the current zoom level.
+
+## 2026-04-29 - Firearm Accuracy V1
+
+- Added explicit per-weapon effective/max accuracy values and required per-mod accuracy bonuses to firearm JSON content.
+- Rescaled current firearm ranges around the default 27x18 local viewport so pistols/shotguns are short-range, carbines/rifles cover most of the board, and scoped long guns can exceed a single default viewport.
+- Targeted player firearm shots now consume ammunition/time after validation, roll hit or miss from modified range/accuracy stats, and apply damage only on hit.
+- Weapon detail and inspect text now show base/modified accuracy and weapon mod accuracy effects.
+
 ## 2026-04-29 - Wider World Map Roads And Bend Joins
 
 - World map roads now render at three times their previous lane-aware visual width.
@@ -74,7 +94,7 @@ Curated milestone history for current game state and architecture. Cleanup-only 
 
 ## 2026-04-26 - Local Map Rendering And Visual Readability
 
-- Local gameplay renders through a fixed 27x18 tile viewport over full local map state; larger maps clamp near edges and smaller maps are centered with padding.
+- Local gameplay renders through a clipped tile viewport over full local map state; larger maps clamp near edges and smaller maps are centered with padding.
 - Map rendering and hover details include surfaces, ground item markers, stateful ground items, edge-based structures, world objects, NPCs, and the player marker.
 - A single Y-sorted entity layer draws world objects, NPCs, and the player; visual sprite overflow does not change collision, hover, targeting, or placement ownership.
 - Surface sprites exist for early prototype terrain such as grass, carpet, concrete, ceramic tile, and ice, with fallback map colors for newer surfaces.

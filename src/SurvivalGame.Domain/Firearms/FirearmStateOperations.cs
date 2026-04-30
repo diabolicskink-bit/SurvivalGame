@@ -86,7 +86,7 @@ internal sealed class FirearmStateOperations
         return new ToggleFireModeResult(plan.Weapon.Definition.Name, currentMode);
     }
 
-    public ShootNpcResult Shoot(ShootNpcPlan plan)
+    public ShootNpcResult Shoot(ShootNpcPlan plan, bool hit)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
@@ -96,8 +96,10 @@ internal sealed class FirearmStateOperations
             throw new InvalidOperationException($"{plan.WeaponName} lost its loaded ammunition before shooting.");
         }
 
-        var dealtDamage = plan.Target.TakeDamage(plan.Damage);
-        return new ShootNpcResult(dealtDamage, consumed.Quantity, plan.Target.IsDisabled);
+        var dealtDamage = hit
+            ? plan.Target.TakeDamage(plan.DamageOnHit)
+            : 0;
+        return new ShootNpcResult(dealtDamage, consumed.Quantity, plan.Target.IsDisabled, hit);
     }
 
     public void InstallWeaponMod(InstallWeaponModPlan plan, StatefulItemStore items)

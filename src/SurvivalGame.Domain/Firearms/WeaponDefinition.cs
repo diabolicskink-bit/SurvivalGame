@@ -11,9 +11,11 @@ public sealed record WeaponDefinition
         string weaponFamily,
         IEnumerable<AmmoSizeId> acceptedAmmoSizes,
         FeedDeviceKind feedKind,
-        int builtInCapacity = 0,
-        int effectiveRangeTiles = 1,
-        int maximumRangeTiles = 1,
+        int builtInCapacity,
+        int effectiveRangeTiles,
+        int maximumRangeTiles,
+        int effectiveRangeAccuracyPercent,
+        int maximumRangeAccuracyPercent,
         IEnumerable<ItemId>? compatibleFeedDeviceIds = null,
         IEnumerable<WeaponFireMode>? supportedFireModes = null,
         int burstRoundCount = DefaultBurstRoundCount,
@@ -61,6 +63,13 @@ public sealed record WeaponDefinition
             throw new ArgumentOutOfRangeException(nameof(maximumRangeTiles), "Maximum range must be at least the effective range.");
         }
 
+        ValidateAccuracyPercent(effectiveRangeAccuracyPercent, nameof(effectiveRangeAccuracyPercent));
+        ValidateAccuracyPercent(maximumRangeAccuracyPercent, nameof(maximumRangeAccuracyPercent));
+        if (maximumRangeAccuracyPercent > effectiveRangeAccuracyPercent)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumRangeAccuracyPercent), "Maximum-range accuracy cannot be greater than effective-range accuracy.");
+        }
+
         var fireModes = (supportedFireModes ?? new[] { WeaponFireMode.SingleShot })
             .Distinct()
             .ToArray();
@@ -97,6 +106,8 @@ public sealed record WeaponDefinition
         SupportedFireModes = fireModes;
         BurstRoundCount = burstRoundCount;
         BurstDamageMultiplier = burstDamageMultiplier;
+        EffectiveRangeAccuracyPercent = effectiveRangeAccuracyPercent;
+        MaximumRangeAccuracyPercent = maximumRangeAccuracyPercent;
     }
 
     public ItemId ItemId { get; }
@@ -122,6 +133,10 @@ public sealed record WeaponDefinition
     public int BurstRoundCount { get; }
 
     public int BurstDamageMultiplier { get; }
+
+    public int EffectiveRangeAccuracyPercent { get; }
+
+    public int MaximumRangeAccuracyPercent { get; }
 
     public bool UsesDetachableFeedDevice => FeedKind is FeedDeviceKind.DetachableMagazine or FeedDeviceKind.Belt;
 
@@ -206,5 +221,13 @@ public sealed record WeaponDefinition
             FeedDeviceKind.Belt => "belt",
             _ => "feed"
         };
+    }
+
+    private static void ValidateAccuracyPercent(int value, string parameterName)
+    {
+        if (value is < 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, "Accuracy percent must be between 0 and 100.");
+        }
     }
 }

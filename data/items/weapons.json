@@ -87,6 +87,7 @@
     "inventorySize": { "width": 5, "height": 2 },
     "weight": 3.1,
     "iconId": "carbine_556",
+    "spriteId": "item_carbine_556",
     "actions": ["equip"]
   }
 ]

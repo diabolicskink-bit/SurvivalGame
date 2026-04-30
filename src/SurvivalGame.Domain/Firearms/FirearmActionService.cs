@@ -12,12 +12,14 @@ public sealed class FirearmActionService
     private readonly FirearmValidator _validator;
     private readonly FirearmStateOperations _operations;
     private readonly FirearmActionProvider _actions;
+    private readonly IRandomSource _randomSource;
 
     public FirearmActionService(
         FirearmCatalog catalog,
         ItemCatalog? itemCatalog = null,
         WorldObjectCatalog? worldObjectCatalog = null,
-        StructureCatalog? structureCatalog = null)
+        StructureCatalog? structureCatalog = null,
+        IRandomSource? randomSource = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
@@ -26,6 +28,7 @@ public sealed class FirearmActionService
         _validator = new FirearmValidator(catalog, _items, refs, new LineOfFireResolver(worldObjectCatalog, structureCatalog));
         _operations = new FirearmStateOperations(_items);
         _actions = new FirearmActionProvider(catalog, _items);
+        _randomSource = randomSource ?? new SystemRandomSource();
     }
 
     public IReadOnlyList<AvailableAction> GetAvailableActions(PrototypeGameState state)
@@ -222,17 +225,19 @@ public sealed class FirearmActionService
         }
 
         var plan = RequirePlan(validation);
-        var result = _operations.Shoot(plan);
+        var hitChancePercent = plan.Stats.GetHitChancePercent(plan.DistanceTiles);
+        var hit = RollHit(hitChancePercent);
+        var result = _operations.Shoot(plan, hit);
         var status = result.TargetDisabled
             ? $"{plan.Target.Name} is disabled."
             : $"{plan.Target.Name} health: {plan.Target.Health.Current}/{plan.Target.Health.Maximum}.";
-        var shotText = plan.FireMode == WeaponFireMode.Burst
-            ? $"{result.ConsumedRounds}-round burst"
-            : "single shot";
+        var outcome = result.Hit
+            ? $"Hit {plan.Target.Name} with {plan.WeaponName} using {plan.Ammunition.Name} for {result.DealtDamage} damage ({hitChancePercent}% hit chance)."
+            : $"Missed {plan.Target.Name} with {plan.WeaponName} using {plan.Ammunition.Name} ({hitChancePercent}% hit chance).";
 
         return GameActionResult.Success(
             GetShootTickCost(plan.FireMode),
-            $"Fired {shotText} at {plan.Target.Name} with {plan.WeaponName} using {plan.Ammunition.Name} for {result.DealtDamage} damage.",
+            outcome,
             status
         );
     }
@@ -401,5 +406,10 @@ public sealed class FirearmActionService
         return mode == WeaponFireMode.Burst
             ? GameActionPipeline.BurstShootTickCost
             : GameActionPipeline.ShootTickCost;
+    }
+
+    private bool RollHit(int hitChancePercent)
+    {
+        return _randomSource.NextUnitDouble() < hitChancePercent / 100.0;
     }
 }

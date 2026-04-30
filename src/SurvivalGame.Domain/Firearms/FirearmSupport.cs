@@ -156,7 +156,9 @@ internal sealed record ShootNpcPlan(
     NpcState Target,
     AmmunitionDefinition Ammunition,
     int RoundCount,
-    int Damage);
+    int DistanceTiles,
+    ModifiedWeaponStats Stats,
+    int DamageOnHit);
 
 internal sealed record InstallWeaponModPlan(
     StatefulItem WeaponItem,
@@ -183,4 +185,4 @@ internal sealed record TestFireResult(ItemId AmmunitionItemId);
 
 internal sealed record ToggleFireModeResult(string WeaponName, WeaponFireMode CurrentFireMode);
 
-internal sealed record ShootNpcResult(int DealtDamage, int ConsumedRounds, bool TargetDisabled);
+internal sealed record ShootNpcResult(int DealtDamage, int ConsumedRounds, bool TargetDisabled, bool Hit);

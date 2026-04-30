@@ -11,7 +11,8 @@
       "pump_shotgun_12_gauge",
       "rifle_22lr"
     ],
-    "effectiveRangeBonus": 3
+    "effectiveRangeBonus": 3,
+    "accuracyBonus": 10
   },
   {
     "itemId": "hunting_scope",
@@ -24,7 +25,8 @@
       "rifle_22lr"
     ],
     "effectiveRangeBonus": 8,
-    "maximumRangeBonus": 16
+    "maximumRangeBonus": 16,
+    "accuracyBonus": 8
   },
   {
     "itemId": "match_barrel",
@@ -39,6 +41,7 @@
     ],
     "effectiveRangeBonus": 2,
     "maximumRangeBonus": 4,
-    "damageBonus": 5
+    "damageBonus": 5,
+    "accuracyBonus": 5
   }
 ]

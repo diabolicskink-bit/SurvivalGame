@@ -175,6 +175,10 @@ public sealed class FirearmDefinitionLoader
 
         public int? BurstDamageMultiplier { get; set; }
 
+        public int? EffectiveRangeAccuracyPercent { get; set; }
+
+        public int? MaximumRangeAccuracyPercent { get; set; }
+
         public WeaponDefinition ToDefinition(string sourcePath)
         {
             if (AcceptedAmmoSizes is null || AcceptedAmmoSizes.Length == 0)
@@ -191,6 +195,8 @@ public sealed class FirearmDefinitionLoader
                 BuiltInCapacity,
                 EffectiveRangeTiles,
                 MaximumRangeTiles,
+                RequiredInt(EffectiveRangeAccuracyPercent, sourcePath, ItemId, "effective range accuracy percent"),
+                RequiredInt(MaximumRangeAccuracyPercent, sourcePath, ItemId, "maximum range accuracy percent"),
                 CompatibleFeedDeviceIds?.Select(id => new ItemId(id)),
                 SupportedFireModes,
                 BurstRoundCount ?? WeaponDefinition.DefaultBurstRoundCount,
@@ -215,6 +221,8 @@ public sealed class FirearmDefinitionLoader
 
         public int DamageBonus { get; set; }
 
+        public int? AccuracyBonus { get; set; }
+
         public WeaponModDefinition ToDefinition(string sourcePath)
         {
             if (CompatibleWeaponFamilies is null || CompatibleWeaponFamilies.Length == 0)
@@ -227,6 +235,7 @@ public sealed class FirearmDefinitionLoader
                 RequiredString(Name, sourcePath, ItemId, "name"),
                 new WeaponModSlotId(RequiredString(Slot, sourcePath, ItemId, "slot")),
                 CompatibleWeaponFamilies,
+                RequiredInt(AccuracyBonus, sourcePath, ItemId, "accuracy bonus"),
                 EffectiveRangeBonus,
                 MaximumRangeBonus,
                 DamageBonus
@@ -244,6 +253,17 @@ public sealed class FirearmDefinitionLoader
         if (!string.IsNullOrWhiteSpace(value))
         {
             return value;
+        }
+
+        var itemText = string.IsNullOrWhiteSpace(itemId) ? "definition" : $"item '{itemId}'";
+        throw new InvalidDataException($"{itemText} in '{sourcePath}' is missing {propertyName}.");
+    }
+
+    private static int RequiredInt(int? value, string sourcePath, string? itemId, string propertyName)
+    {
+        if (value is not null)
+        {
+            return value.Value;
         }
 
         var itemText = string.IsNullOrWhiteSpace(itemId) ? "definition" : $"item '{itemId}'";

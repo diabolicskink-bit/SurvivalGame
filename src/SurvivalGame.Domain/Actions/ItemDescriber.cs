@@ -122,7 +122,9 @@ public sealed class ItemDescriber
                 var stats = statefulItems is null
                     ? ModifiedWeaponStats.From(weaponDefinition, Array.Empty<WeaponModDefinition>())
                     : WeaponModState.GetModifiedStats(weaponDefinition, item.Weapon, statefulItems, _firearmCatalog);
-                details += $" Modified range: {stats.EffectiveRangeTiles} effective / {stats.MaximumRangeTiles} max tiles. Damage bonus: {FormatSigned(stats.DamageBonus)}.";
+                details += $" Modified range: {stats.EffectiveRangeTiles} effective / {stats.MaximumRangeTiles} max tiles.";
+                details += $" Modified accuracy: {stats.EffectiveRangeAccuracyPercent}% effective / {stats.MaximumRangeAccuracyPercent}% max.";
+                details += $" Damage bonus: {FormatSigned(stats.DamageBonus)}.";
                 details += $" Fire mode: {WeaponFireModeNames.Format(item.Weapon.CurrentFireMode)}. Supported modes: {FormatFireModes(weaponDefinition)}.";
                 details += $" Mods: {FormatInstalledMods(item.Weapon, statefulItems)}.";
             }
@@ -164,6 +166,7 @@ public sealed class ItemDescriber
         AddSignedEffect(effects, "effective range", mod.EffectiveRangeBonus);
         AddSignedEffect(effects, "max range", mod.MaximumRangeBonus);
         AddSignedEffect(effects, "damage", mod.DamageBonus);
+        AddSignedEffect(effects, "accuracy", mod.AccuracyBonus);
         return effects.Count == 0 ? "none" : string.Join(", ", effects);
     }
 

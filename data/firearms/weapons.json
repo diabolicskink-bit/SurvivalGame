@@ -5,8 +5,10 @@
     "weaponFamily": "9mm_pistol",
     "acceptedAmmoSizes": ["9mm"],
     "feedKind": "DetachableMagazine",
-    "effectiveRangeTiles": 8,
-    "maximumRangeTiles": 20,
+    "effectiveRangeTiles": 4,
+    "maximumRangeTiles": 10,
+    "effectiveRangeAccuracyPercent": 72,
+    "maximumRangeAccuracyPercent": 12,
     "compatibleFeedDeviceIds": ["magazine_9mm_standard", "magazine_9mm_extended"]
   },
   {
@@ -15,8 +17,10 @@
     "weaponFamily": "ak_rifle",
     "acceptedAmmoSizes": ["7.62x39mm"],
     "feedKind": "DetachableMagazine",
-    "effectiveRangeTiles": 24,
-    "maximumRangeTiles": 60,
+    "effectiveRangeTiles": 9,
+    "maximumRangeTiles": 20,
+    "effectiveRangeAccuracyPercent": 76,
+    "maximumRangeAccuracyPercent": 18,
     "compatibleFeedDeviceIds": ["magazine_ak_30_round", "magazine_ak_damaged_20_round"]
   },
   {
@@ -25,8 +29,10 @@
     "weaponFamily": "hunting_rifle_308",
     "acceptedAmmoSizes": [".308"],
     "feedKind": "InternalMagazine",
-    "effectiveRangeTiles": 32,
-    "maximumRangeTiles": 80,
+    "effectiveRangeTiles": 12,
+    "maximumRangeTiles": 26,
+    "effectiveRangeAccuracyPercent": 87,
+    "maximumRangeAccuracyPercent": 35,
     "builtInCapacity": 4
   },
   {
@@ -35,8 +41,10 @@
     "weaponFamily": "pump_shotgun_12_gauge",
     "acceptedAmmoSizes": ["12 gauge"],
     "feedKind": "TubeMagazine",
-    "effectiveRangeTiles": 6,
-    "maximumRangeTiles": 18,
+    "effectiveRangeTiles": 3,
+    "maximumRangeTiles": 8,
+    "effectiveRangeAccuracyPercent": 86,
+    "maximumRangeAccuracyPercent": 10,
     "builtInCapacity": 5
   },
   {
@@ -45,8 +53,10 @@
     "weaponFamily": "rifle_22lr",
     "acceptedAmmoSizes": [".22 LR"],
     "feedKind": "InternalMagazine",
-    "effectiveRangeTiles": 18,
-    "maximumRangeTiles": 45,
+    "effectiveRangeTiles": 8,
+    "maximumRangeTiles": 18,
+    "effectiveRangeAccuracyPercent": 82,
+    "maximumRangeAccuracyPercent": 24,
     "builtInCapacity": 10
   },
   {
@@ -55,8 +65,10 @@
     "weaponFamily": "carbine_556",
     "acceptedAmmoSizes": ["5.56x45mm"],
     "feedKind": "DetachableMagazine",
-    "effectiveRangeTiles": 22,
-    "maximumRangeTiles": 55,
+    "effectiveRangeTiles": 10,
+    "maximumRangeTiles": 22,
+    "effectiveRangeAccuracyPercent": 80,
+    "maximumRangeAccuracyPercent": 22,
     "compatibleFeedDeviceIds": ["magazine_556_30_round"],
     "supportedFireModes": ["SingleShot", "Burst"],
     "burstRoundCount": 3,
