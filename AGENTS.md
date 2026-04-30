@@ -210,6 +210,16 @@ When tests fail, first decide whether the failure reveals a real regression agai
 
 Preserve player-facing behavior and important domain invariants unless the user explicitly asks for a behavior change.
 
+## Architectural Debt Tracker
+
+Use `docs/ARCHITECTURAL_DEBT.md` as the living index for architecture debt and improvement opportunities. Refer to tracked items by stable IDs such as `ARCH-1`.
+
+Check the tracker when doing sweeps, refactors, architecture work, or code changes that touch known boundaries between Godot presentation, application/session coordination, and domain simulation.
+
+When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. When work changes a tracked issue, update its status, priority, next action, or notes. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
+
+Keep the tracker compact and ordered by priority first, then ID. Use it as memory and triage, not as permission to expand current gameplay scope.
+
 ## Maintenance Sweeps
 
 When the user says `Do a sweep`, treat it as permission to perform one focused codebase improvement without changing the game from a player-facing perspective.
@@ -274,6 +284,7 @@ Update relevant docs when making meaningful changes:
 - `docs/BACKGROUND.md` when setting, tone, or creative north-star guidance changes.
 - `docs/DESIGN_GOALS.md` when long-term gameplay or system direction changes.
 - `docs/ARCHITECTURE.md` when project structure or major architecture changes.
+- `docs/ARCHITECTURAL_DEBT.md` when architecture debt is found, changed, actively addressed, resolved, or superseded.
 - `docs/CURRENT_SCOPE.md` when project scope changes.
 - `docs/TASK_LOG.md` after each implemented task.
 

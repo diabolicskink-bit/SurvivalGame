@@ -2,6 +2,25 @@
 
 Curated milestone history for current game state and architecture. Cleanup-only notes, one-off fixes, and detailed implementation churn are intentionally omitted unless they changed playable behavior, content, or important domain ownership.
 
+## 2026-04-30 - Refactor Roadmap Migration
+
+- Migrated the actionable issues from the legacy architecture refactor roadmap into `docs/ARCHITECTURAL_DEBT.md` as `ARCH-1` through `ARCH-9`.
+- Removed the stale roadmap and one-off plan documents so the architectural debt tracker is the single living system for this work.
+- Preserved the old roadmap's guardrails in the tracker without changing current playable scope or implementing refactors.
+
+## 2026-04-30 - Architectural Debt Tracker
+
+- Added `docs/ARCHITECTURAL_DEBT.md` as a living architecture debt index with stable `ARCH-*` IDs, priority/status fields, and initial application, world-travel, and runtime-state entries.
+- Expanded each initial `ARCH-*` item with priority rationales, resolution paths, and concrete completion signals.
+- Updated `AGENTS.md` so future AI sessions check and maintain the tracker during sweeps, refactors, and architecture-related work.
+- The tracker is process guidance only and does not implement or authorize new gameplay scope.
+
+## 2026-04-30 - Architecture Refactor Roadmap
+
+- Added `docs/ARCHITECTURE_REFACTOR_PLAN.md` as a durable roadmap for future application-layer, command-pipeline, UI layout, item-model, renderer, and content-validation refactors.
+- Expanded the roadmap with a file/folder tree review covering project ownership, Godot presentation layout, domain folder boundaries, prototype naming, tests, and runtime data placement.
+- The roadmap was later migrated into `docs/ARCHITECTURAL_DEBT.md` and removed; it did not change current playable scope or implement new gameplay systems.
+
 ## 2026-04-30 - Weapon Inventory Art
 
 - Added generated transparent item sprite art for the 5.56 burst carbine and wired `carbine_556` to `item_carbine_556`.
