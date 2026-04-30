@@ -8,7 +8,6 @@ public sealed class GameContentPaths
         string firearms,
         string surfaces,
         string worldObjects,
-        string structures,
         string npcs,
         string localMaps)
     {
@@ -17,7 +16,6 @@ public sealed class GameContentPaths
         Firearms = firearms;
         Surfaces = surfaces;
         WorldObjects = worldObjects;
-        Structures = structures;
         Npcs = npcs;
         LocalMaps = localMaps;
     }
@@ -31,8 +29,6 @@ public sealed class GameContentPaths
     public string Surfaces { get; }
 
     public string WorldObjects { get; }
-
-    public string Structures { get; }
 
     public string Npcs { get; }
 
@@ -51,7 +47,6 @@ public sealed class GameContentPaths
             Path.Combine(dataRoot, "firearms"),
             Path.Combine(dataRoot, "surfaces"),
             Path.Combine(dataRoot, "world_objects"),
-            Path.Combine(dataRoot, "structures"),
             Path.Combine(dataRoot, "npcs"),
             Path.Combine(dataRoot, "local_maps")
         );

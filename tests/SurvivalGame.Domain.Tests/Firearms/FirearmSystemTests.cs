@@ -796,67 +796,6 @@ public sealed class FirearmSystemTests
     }
 
     [Fact]
-    public void ShootingNpcFailsWithoutMutationWhenStructureBlocksLineOfFire()
-    {
-        var firearms = LoadFirearmCatalog();
-        var structures = new StructureEdgeMap(new GridBounds(7, 3));
-        var wallId = new StructureId("test_wall");
-        structures.Place(new GridPosition(2, 1), StructureEdgeDirection.East, wallId);
-        var structureCatalog = CreateStructureCatalog(new StructureDefinition(
-            wallId,
-            "Test wall",
-            "",
-            "Structure",
-            "test",
-            "wall",
-            blocksSight: true
-        ));
-        var pipeline = CreatePipeline(structureCatalog: structureCatalog, randomSource: FixedRandomSource.Hit);
-        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
-        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
-        var magazine = CreateEquippedLoadedPistol(state, firearms);
-
-        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
-
-        Assert.False(result.Succeeded);
-        Assert.Equal(0, result.ElapsedTicks);
-        Assert.Equal(0, state.Time.ElapsedTicks);
-        Assert.Equal(5, magazine.FeedDevice!.LoadedCount);
-        Assert.Equal(200, target.Health.Current);
-        Assert.Contains("Line of fire blocked by Test wall.", result.Messages);
-    }
-
-    [Fact]
-    public void ShootingNpcAllowsNonSightBlockingStructureInLineOfFire()
-    {
-        var firearms = LoadFirearmCatalog();
-        var structures = new StructureEdgeMap(new GridBounds(7, 3));
-        var windowId = new StructureId("test_window");
-        structures.Place(new GridPosition(2, 1), StructureEdgeDirection.East, windowId);
-        var structureCatalog = CreateStructureCatalog(new StructureDefinition(
-            windowId,
-            "Test window",
-            "",
-            "Window",
-            "test",
-            "window",
-            blocksMovement: true,
-            blocksSight: false
-        ));
-        var pipeline = CreatePipeline(structureCatalog: structureCatalog, randomSource: FixedRandomSource.Hit);
-        var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
-        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), structures: structures);
-        var magazine = CreateEquippedLoadedPistol(state, firearms);
-
-        var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
-
-        Assert.True(result.Succeeded);
-        Assert.Equal(GameActionPipeline.ShootTickCost, result.ElapsedTicks);
-        Assert.Equal(4, magazine.FeedDevice!.LoadedCount);
-        Assert.Equal(175, target.Health.Current);
-    }
-
-    [Fact]
     public void ShootingNpcFailsWithoutMutationWhenWorldObjectBlocksLineOfFire()
     {
         var firearms = LoadFirearmCatalog();
@@ -872,7 +811,7 @@ public sealed class FirearmSystemTests
         ));
         var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
-        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
 
         var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
@@ -902,7 +841,7 @@ public sealed class FirearmSystemTests
         ));
         var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog, randomSource: FixedRandomSource.Hit);
         var npcs = CreateTargetRoster(new GridPosition(5, 1), out var target);
-        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var state = CreateState(new GridBounds(7, 3), npcs, new GridPosition(1, 1), worldObjects);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
 
         var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
@@ -936,7 +875,7 @@ public sealed class FirearmSystemTests
         ));
         var pipeline = CreatePipeline(worldObjectCatalog: worldObjectCatalog);
         var npcs = CreateTargetRoster(new GridPosition(6, 1), out var target);
-        var state = CreateState(new GridBounds(8, 3), npcs, new GridPosition(1, 1), worldObjects, structures: null);
+        var state = CreateState(new GridBounds(8, 3), npcs, new GridPosition(1, 1), worldObjects);
         var magazine = CreateEquippedLoadedPistol(state, firearms);
 
         var result = pipeline.Execute(new ShootNpcActionRequest(PrototypeNpcs.TestDummy), state);
@@ -1234,14 +1173,12 @@ public sealed class FirearmSystemTests
 
     private static GameActionPipeline CreatePipeline(
         WorldObjectCatalog? worldObjectCatalog = null,
-        StructureCatalog? structureCatalog = null,
         IRandomSource? randomSource = null)
     {
         return new GameActionPipeline(
             new ItemCatalog(),
             worldObjectCatalog: worldObjectCatalog,
             firearmCatalog: LoadFirearmCatalog(),
-            structureCatalog: structureCatalog,
             randomSource: randomSource
         );
     }
@@ -1259,8 +1196,7 @@ public sealed class FirearmSystemTests
         GridBounds? bounds = null,
         NpcRoster? npcs = null,
         GridPosition? startPosition = null,
-        TileObjectMap? worldObjects = null,
-        StructureEdgeMap? structures = null
+        TileObjectMap? worldObjects = null
     )
     {
         var mapBounds = bounds ?? new GridBounds(5, 5);
@@ -1270,8 +1206,7 @@ public sealed class FirearmSystemTests
                 new LocalMap(mapBounds, surfaces),
                 new TileItemMap(),
                 worldObjects ?? new TileObjectMap(),
-                npcs,
-                structures: structures
+                npcs
             ),
             startPosition ?? new GridPosition(2, 2)
         );
@@ -1310,17 +1245,6 @@ public sealed class FirearmSystemTests
     private static WorldObjectCatalog CreateWorldObjectCatalog(params WorldObjectDefinition[] definitions)
     {
         var catalog = new WorldObjectCatalog();
-        foreach (var definition in definitions)
-        {
-            catalog.Add(definition);
-        }
-
-        return catalog;
-    }
-
-    private static StructureCatalog CreateStructureCatalog(params StructureDefinition[] definitions)
-    {
-        var catalog = new StructureCatalog();
         foreach (var definition in definitions)
         {
             catalog.Add(definition);

@@ -2,9 +2,8 @@ namespace SurvivalGame.Domain;
 
 public static class TravelAnchorService
 {
-    private static readonly GridOffset[] NearbyOffsets =
+    private static readonly GridOffset[] CardinalOffsets =
     [
-        GridOffset.Zero,
         GridOffset.Up,
         GridOffset.Down,
         GridOffset.Left,
@@ -55,7 +54,8 @@ public static class TravelAnchorService
             return false;
         }
 
-        return IsPositionNearPlacement(state.Player.Position, anchor);
+        var query = new LocalMapQuery(state.LocalMap);
+        return query.IsNearPlacement(state.Player.Position, anchor);
     }
 
     public static bool TryFindEntryPosition(
@@ -73,8 +73,9 @@ public static class TravelAnchorService
             return false;
         }
 
-        if (IsWalkable(state, state.Player.Position, worldObjects)
-            && IsPositionNearPlacement(state.Player.Position, anchor))
+        var query = new LocalMapQuery(state.LocalMap, worldObjects);
+        if (!query.TryGetStandBlocker(state.Player.Position, out _)
+            && query.IsNearPlacement(state.Player.Position, anchor))
         {
             position = state.Player.Position;
             return true;
@@ -82,11 +83,10 @@ public static class TravelAnchorService
 
         var occupied = anchor.OccupiedPositions().ToArray();
         var candidates = occupied
-            .SelectMany(occupiedPosition => NearbyOffsets
-                .Where(offset => offset != GridOffset.Zero)
+            .SelectMany(occupiedPosition => CardinalOffsets
                 .Select(offset => occupiedPosition + offset))
             .Distinct()
-            .Where(candidate => IsWalkable(state, candidate, worldObjects))
+            .Where(candidate => !query.TryGetStandBlocker(candidate, out _))
             .OrderBy(candidate => ManhattanDistance(candidate, state.Player.Position))
             .ThenBy(candidate => candidate.Y)
             .ThenBy(candidate => candidate.X)
@@ -100,38 +100,6 @@ public static class TravelAnchorService
 
         position = candidates[0];
         return true;
-    }
-
-    private static bool IsPositionNearPlacement(GridPosition position, PlacedWorldObject placement)
-    {
-        foreach (var occupiedPosition in placement.OccupiedPositions())
-        {
-            if (ManhattanDistance(position, occupiedPosition) <= 1)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsWalkable(
-        PrototypeGameState state,
-        GridPosition position,
-        WorldObjectCatalog worldObjects)
-    {
-        if (!state.LocalMap.Map.Contains(position))
-        {
-            return false;
-        }
-
-        if (state.WorldObjects.TryGetObjectAt(position, out var objectId)
-            && (!worldObjects.TryGet(objectId, out var definition) || definition.BlocksMovement))
-        {
-            return false;
-        }
-
-        return !state.Npcs.TryGetAt(position, out var npc) || !npc.BlocksMovement;
     }
 
     private static int ManhattanDistance(GridPosition a, GridPosition b)

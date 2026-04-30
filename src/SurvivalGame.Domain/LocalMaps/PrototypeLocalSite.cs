@@ -8,7 +8,6 @@ public sealed record PrototypeLocalSite(
     TileItemMap GroundItems,
     TileSurfaceMap Surfaces,
     TileObjectMap WorldObjects,
-    StructureEdgeMap Structures,
     NpcRoster Npcs,
     IReadOnlyDictionary<TravelMethodId, TravelAnchorPlacement>? ArrivalAnchors = null
 );

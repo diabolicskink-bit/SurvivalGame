@@ -162,14 +162,11 @@ public sealed class InteractHandler : IActionHandler
             yield break;
         }
 
-        var seen = new HashSet<WorldObjectInstanceId>();
-        foreach (var offset in AdjacentOffsets())
+        foreach (var placement in context.LocalMapQuery.GetNearbyWorldObjectPlacements(
+            context.State.Player.Position,
+            includeOrigin: false))
         {
-            var position = context.State.Player.Position + offset;
-            if (!context.State.LocalMap.Map.Contains(position)
-                || !context.State.LocalMap.WorldObjects.TryGetPlacementAt(position, out var placement)
-                || !seen.Add(placement.InstanceId)
-                || !TryGetContainerDefinition(context, placement, out _))
+            if (!TryGetContainerDefinition(context, placement, out _))
             {
                 continue;
             }
@@ -244,16 +241,5 @@ public sealed class InteractHandler : IActionHandler
 
         var contents = string.Join(", ", containerState.RemainingStacks.Select(context.ItemDescriber.FormatStack));
         return $"{definition.Name} still contains {contents}.";
-    }
-
-    private static IReadOnlyList<GridOffset> AdjacentOffsets()
-    {
-        return new[]
-        {
-            GridOffset.Up,
-            GridOffset.Down,
-            GridOffset.Left,
-            GridOffset.Right
-        };
     }
 }

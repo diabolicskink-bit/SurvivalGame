@@ -4,7 +4,7 @@ Plain C# firearm, ammunition, feed-device, and weapon-mod definitions plus runti
 
 This layer owns ammunition compatibility, feed capacity, ammunition damage values, weapon range/accuracy definitions, supported/current fire modes, loaded counts, magazine insertion/removal, direct weapon loading, stateful weapon mod installation/removal, prototype test-fire rules, line-of-fire validation, and equipped-firearm shooting resolution. Godot UI should display this state and request actions through the domain action pipeline rather than mutating loaded state directly.
 
-Targeted shooting traces line of fire through the local map before ammo or time mutation. Sight-blocking structure edges and intermediate sight-blocking world-object tiles stop the shot; test fire remains a one-round prototype action and does not use line-of-fire.
+Targeted shooting traces line of fire through the local map before ammo or time mutation. Intermediate sight-blocking world-object tiles stop the shot; test fire remains a one-round prototype action and does not use line-of-fire.
 
 After targeted shooting passes precondition checks, the shot consumes ammunition/time and rolls against the weapon's modified hit chance. Accuracy is defined as two required endpoint values on each weapon: hit chance at or inside effective range, and hit chance at maximum range. Between those distances the chance falls linearly, then clamps to a 5-95% final roll band so a valid shot is never guaranteed or impossible. Current tile ranges are scaled for the 27x18 local viewport: pistols and shotguns are short-range tools, carbines and rifles can cover most of the visible board, and scoped long guns can reach beyond a single current viewport.
 

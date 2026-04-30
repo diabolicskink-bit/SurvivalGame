@@ -18,14 +18,13 @@ public sealed class FirearmActionService
         FirearmCatalog catalog,
         ItemCatalog? itemCatalog = null,
         WorldObjectCatalog? worldObjectCatalog = null,
-        StructureCatalog? structureCatalog = null,
         IRandomSource? randomSource = null)
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
         _items = new FirearmItemServices(catalog, itemCatalog);
         var refs = new FirearmRefFactory(catalog, _items);
-        _validator = new FirearmValidator(catalog, _items, refs, new LineOfFireResolver(worldObjectCatalog, structureCatalog));
+        _validator = new FirearmValidator(catalog, _items, refs, worldObjectCatalog);
         _operations = new FirearmStateOperations(_items);
         _actions = new FirearmActionProvider(catalog, _items);
         _randomSource = randomSource ?? new SystemRandomSource();

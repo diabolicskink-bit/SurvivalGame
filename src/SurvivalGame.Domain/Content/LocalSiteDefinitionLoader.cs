@@ -17,7 +17,6 @@ public sealed class LocalSiteDefinitionLoader
         string directoryPath,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
@@ -33,49 +32,14 @@ public sealed class LocalSiteDefinitionLoader
 
         return Directory.EnumerateFiles(directoryPath, "*.json")
             .OrderBy(path => path)
-            .Select(filePath => LoadFile(filePath, surfaceCatalog, worldObjectCatalog, structureCatalog, itemCatalog, npcCatalog))
+            .Select(filePath => LoadFile(filePath, surfaceCatalog, worldObjectCatalog, itemCatalog, npcCatalog))
             .ToArray();
     }
 
-    public IReadOnlyList<PrototypeLocalSite> LoadDirectory(
-        string directoryPath,
-        TileSurfaceCatalog surfaceCatalog,
-        WorldObjectCatalog worldObjectCatalog,
-        ItemCatalog itemCatalog,
-        NpcCatalog npcCatalog)
-    {
-        return LoadDirectory(
-            directoryPath,
-            surfaceCatalog,
-            worldObjectCatalog,
-            LoadSiblingStructureCatalog(directoryPath),
-            itemCatalog,
-            npcCatalog
-        );
-    }
-
     public PrototypeLocalSite LoadFile(
         string filePath,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
-        ItemCatalog itemCatalog,
-        NpcCatalog npcCatalog)
-    {
-        return LoadFile(
-            filePath,
-            surfaceCatalog,
-            worldObjectCatalog,
-            LoadSiblingStructureCatalog(Path.GetDirectoryName(filePath) ?? string.Empty),
-            itemCatalog,
-            npcCatalog
-        );
-    }
-
-    public PrototypeLocalSite LoadFile(
-        string filePath,
-        TileSurfaceCatalog surfaceCatalog,
-        WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
         ItemCatalog itemCatalog,
         NpcCatalog npcCatalog)
     {
@@ -85,10 +49,11 @@ public sealed class LocalSiteDefinitionLoader
         }
 
         var json = File.ReadAllText(filePath);
+        RejectStructureEdges(json, filePath);
         var row = JsonSerializer.Deserialize<LocalSiteDefinitionDto>(json, JsonOptions)
             ?? throw new InvalidDataException($"Local map definition file is empty or invalid: {filePath}");
 
-        return row.ToSite(filePath, surfaceCatalog, worldObjectCatalog, structureCatalog, itemCatalog, npcCatalog);
+        return row.ToSite(filePath, surfaceCatalog, worldObjectCatalog, itemCatalog, npcCatalog);
     }
 
     private sealed class LocalSiteDefinitionDto
@@ -113,8 +78,6 @@ public sealed class LocalSiteDefinitionLoader
 
         public ObjectPlacementDto[]? ObjectPlacements { get; set; }
 
-        public StructureEdgePlacementDto[]? StructureEdges { get; set; }
-
         public GroundItemPlacementDto[]? Items { get; set; }
 
         public NpcPlacementDto[]? Npcs { get; set; }
@@ -123,7 +86,6 @@ public sealed class LocalSiteDefinitionLoader
             string sourcePath,
             TileSurfaceCatalog surfaceCatalog,
             WorldObjectCatalog worldObjectCatalog,
-            StructureCatalog structureCatalog,
             ItemCatalog itemCatalog,
             NpcCatalog npcCatalog)
         {
@@ -134,7 +96,6 @@ public sealed class LocalSiteDefinitionLoader
                     sourcePath,
                     surfaceCatalog,
                     worldObjectCatalog,
-                    structureCatalog,
                     itemCatalog,
                     npcCatalog
                 ),
@@ -148,7 +109,6 @@ public sealed class LocalSiteDefinitionLoader
             string sourcePath,
             TileSurfaceCatalog surfaceCatalog,
             WorldObjectCatalog worldObjectCatalog,
-            StructureCatalog structureCatalog,
             ItemCatalog itemCatalog,
             NpcCatalog npcCatalog)
         {
@@ -165,7 +125,6 @@ public sealed class LocalSiteDefinitionLoader
                     new SurfaceId(RequiredString(DefaultSurface, nameof(DefaultSurface), sourcePath)),
                     surfaceCatalog,
                     worldObjectCatalog,
-                    structureCatalog,
                     itemCatalog,
                     npcCatalog
                 );
@@ -174,7 +133,6 @@ public sealed class LocalSiteDefinitionLoader
                 ApplyObjectLayer(builder, ObjectLayer, sourcePath);
                 ApplyObjectPlacements(builder, ObjectPlacements, sourcePath);
                 ApplyArrivalAnchors(builder, ArrivalAnchors, sourcePath);
-                ApplyStructureEdges(builder, StructureEdges, sourcePath);
                 ApplyGroundItems(builder, Items);
                 ApplyNpcs(builder, Npcs);
 
@@ -240,17 +198,6 @@ public sealed class LocalSiteDefinitionLoader
         public int Y { get; set; }
 
         public string? Facing { get; set; }
-    }
-
-    private sealed class StructureEdgePlacementDto
-    {
-        public string? StructureId { get; set; }
-
-        public int X { get; set; }
-
-        public int Y { get; set; }
-
-        public string? Edge { get; set; }
     }
 
     private sealed class ContainerPlacementDto
@@ -382,20 +329,6 @@ public sealed class LocalSiteDefinitionLoader
         return legend;
     }
 
-    private static StructureCatalog LoadSiblingStructureCatalog(string localMapDirectoryPath)
-    {
-        var parent = Directory.GetParent(localMapDirectoryPath);
-        if (parent is null)
-        {
-            return new StructureCatalog();
-        }
-
-        var structureDirectoryPath = Path.Combine(parent.FullName, "structures");
-        return Directory.Exists(structureDirectoryPath)
-            ? new StructureDefinitionLoader().LoadDirectory(structureDirectoryPath)
-            : new StructureCatalog();
-    }
-
     private static char ParseEmptySymbol(string? emptySymbol, string layerName, string sourcePath)
     {
         if (string.IsNullOrEmpty(emptySymbol))
@@ -439,21 +372,6 @@ public sealed class LocalSiteDefinitionLoader
                 ParseArrivalAnchorMethod(rawMethod, sourcePath),
                 new GridPosition(anchor.X, anchor.Y),
                 ParseWorldObjectFacing(anchor.Facing, sourcePath)
-            );
-        }
-    }
-
-    private static void ApplyStructureEdges(
-        LocalMapBuilder builder,
-        StructureEdgePlacementDto[]? placements,
-        string sourcePath)
-    {
-        foreach (var placement in placements ?? Array.Empty<StructureEdgePlacementDto>())
-        {
-            builder.PlaceStructureEdge(
-                new GridPosition(placement.X, placement.Y),
-                ParseStructureEdgeDirection(placement.Edge, sourcePath),
-                new StructureId(RequiredString(placement.StructureId, nameof(placement.StructureId), sourcePath))
             );
         }
     }
@@ -561,23 +479,27 @@ public sealed class LocalSiteDefinitionLoader
         };
     }
 
-    private static StructureEdgeDirection ParseStructureEdgeDirection(string? rawEdge, string sourcePath)
+    private static void RejectStructureEdges(string json, string sourcePath)
     {
-        if (string.IsNullOrWhiteSpace(rawEdge))
+        using var document = JsonDocument.Parse(json, new JsonDocumentOptions
         {
-            throw new InvalidDataException($"Structure edge placement in '{sourcePath}' is missing an edge direction.");
+            AllowTrailingCommas = true,
+            CommentHandling = JsonCommentHandling.Skip
+        });
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return;
         }
 
-        return rawEdge.Trim().ToLowerInvariant() switch
+        foreach (var property in document.RootElement.EnumerateObject())
         {
-            "north" => StructureEdgeDirection.North,
-            "east" => StructureEdgeDirection.East,
-            "south" => StructureEdgeDirection.South,
-            "west" => StructureEdgeDirection.West,
-            _ => throw new InvalidDataException(
-                $"Structure edge placement in '{sourcePath}' has unsupported edge direction '{rawEdge}'."
-            )
-        };
+            if (property.Name.Equals("structureEdges", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Local map definition '{sourcePath}' uses unsupported legacy 'structureEdges'. Use tile-based world objects for 2.5D walls/fences instead; see MECH-12 for fence, gate, and gap replacement."
+                );
+            }
+        }
     }
 
     private static T Required<T>(T? value, string name, string sourcePath)

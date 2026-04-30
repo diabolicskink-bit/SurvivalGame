@@ -10,7 +10,6 @@ public sealed class LocalSiteSession
         FirearmCatalog firearmCatalog,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
         NpcCatalog npcCatalog,
         GameActionPipeline actionPipeline,
         WorldObjectInstanceId? activeTravelAnchorInstanceId = null
@@ -24,7 +23,6 @@ public sealed class LocalSiteSession
         FirearmCatalog = firearmCatalog;
         SurfaceCatalog = surfaceCatalog;
         WorldObjectCatalog = worldObjectCatalog;
-        StructureCatalog = structureCatalog;
         NpcCatalog = npcCatalog;
         ActionPipeline = actionPipeline;
         ActiveTravelAnchorInstanceId = activeTravelAnchorInstanceId;
@@ -45,8 +43,6 @@ public sealed class LocalSiteSession
     public TileSurfaceCatalog SurfaceCatalog { get; }
 
     public WorldObjectCatalog WorldObjectCatalog { get; }
-
-    public StructureCatalog StructureCatalog { get; }
 
     public NpcCatalog NpcCatalog { get; }
 

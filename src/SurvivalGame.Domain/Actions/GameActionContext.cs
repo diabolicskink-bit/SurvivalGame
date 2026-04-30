@@ -6,7 +6,6 @@ public sealed class GameActionContext
         PrototypeGameState state,
         ItemCatalog itemCatalog,
         WorldObjectCatalog? worldObjectCatalog,
-        StructureCatalog? structureCatalog,
         NpcCatalog? npcCatalog,
         FirearmActionService? firearmActions,
         VehicleFuelState? vehicleFuelState,
@@ -20,8 +19,8 @@ public sealed class GameActionContext
         State = state;
         ItemCatalog = itemCatalog;
         WorldObjectCatalog = worldObjectCatalog;
-        StructureCatalog = structureCatalog;
         NpcCatalog = npcCatalog;
+        LocalMapQuery = new LocalMapQuery(state.LocalMap, worldObjectCatalog);
         FirearmActions = firearmActions;
         VehicleFuelState = vehicleFuelState;
         TravelCargo = travelCargo;
@@ -34,9 +33,9 @@ public sealed class GameActionContext
 
     public WorldObjectCatalog? WorldObjectCatalog { get; }
 
-    public StructureCatalog? StructureCatalog { get; }
-
     public NpcCatalog? NpcCatalog { get; }
+
+    public LocalMapQuery LocalMapQuery { get; }
 
     public FirearmActionService? FirearmActions { get; }
 

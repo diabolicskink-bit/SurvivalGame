@@ -17,7 +17,6 @@ public sealed class GameSessionFactoryTests
         Assert.NotNull(session.FirearmCatalog);
         Assert.NotNull(session.SurfaceCatalog);
         Assert.NotNull(session.WorldObjectCatalog);
-        Assert.NotNull(session.StructureCatalog);
         Assert.NotNull(session.NpcCatalog);
         Assert.NotNull(session.ActionPipeline);
     }

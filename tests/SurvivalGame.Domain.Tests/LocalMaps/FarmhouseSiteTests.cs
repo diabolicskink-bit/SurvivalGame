@@ -5,7 +5,7 @@ namespace SurvivalGame.Domain.Tests;
 
 public sealed class FarmhouseSiteTests
 {
-    private static readonly HashSet<WorldObjectId> OldStructureObjectIds =
+    private static readonly HashSet<WorldObjectId> RetiredStructureObjectIds =
     [
         new("farmhouse_wall"),
         new("shed_wall"),
@@ -58,10 +58,8 @@ public sealed class FarmhouseSiteTests
         AssertObject(site, new GridPosition(51, 30), "tractor_wreck");
         AssertObject(site, new GridPosition(56, 32), "farm_trailer");
         AssertObject(site, new GridPosition(50, 38), "trough");
-        AssertStructure(site, new GridPosition(44, 34), StructureEdgeDirection.South, "open_farm_gate");
-        AssertStructure(site, new GridPosition(55, 42), StructureEdgeDirection.South, "broken_fence_gap");
         AssertObject(site, new GridPosition(61, 38), "scrub_thicket");
-        Assert.DoesNotContain(site.WorldObjects.AllObjects, placedObject => OldStructureObjectIds.Contains(placedObject.ObjectId));
+        Assert.DoesNotContain(site.WorldObjects.AllObjects, placedObject => RetiredStructureObjectIds.Contains(placedObject.ObjectId));
     }
 
     [Fact]
@@ -70,8 +68,7 @@ public sealed class FarmhouseSiteTests
         var site = LoadSite(PrototypeLocalSites.FarmsteadSiteId);
         var pipeline = new GameActionPipeline(
             LoadItemCatalog(),
-            LoadWorldObjectCatalog(),
-            structureCatalog: LoadStructureCatalog());
+            LoadWorldObjectCatalog());
 
         var wallState = CreateState(site, new GridPosition(16, 16));
         var blockedByWall = pipeline.Execute(new MoveActionRequest(GridOffset.Right), wallState);
@@ -83,10 +80,10 @@ public sealed class FarmhouseSiteTests
         Assert.False(blockedByTank.Succeeded);
         Assert.Equal(new GridPosition(41, 8), tankState.Player.Position);
 
-        var fenceState = CreateState(site, new GridPosition(38, 35));
-        var blockedByFence = pipeline.Execute(new MoveActionRequest(GridOffset.Right), fenceState);
-        Assert.False(blockedByFence.Succeeded);
-        Assert.Equal(new GridPosition(38, 35), fenceState.Player.Position);
+        var formerFenceState = CreateState(site, new GridPosition(38, 35));
+        var throughFormerFence = pipeline.Execute(new MoveActionRequest(GridOffset.Right), formerFenceState);
+        Assert.True(throughFormerFence.Succeeded);
+        Assert.Equal(new GridPosition(39, 35), formerFenceState.Player.Position);
 
         var frontDoorState = CreateState(site, new GridPosition(26, 29));
         var throughFrontDoor = pipeline.Execute(new MoveActionRequest(GridOffset.Up), frontDoorState);
@@ -144,16 +141,6 @@ public sealed class FarmhouseSiteTests
         Assert.False(site.WorldObjects.TryGetObjectAt(position, out _));
     }
 
-    private static void AssertStructure(
-        PrototypeLocalSite site,
-        GridPosition position,
-        StructureEdgeDirection direction,
-        string expectedStructureId)
-    {
-        Assert.True(site.Structures.TryGetEdgeAt(position, direction, out var edge));
-        Assert.Equal(new StructureId(expectedStructureId), edge.StructureId);
-    }
-
     private static void AssertItem(
         PrototypeLocalSite site,
         GridPosition position,
@@ -172,8 +159,7 @@ public sealed class FarmhouseSiteTests
                 new LocalMap(site.Bounds, site.Surfaces),
                 site.GroundItems,
                 site.WorldObjects,
-                site.Npcs,
-                structures: site.Structures
+                site.Npcs
             ),
             playerPosition,
             new PlayerState(),
@@ -190,7 +176,6 @@ public sealed class FarmhouseSiteTests
                 GetDataPath("local_maps"),
                 LoadSurfaceCatalog(),
                 LoadWorldObjectCatalog(),
-                LoadStructureCatalog(),
                 LoadItemCatalog(),
                 LoadNpcCatalog()
             )
@@ -205,11 +190,6 @@ public sealed class FarmhouseSiteTests
     private static WorldObjectCatalog LoadWorldObjectCatalog()
     {
         return new WorldObjectDefinitionLoader().LoadDirectory(GetDataPath("world_objects"));
-    }
-
-    private static StructureCatalog LoadStructureCatalog()
-    {
-        return new StructureDefinitionLoader().LoadDirectory(GetDataPath("structures"));
     }
 
     private static ItemCatalog LoadItemCatalog()

@@ -13,7 +13,7 @@ Each `MECH-*` item should describe one implementable system or one small vertica
 - When planning a `MECH-*` implementation, first assess whether the item is too broad for one playable slice. If it is, propose a split into smaller `MECH-*` items instead of forcing one large implementation plan.
 - If a split is accepted, preserve stable IDs by creating new `MECH-*` items and either narrowing the original item or marking it `Superseded` with links to the replacement items.
 - Append dated `Notes` entries when general work reveals useful implementation context, constraints, risks, or observations for a tracked mechanic.
-- Keep notes factual and implementation-relevant. If new information changes a canonical field such as priority, dependencies, first playable slice, or completion signal, update that field as well.
+- Keep notes factual and implementation-relevant. If new information changes a canonical field such as priority, size, dependencies, first playable slice, or completion signal, update that field as well.
 - Use notes for extra context, not as a replacement for the item's canonical fields.
 - Do not add entries for tiny implementation details, one-off content, architecture debt, or design principles.
 - Use `ARCH-*` for architecture pressure and `MECH-*` for future gameplay, UI, simulation, world, and systems mechanics.
@@ -22,13 +22,24 @@ Each `MECH-*` item should describe one implementable system or one small vertica
 - When a mechanic is implemented, mark it `Implemented`, update `docs/CURRENT_SCOPE.md`, and add a task-log entry if it changes durable project state.
 - Keep active items ordered by priority first, then ID.
 
-## Priority And Status
+## Priority, Size, And Status
 
 Priorities:
 
 - `P1`: Likely high-value or nearer foundation.
 - `P2`: Important but dependent, larger, or best after a nearby foundation.
 - `P3`: Long-term watchlist.
+
+Sizes estimate the likely effort and blast radius to reach the tracked `Implemented When` signal, not the whole end-state feature family. If an `xl` or `xxl` item is selected for implementation, first look for a smaller playable slice or split.
+
+Sizes:
+
+- `xs`: Tiny doc, data, test, or one-call-site change.
+- `s`: Narrow mechanic or UI change in one small area.
+- `m`: Focused playable slice across a few files or tests.
+- `l`: Multi-boundary mechanic that needs careful planning.
+- `xl`: Large multi-system effort that should usually be split.
+- `xxl`: Roadmap-scale mechanic family that must be split before implementation.
 
 Statuses:
 
@@ -43,6 +54,7 @@ Statuses:
 ### MECH-1 - Cover modifier for ranged attacks
 
 - `Priority`: `P1`
+- `Size`: `m`
 - `Priority Rationale`: Combat already has ranged attacks, hit chances, line-of-fire blockers, and map structures, so cover is a high-value tactical improvement that can be added as a contained rule.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -59,6 +71,7 @@ Statuses:
 ### MECH-2 - Drag-to-move inventory items
 
 - `Priority`: `P1`
+- `Size`: `m`
 - `Priority Rationale`: Inventory pressure is already central to play and the current grid exists, so direct item movement is a near-term usability foundation.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -75,6 +88,7 @@ Statuses:
 ### MECH-5 - Thirst decay and drinking
 
 - `Priority`: `P1`
+- `Size`: `l`
 - `Priority Rationale`: Thirst is a core survival pressure and can be introduced as one readable meter with one mitigation action before broader survival simulation.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -91,6 +105,7 @@ Statuses:
 ### MECH-8 - Save/load campaign snapshot
 
 - `Priority`: `P1`
+- `Size`: `xl`
 - `Priority Rationale`: Persistence is foundational for a larger roguelike run, but the first useful version can be scoped to one campaign snapshot.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`
@@ -107,6 +122,7 @@ Statuses:
 ### MECH-3 - Inventory item rotation
 
 - `Priority`: `P2`
+- `Size`: `m`
 - `Priority Rationale`: Rotation is useful for grid inventory play, but it should follow basic drag-to-move so the interaction model and item identity are already stable.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -123,6 +139,7 @@ Statuses:
 ### MECH-4 - Recipe-backed local site generation
 
 - `Priority`: `P2`
+- `Size`: `xl`
 - `Priority Rationale`: Procedural local maps are important for replayability, but one recipe-backed site should build on authored examples and validation first.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -139,6 +156,7 @@ Statuses:
 ### MECH-6 - Hunger decay and eating
 
 - `Priority`: `P2`
+- `Size`: `m`
 - `Priority Rationale`: Hunger is core survival pressure, but it should follow the first survival-meter slice so decay, mitigation, and UI patterns are already proven.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -155,6 +173,7 @@ Statuses:
 ### MECH-7 - Fatigue accumulation and rest recovery
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: Fatigue can make travel and action costs matter, but it needs time rules and recovery behavior before it can be fair.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -171,6 +190,7 @@ Statuses:
 ### MECH-9 - Basic hostile NPC turn behavior
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: NPC behavior is central to local-site risk, but the first step should be one simple behavior before factions, dialogue, schedules, or social systems.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -187,6 +207,7 @@ Statuses:
 ### MECH-10 - Vehicle cargo capacity grid
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: Cargo constraints support the mobile-base fantasy, but they should be introduced as one vehicle inventory rule before repairs, towing, upgrades, or vehicle condition.
 - `Status`: `Open`
 - `Source`: `docs/CURRENT_SCOPE.md`, `docs/DESIGN_GOALS.md`
@@ -203,6 +224,7 @@ Statuses:
 ### MECH-11 - Interactive doors and doorway visuals
 
 - `Priority`: `P2`
+- `Size`: `xl`
 - `Priority Rationale`: Doorways are important for site readability and tactical movement, but they should build on the 2.5D tile-wall direction and action/result cleanup rather than becoming static art-only markers.
 - `Status`: `Open`
 - `Source`: `2026-04-30 farmhouse tile-wall conversion`
@@ -219,26 +241,30 @@ Statuses:
   - 2026-04-30: Door implementation should assume 2.5D tile-wall building semantics for now, not a return to edge-based building doors.
 - `Links`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`, `src/SurvivalGame.Domain/Actions/`, `src/SurvivalGame.Domain/LocalMaps/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
 
-### MECH-12 - 2.5D fence, gate, and gap boundary visuals
+### MECH-12 - Tile-based 2.5D fence, gate, and gap objects
 
 - `Priority`: `P2`
-- `Priority Rationale`: Fences and gates are wall-like for movement and readability, but they should not become full tile-block building walls. They need their own 2.5D boundary treatment once the remaining edge-structure semantics are narrowed.
+- `Size`: `m`
+- `Priority Rationale`: Fences and gates are wall-like for movement and readability, but they should not become full building walls. They need tile-based 2.5D objects now that authored edge-structure usage has been retired.
 - `Status`: `Open`
 - `Source`: `2026-04-30 2.5D tile-wall direction`
-- `Category`: Local Maps, Visuals, Structures
-- `Player-Facing Goal`: Make fences, gates, and broken fence gaps read as low 2.5D boundary features with clear passable and blocking states.
-- `Current State`: Farm paddock fences, open farm gates, and broken fence gaps remain edge structures. They are intentionally not tile-block walls, and their long-term visual/authoring representation is undecided.
-- `Why Deferred`: It depends on deciding the remaining fence/gap edge semantics after building walls move to tile-object 2.5D walls.
-- `First Playable Slice`: Give wire fence, open farm gate, and broken fence gap one readable 2.5D visual treatment while preserving current movement rules.
-- `Dependencies`: `ARCH-16`, `ARCH-19`, local map query rules, hover text, and current fence/gate/gap authored data.
-- `Implemented When`: Current paddock fences block movement, open gates and broken gaps remain passable, and all three have distinct 2.5D visuals that do not read as full tile-block building walls.
+- `Category`: Local Maps, Visuals, World Objects
+- `Player-Facing Goal`: Make fences, gates, and broken fence gaps read as low 2.5D tile-authored features with clear passable and blocking states.
+- `Current State`: Authored farm paddock fence, gate, and broken-gap edge structures were removed in `ARCH-17`. The farmhouse paddock crossings are temporarily open until tile-based replacement objects are added.
+- `Why Deferred`: It needs tile-world-object ids, footprints, passability rules, hover text, and visuals that stay lighter than full building-wall tiles.
+- `First Playable Slice`: Add tile-authored wire fence, open farm gate, and broken fence gap objects to the farmhouse paddock area with readable 2.5D visuals and explicit movement behavior.
+- `Dependencies`: `ARCH-16`, `ARCH-19`, local map query rules, hover text, and tile-world-object content validation.
+- `Implemented When`: Farmhouse paddock fences block movement, open gates and broken gaps remain passable, and all three have distinct tile-based 2.5D visuals that do not read as full building walls.
 - `Notes`:
   - 2026-04-30: Track this separately from building walls because fences are wall-like boundaries but should stay visually and semantically lighter than full tile-owned walls.
-- `Links`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`, `data/structures/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
+  - 2026-04-30: Former edge-structure style cues worth preserving for tile-object replacement include `wire_fence`, `timber_fence`, `open_farm_gate`, and `broken_fence_gap`.
+  - 2026-04-30: Useful future tile object/style concepts include rusty wire fence spans, weathered timber fence spans, open/closed farm gates, collapsed wire gaps, dragged-down fence wire, and post-only broken boundary markers.
+- `Links`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`, `data/world_objects/`, `data/local_maps/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
 
 ### MECH-13 - Tile-wall material and style variants
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: The 2.5D wall shape is now the preferred direction, but different sites need material identity so a farmhouse, gas station, shed, brick shop, and concrete interior do not all read as the same generic wall.
 - `Status`: `Open`
 - `Source`: `2026-04-30 2.5D tile-wall direction`
@@ -251,6 +277,9 @@ Statuses:
 - `Implemented When`: At least two authored local sites show distinct 2.5D wall materials through data-driven wall styling, and tests or validation catch missing wall material references.
 - `Notes`:
   - 2026-04-30: This should extend the tile-wall direction, not revive edge-based building wall sprites.
+  - 2026-04-30: Former edge-structure style cues worth carrying into tile-wall/material work include `generic_interior`, `farmhouse_weatherboard`, `shed_corrugated`, and `gas_station_plaster`.
+  - 2026-04-30: Former detail cues worth preserving for tile-based doors/windows include closed wooden doors, open wooden doors, torn flyscreen/screen doors, open interior doorway thresholds, glass doors, broken windows, and boarded windows.
+  - 2026-04-30: Useful future tile-wall style names/concepts include farmhouse weatherboard, generic interior plaster, gas-station plaster/concrete, shed corrugated metal, boarded-over window modules, cracked/broken glass windows, and damaged/aged wall variants.
 - `Links`: `docs/CURRENT_SCOPE.md`, `docs/ARCHITECTURAL_DEBT.md`, `data/world_objects/`, `data/local_maps/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
 
 ## Archive

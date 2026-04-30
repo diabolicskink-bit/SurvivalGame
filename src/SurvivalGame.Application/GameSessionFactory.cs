@@ -23,7 +23,6 @@ public static class GameSessionFactory
         var firearmCatalog = new FirearmDefinitionLoader().LoadDirectory(paths.Firearms);
         var surfaceCatalog = new TileSurfaceDefinitionLoader().LoadDirectory(paths.Surfaces);
         var worldObjectCatalog = new WorldObjectDefinitionLoader().LoadDirectory(paths.WorldObjects);
-        var structureCatalog = new StructureDefinitionLoader().LoadDirectory(paths.Structures);
         var npcCatalog = new NpcDefinitionLoader().LoadDirectory(paths.Npcs);
         var vehicleFuel = vehicleFuelState ?? new VehicleFuelState(
             PrototypeTravelMethods.VehicleFuelCapacity,
@@ -45,7 +44,6 @@ public static class GameSessionFactory
             paths.LocalMaps,
             surfaceCatalog,
             worldObjectCatalog,
-            structureCatalog,
             itemCatalog,
             npcCatalog
         );
@@ -74,7 +72,6 @@ public static class GameSessionFactory
             firearmCatalog,
             vehicleFuel,
             npcCatalog,
-            structureCatalog,
             campaignState.TravelCargo
         );
 
@@ -84,7 +81,6 @@ public static class GameSessionFactory
             firearmCatalog,
             surfaceCatalog,
             worldObjectCatalog,
-            structureCatalog,
             npcCatalog,
             actionPipeline
         );
@@ -115,8 +111,7 @@ public static class GameSessionFactory
                 new LocalMap(site.Bounds, site.Surfaces),
                 site.GroundItems,
                 site.WorldObjects,
-                site.Npcs,
-                structures: site.Structures
+                site.Npcs
             ),
             site.StartPosition,
             player ?? new PlayerState(),

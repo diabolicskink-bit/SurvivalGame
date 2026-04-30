@@ -7,8 +7,7 @@ public sealed class LocalMapState
         TileItemMap groundItems,
         TileObjectMap worldObjects,
         NpcRoster? npcs = null,
-        WorldObjectContainerStateStore? containerStates = null,
-        StructureEdgeMap? structures = null)
+        WorldObjectContainerStateStore? containerStates = null)
     {
         ArgumentNullException.ThrowIfNull(map);
         ArgumentNullException.ThrowIfNull(groundItems);
@@ -17,14 +16,8 @@ public sealed class LocalMapState
         Map = map;
         GroundItems = groundItems;
         WorldObjects = worldObjects;
-        Structures = structures ?? new StructureEdgeMap(map.Bounds);
         Npcs = npcs ?? new NpcRoster();
         ContainerStates = containerStates ?? new WorldObjectContainerStateStore();
-
-        if (Structures.Bounds != Map.Bounds)
-        {
-            throw new ArgumentException("Structure edge map bounds must match map bounds.", nameof(structures));
-        }
 
         foreach (var npc in Npcs.AllNpcs)
         {
@@ -40,8 +33,6 @@ public sealed class LocalMapState
     public TileItemMap GroundItems { get; }
 
     public TileObjectMap WorldObjects { get; }
-
-    public StructureEdgeMap Structures { get; }
 
     public NpcRoster Npcs { get; }
 

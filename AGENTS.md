@@ -127,10 +127,10 @@ Before creating a sprite:
 
 - Decide the content id, display name, category, map color, movement/sight blocking, and simulation footprint first.
 - Match the sprite to the data-defined thing. If an object is specifically a `single_bed`, `fuel_pump`, or `tractor_wreck`, the id, sprite id, map references, tests, and player-facing text should use that specific concept rather than a vague generic name.
-- Use the existing sprite id pattern: `surface_<id>`, `item_<id>`, `npc_<id>`, `world_object_<id>`, or `structure_<style>_<piece>_<orientation>_<variant>`.
+- Use the existing sprite id pattern: `surface_<id>`, `item_<id>`, `npc_<id>`, or `world_object_<id>`.
 - Treat the footprint as gameplay truth. A sprite can visually overflow a tile through `spriteRender`, but collision, hover, targeting, and placement must still match the intended footprint.
 - Decide whether the sprite's canonical north-facing shape or a particular placed orientation defines the footprint. Store the canonical footprint on the definition, then use placement `facing` for rotated map instances. For example, a north-facing `2 x 3` vehicle can be placed east-facing to occupy an effective `3 x 2` area.
-- Building walls and windows should generally use the current procedural 2.5D tile-object wall path. Edge-based structures remain for current fences, gates, gaps, and legacy cleanup until the wall/fence representation work is resolved. Tile world objects are also for things occupying tile area, such as furniture, trees, vehicles, tanks, machinery, and clutter.
+- Building walls and windows should generally use the current procedural 2.5D tile-object wall path. Do not add `structureEdges`; that old edge-structure system has been removed. Fences, gates, and broken gaps should return as tile-based 2.5D world objects rather than edge structures. Tile world objects are also for things occupying tile area, such as furniture, trees, vehicles, tanks, machinery, and clutter.
 
 Sprite art direction:
 
@@ -148,7 +148,7 @@ Footprints, scale, and orientation:
 - If the visible sprite should fill its physical footprint, set the data footprint and let the renderer size the sprite from it.
 - If the sprite should visually extend beyond its physical tile, keep the footprint small and add `spriteRender` metadata for visual-only size, offset, and sort offset.
 - Do not use transparent padding to fake positioning or scale. Use `spriteRender` offsets instead.
-- Structure sprites, where still used, are 2.5D edge pieces anchored to the lower edge of the crossed tile boundary. Current building walls use procedural 2.5D tile-object rendering instead; keep future wall assets compatible with that tile-wall direction unless a specific task changes the representation.
+- Do not add edge-structure sprites. Current building walls use procedural 2.5D tile-object rendering; keep future wall, fence, gate, and gap assets compatible with tile-world-object rendering unless a specific task changes the representation.
 
 Generated sprite workflow:
 
@@ -223,9 +223,11 @@ Use `docs/ARCHITECTURAL_DEBT.md` as the living index for architecture debt and i
 
 Check the tracker when doing sweeps, refactors, architecture work, or code changes that touch known boundaries between Godot presentation, application/session coordination, and domain simulation.
 
-When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. When work changes a tracked issue, update its status, priority, next action, or other canonical fields. Append dated `Notes` entries for factual implementation context, constraints, risks, or observations that are useful but too detailed for the core fields. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
+When work discovers meaningful architecture debt, add a new `ARCH-*` item if future sessions should keep it visible. Include a rough `Size` estimate using `xs`, `s`, `m`, `l`, `xl`, or `xxl`. When work changes a tracked issue, update its status, priority, size, next action, or other canonical fields. Append dated `Notes` entries for factual implementation context, constraints, risks, or observations that are useful but too detailed for the core fields. Mark items resolved only when the architectural pressure is actually removed, and do not renumber existing items.
 
-When planning implementation for an existing `ARCH-*` item, assess whether it is too broad for one safe behavior-preserving change. If so, propose a split into smaller `ARCH-*` items and a recommended first slice before implementing.
+This tracker is proactive memory, not only a response to explicit user requests. During contextual discussion, planning, reviews, sweeps, code exploration, implementation, debugging, or test failure analysis, add or update an `ARCH-*` item whenever a meaningful architecture pressure or improvement opportunity becomes clear enough that future sessions should remember it.
+
+When planning implementation for an existing `ARCH-*` item, assess whether its size is still accurate and whether it is too broad for one safe behavior-preserving change. If so, propose a split into smaller `ARCH-*` items and a recommended first slice before implementing.
 
 Keep the tracker compact and ordered by priority first, then ID. Use it as memory and triage, not as permission to expand current gameplay scope.
 
@@ -235,11 +237,13 @@ Use `docs/MECHANICS_BACKLOG.md` as the living backlog for deferred player-facing
 
 When a plan identifies meaningful gameplay, UI, simulation, world, survival, combat, NPC, item, inventory, vehicle, or procedural-generation mechanics that are intentionally excluded from the current task, add or update a `MECH-*` item so the idea is not lost.
 
-Each `MECH-*` item should be one implementable system or one small vertical slice. Split bundled feature families before recording them; for example, hunger, thirst, fatigue, sleep, pain, body temperature, and survival decay should not share one ID.
+This backlog is proactive memory, not only a response to explicit user requests. During contextual discussion, planning, reviews, sweeps, code exploration, implementation, debugging, or test failure analysis, add or update a `MECH-*` item whenever a deferred player-facing mechanic or system becomes clear enough that future sessions should remember it.
 
-When planning implementation for an existing `MECH-*` item, assess whether it is too broad for one playable slice. If so, propose a split into smaller `MECH-*` items and a recommended first slice before implementing.
+Each `MECH-*` item should be one implementable system or one small vertical slice, and should include a rough `Size` estimate using `xs`, `s`, `m`, `l`, `xl`, or `xxl`. Split bundled feature families before recording them; for example, hunger, thirst, fatigue, sleep, pain, body temperature, and survival decay should not share one ID.
 
-When general work reveals useful context for a tracked mechanic, append a dated `Notes` entry. If the discovery changes priority, dependencies, first playable slice, completion signal, or another canonical field, update that field too.
+When planning implementation for an existing `MECH-*` item, assess whether its size is still accurate and whether it is too broad for one playable slice. If so, propose a split into smaller `MECH-*` items and a recommended first slice before implementing.
+
+When general work reveals useful context for a tracked mechanic, append a dated `Notes` entry. If the discovery changes priority, size, dependencies, first playable slice, completion signal, or another canonical field, update that field too.
 
 Do not add `MECH-*` entries for tiny implementation details, one-off content, architecture debt, or design principles. Use `ARCH-*` for architecture pressure, `MECH-*` for future mechanics, `docs/CURRENT_SCOPE.md` for implemented scope, and `docs/DESIGN_GOALS.md` for long-term design direction.
 

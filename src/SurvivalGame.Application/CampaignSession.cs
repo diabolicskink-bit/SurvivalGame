@@ -10,7 +10,6 @@ public sealed class CampaignSession
         FirearmCatalog firearmCatalog,
         TileSurfaceCatalog surfaceCatalog,
         WorldObjectCatalog worldObjectCatalog,
-        StructureCatalog structureCatalog,
         NpcCatalog npcCatalog,
         GameActionPipeline actionPipeline
     )
@@ -20,7 +19,6 @@ public sealed class CampaignSession
         FirearmCatalog = firearmCatalog;
         SurfaceCatalog = surfaceCatalog;
         WorldObjectCatalog = worldObjectCatalog;
-        StructureCatalog = structureCatalog;
         NpcCatalog = npcCatalog;
         ActionPipeline = actionPipeline;
     }
@@ -34,8 +32,6 @@ public sealed class CampaignSession
     public TileSurfaceCatalog SurfaceCatalog { get; }
 
     public WorldObjectCatalog WorldObjectCatalog { get; }
-
-    public StructureCatalog StructureCatalog { get; }
 
     public NpcCatalog NpcCatalog { get; }
 
@@ -89,7 +85,6 @@ public sealed class CampaignSession
             FirearmCatalog,
             SurfaceCatalog,
             WorldObjectCatalog,
-            StructureCatalog,
             NpcCatalog,
             ActionPipeline,
             activeAnchor?.InstanceId

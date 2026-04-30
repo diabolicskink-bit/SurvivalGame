@@ -47,8 +47,8 @@
 - Authored local site maps are loaded from JSON under `data/local_maps/`.
 - Authored local site maps can define optional vehicle and pushbike `arrivalAnchors`.
 - Route 18 Gas Station is a fixed authored 40x28 local map with asphalt forecourt, concrete pump island and parking areas, tiled convenience store interior, back room/staff area, restroom corner, blocked scenery, and grass perimeter edges.
-- Abandoned Farmhouse is a fixed authored 64x44 local map with a south-west dirt track entry, front yard, detailed farmhouse, rear utility yard, water tank area, shed/workshop, machinery yard, fenced paddock, and scrub/fence perimeter.
-- Procedural 2.5D tile-object walls and windows are the near-term building-wall direction. Abandoned Farmhouse uses them for its farmhouse and shed buildings; open doorways are currently map gaps, while paddock fencing, gates, and broken fence gaps remain edge-based structures.
+- Abandoned Farmhouse is a fixed authored 64x44 local map with a south-west dirt track entry, front yard, detailed farmhouse, rear utility yard, water tank area, shed/workshop, machinery yard, paddock area, and scrub perimeter.
+- Procedural 2.5D tile-object walls and windows are the near-term building-wall direction. Abandoned Farmhouse uses them for its farmhouse and shed buildings; open doorways are currently map gaps, while former paddock fence/gate/gap crossings are temporarily open pending tile-based replacements.
 - The gas station local site spawns the player near the forecourt/store entrance.
 - The farmhouse local site spawns the player on the south-west dirt track.
 - Gameplay shell scene with a simple placeholder top-down grid.
@@ -146,7 +146,7 @@
 - Stateful weapon mod actions support installing/removing compatible mods from specific weapons while preserving the mod item identity.
 - Clicking an NPC selects it as the current target and reveals a Shoot action in the global action panel.
 - Shooting requires the selected target plus an equipped firearm, loaded ammunition, and a target inside the weapon's modified maximum tile range.
-- Targeted shooting performs a first-pass line-of-fire check against sight-blocking structure edges and intermediate occupied world-object tiles before consuming ammunition or advancing time.
+- Targeted shooting performs a first-pass line-of-fire check against intermediate occupied world-object tiles before consuming ammunition or advancing time.
 - Valid targeted shooting consumes ammunition and advances time, then rolls hit chance from modified weapon accuracy using Chebyshev distance, effective/max endpoints, linear falloff between them, and a final 5%-95% chance clamp.
 - Single-shot shooting consumes one round, rolls once, applies ammunition damage plus installed weapon mod damage bonuses only on hit, advances world time by 100 ticks, and updates the NPC health bar.
 - Burst shooting currently requires and consumes 3 loaded rounds from a burst-mode weapon, rolls once for the current 2x modified single-shot damage packet, advances world time by 150 ticks, and updates the NPC health bar.
@@ -155,16 +155,15 @@
 - The prototype starts with specific stateful weapons, magazines, weapon mods, and a backpack-with-contents example for manual testing.
 - Inventory, equipment, firearm, ground item, and hover tooltip UI can display enough stateful item detail to verify the feature.
 - JSON-backed prototype static world object definitions under `data/world_objects/`.
-- JSON-backed prototype structure definitions under `data/structures/` remain for current edge-based fences, gates, broken fence gaps, and legacy wall/door/window cleanup.
 - JSON-backed prototype world objects include procedural 2.5D tile walls/windows, domestic furniture, gas station fixtures, workshop clutter, utility fixtures, water tanks, paddock objects, and rural machinery/vehicle wreckage.
-- Sparse authored structure edge placements can specify north/east/south/west tile edges; movement checks the crossed edge before tile-object collision.
+- Authored local-map JSON no longer supports `structureEdges`; stale maps containing that legacy field fail clearly and should be migrated to tile-based world objects.
 - World object definitions can include a rectangular simulation footprint, defaulting to `1 x 1`, plus visual-only `spriteRender` metadata.
 - Sparse authored world object placements can specify north/east/south/west facing; east/west placements rotate rectangular footprints by swapping width and height.
 - Prototype world object placement on local maps with simple rendering.
 - Generated sprite assets for fridge, single bed, and storage crate.
-- Movement collision against blocking edge structures and every occupied tile of world objects marked as blocking movement.
+- Movement collision against every occupied tile of world objects marked as blocking movement, plus NPCs that block movement.
 - Gas station movement collision blocks pumps, counters, shelves, canopy posts, bollards, and the multi-tile abandoned vehicle's data-defined occupied tiles while allowing movement through `glass_door`.
-- Hover tooltip shows world object details when a tile contains one and structure details when the tile borders an authored structure edge.
+- Hover tooltip shows world object details when a tile contains one.
 - Fuel can item definitions can declare `fuelContainer` metadata.
 - A stateful `fuel_can` holds 5.0 fuel units.
 - Fuel can filling appears when the player carries a non-full fuel can and stands next to a `refuel_source` world object such as a fuel pump or fuel drum.

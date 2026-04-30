@@ -6,15 +6,6 @@ public sealed class TravelCargoHandler : IActionHandler
     private const string RefuelSourceTag = "refuel_source";
     private const string FuelReceiverTag = "fuel_receiver";
 
-    private static readonly GridOffset[] NearbyOffsets =
-    [
-        GridOffset.Zero,
-        GridOffset.Up,
-        GridOffset.Down,
-        GridOffset.Left,
-        GridOffset.Right
-    ];
-
     public IReadOnlyList<GameActionKind> HandledKinds { get; } = new[]
     {
         GameActionKind.StowItemStackInTravelCargo,
@@ -351,7 +342,7 @@ public sealed class TravelCargoHandler : IActionHandler
             return false;
         }
 
-        return IsPlayerNearPlacement(context.State, placement);
+        return context.LocalMapQuery.IsNearPlacement(context.State.Player.Position, placement);
     }
 
     private static bool IsNearTaggedWorldObject(GameActionContext context, string tag)
@@ -361,32 +352,17 @@ public sealed class TravelCargoHandler : IActionHandler
             return false;
         }
 
-        foreach (var offset in NearbyOffsets)
+        foreach (var placement in context.LocalMapQuery.GetNearbyWorldObjectPlacements(
+            context.State.Player.Position,
+            includeOrigin: true))
         {
-            var position = context.State.Player.Position + offset;
-            if (!context.State.LocalMap.Map.Contains(position)
-                || !context.State.WorldObjects.TryGetPlacementAt(position, out var placement)
-                || !context.WorldObjectCatalog.TryGet(placement.ObjectId, out var definition)
+            if (!context.WorldObjectCatalog.TryGet(placement.ObjectId, out var definition)
                 || !definition.HasTag(tag))
             {
                 continue;
             }
 
             return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsPlayerNearPlacement(PrototypeGameState state, PlacedWorldObject placement)
-    {
-        foreach (var occupiedPosition in placement.OccupiedPositions())
-        {
-            if (Math.Abs(occupiedPosition.X - state.Player.Position.X)
-                + Math.Abs(occupiedPosition.Y - state.Player.Position.Y) <= 1)
-            {
-                return true;
-            }
         }
 
         return false;

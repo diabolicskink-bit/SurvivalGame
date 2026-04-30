@@ -47,7 +47,6 @@ public partial class ItemTooltip : PanelContainer
         GridPosition position,
         TileSurfaceDefinition surface,
         WorldObjectDefinition? worldObject,
-        StructureDefinition? structure,
         NpcState? npc,
         IReadOnlyList<GroundItemStack> itemStacks,
         IReadOnlyList<StatefulItem> statefulItems,
@@ -83,23 +82,6 @@ public partial class ItemTooltip : PanelContainer
 
             _content.AddChild(CreateLabel(
                 worldObject.BlocksMovement ? "Blocks movement" : "Does not block movement",
-                14,
-                new Color(0.58f, 0.68f, 0.66f)
-            ));
-        }
-
-        if (structure is not null)
-        {
-            _content.AddChild(CreateLabel("Structure", 15, new Color(0.63f, 0.72f, 0.68f)));
-            _content.AddChild(CreateLabel(structure.Name, 17, new Color(0.9f, 0.93f, 0.86f)));
-
-            if (!string.IsNullOrWhiteSpace(structure.Description))
-            {
-                _content.AddChild(CreateLabel(structure.Description, 14, new Color(0.68f, 0.75f, 0.71f)));
-            }
-
-            _content.AddChild(CreateLabel(
-                structure.BlocksMovement ? "Blocks movement" : "Does not block movement",
                 14,
                 new Color(0.58f, 0.68f, 0.66f)
             ));

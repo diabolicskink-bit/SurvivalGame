@@ -16,6 +16,31 @@ Curated milestone history for current game state and architecture. This log answ
 - Skip routine bug fixes, tiny cleanup, pure investigations, plans, and review-only notes unless they change durable project state.
 - Keep entries to 2-4 bullets focused on what is now true. Include preserved scope or non-changes only when they prevent likely confusion.
 
+## 2026-04-30 - Tracker Size Estimates
+
+- Changed: Added `Size` fields to all `ARCH-*` and `MECH-*` tracker items using the `xs`, `s`, `m`, `l`, `xl`, and `xxl` scale.
+- Changed: Updated tracker and AI guidance so size is maintained as a canonical field, separate from priority and status.
+- Preserved: Size estimates are planning and triage only; large items should still be split before implementation.
+
+## 2026-04-30 - Edge-Structure Code Path Deleted
+
+- Changed: Deleted the unused edge-structure domain/catalog/render path and removed structure state from local maps, action context, application sessions, Godot rendering, hover tooltips, and tests.
+- Changed: Authored local-map JSON now rejects legacy `structureEdges` with a clear migration message toward tile-based world objects and `MECH-12`.
+- Preserved: Procedural 2.5D tile-object walls remain the current building-wall path; future fences, gates, gaps, and wall style variants stay tracked through tile-based backlog items.
+
+## 2026-04-30 - Shared Local Map Query Rules
+
+- Changed: Added domain-owned `LocalMapQuery` for movement blockers, standability, nearby world-object lookup, placement proximity, and line-of-fire sight blocking.
+- Changed: Movement, travel-anchor entry placement, container adjacency, travel cargo/fuel proximity, and firearm targeting now use the shared query boundary.
+- Preserved: Player-facing movement, interaction, cargo, and shooting behavior stayed unchanged; NPC movement and scheduling remain unimplemented.
+
+## 2026-04-30 - Authored Edge Structures Retired
+
+- Changed: Removed committed structure definitions and removed Abandoned Farmhouse `structureEdges`, leaving current local maps with zero authored edge structures.
+- Changed: Farmhouse building walls/windows remain 2.5D tile-world-object walls; former paddock fence/gate/gap crossings are temporarily open until tile-based replacements are added.
+- Preserved: Legacy `StructureEdgeMap` code paths, loaders, and in-memory tests remain for a follow-up architecture cleanup.
+- Documented: Former structure style/detail vocabulary such as farmhouse weatherboard, shed corrugated metal, gas-station plaster, wire/timber fences, torn flyscreen doors, broken/boarded windows, open gates, and broken fence gaps for future tile-based wall/fence work.
+
 ## 2026-04-30 - Tile-Wall Render Model Extraction
 
 - Changed: Extracted procedural tile-wall kind detection, neighbor masks, render bounds, floor-contact sorting, orientation, and 2.5D geometry into Godot-local `TileWallRenderModel`.
@@ -34,7 +59,7 @@ Curated milestone history for current game state and architecture. This log answ
 - Changed: Promoted procedural 2.5D tile-object walls as the near-term building-wall direction in architecture guidance and tracker docs.
 - Changed: Split remaining wall architecture work into logical tracker slices: tile-wall render model extraction, edge-based building wall retirement, future Godot TileMap/Terrain compatibility, and remaining fence/gap edge semantics.
 - Changed: Added mechanics backlog slices for 2.5D fence/gate/gap visuals and tile-wall material variants.
-- Preserved: Current paddock fences, gates, and broken fence gaps remain edge structures until their representation is deliberately revisited.
+- Preserved: At that point, paddock fences, gates, and broken fence gaps were left on the old edge system until their representation could be revisited.
 
 ## 2026-04-30 - Tracker Split Planning Rule
 

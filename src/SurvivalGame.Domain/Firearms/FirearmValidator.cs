@@ -5,23 +5,22 @@ internal sealed class FirearmValidator
     private readonly FirearmCatalog _catalog;
     private readonly FirearmItemServices _items;
     private readonly FirearmRefFactory _refs;
-    private readonly LineOfFireResolver _lineOfFire;
+    private readonly WorldObjectCatalog? _worldObjects;
 
     public FirearmValidator(
         FirearmCatalog catalog,
         FirearmItemServices items,
         FirearmRefFactory refs,
-        LineOfFireResolver lineOfFire)
+        WorldObjectCatalog? worldObjects)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(refs);
-        ArgumentNullException.ThrowIfNull(lineOfFire);
 
         _catalog = catalog;
         _items = items;
         _refs = refs;
-        _lineOfFire = lineOfFire;
+        _worldObjects = worldObjects;
     }
 
     public FirearmValidation<LoadAmmunitionPlan> ValidateLoadFeedDevice(
@@ -550,7 +549,8 @@ internal sealed class FirearmValidator
             );
         }
 
-        if (_lineOfFire.TryFindBlocker(state.LocalMap, state.Player.Position, target.Position, out var blocker))
+        var localMapQuery = new LocalMapQuery(state.LocalMap, _worldObjects);
+        if (localMapQuery.TryFindSightBlocker(state.Player.Position, target.Position, out var blocker))
         {
             return FirearmValidation<ShootNpcPlan>.Failure($"Line of fire blocked by {blocker.Name}.");
         }

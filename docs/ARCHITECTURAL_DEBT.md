@@ -11,7 +11,7 @@ Use stable IDs when discussing or working on these items, such as `ARCH-1`. Do n
 - When planning an `ARCH-*` implementation, first assess whether the item is too broad for one safe, behavior-preserving change. If it is, propose a split into smaller `ARCH-*` items instead of forcing one large implementation plan.
 - If a split is accepted, preserve stable IDs by creating new `ARCH-*` items and either narrowing the original item or marking it `Superseded` with links to the replacement items.
 - Append dated `Notes` entries when general work reveals useful implementation context, constraints, risks, or observations for a tracked item.
-- Keep notes factual and implementation-relevant. If new information changes a canonical field such as priority, preferred direction, next action, or completion signal, update that field as well.
+- Keep notes factual and implementation-relevant. If new information changes a canonical field such as priority, size, preferred direction, next action, or completion signal, update that field as well.
 - Use notes for extra context, not as a replacement for the item's canonical fields.
 - Mark an item `Active` when current work is directly addressing it.
 - Mark an item `Resolved` only when the architectural pressure is actually removed.
@@ -20,7 +20,7 @@ Use stable IDs when discussing or working on these items, such as `ARCH-1`. Do n
 - Keep this tracker compact. Link to deeper plans, docs, or code areas instead of copying long analysis here.
 - Do not treat any item here as permission to expand current game scope.
 
-## Priority And Status
+## Priority, Size, And Status
 
 Priorities:
 
@@ -28,6 +28,17 @@ Priorities:
 - `P1`: Next high-value refactor.
 - `P2`: Planned or important improvement.
 - `P3`: Watchlist.
+
+Sizes estimate the likely full resolution effort and blast radius for the tracked item, not just the next action. If an `xl` or `xxl` item is selected for implementation, first look for a smaller behavior-preserving slice or split.
+
+Sizes:
+
+- `xs`: Tiny doc, test, or one-call-site cleanup.
+- `s`: Narrow change in one small area.
+- `m`: Focused vertical slice across a few files or tests.
+- `l`: Multi-boundary change that should be planned carefully.
+- `xl`: Large multi-system effort that should usually be split.
+- `xxl`: Roadmap-scale pressure that must be split before implementation.
 
 Statuses:
 
@@ -53,6 +64,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-2 - World travel bypasses the command pipeline
 
 - `Priority`: `P1`
+- `Size`: `xl`
 - `Priority Rationale`: This is `P1` because travel is already a central player-facing loop and future consequences will multiply the cost of the current screen-driven flow. It is not `P0` because current travel behavior is still functioning and can be migrated one command at a time.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -69,6 +81,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-10 - Local actions lack structured effect results
 
 - `Priority`: `P1`
+- `Size`: `xl`
 - `Priority Rationale`: This is `P1` because the action pipeline is already the center of local play and future turn phases, reactions, logs, replay, and command unification will need a typed effect boundary. It is not `P0` because current local actions are functioning and the result shape can be expanded incrementally.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -85,6 +98,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-3 - PrototypeGameState has become real runtime state
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: This is important but less urgent than `ARCH-2` because renaming/reshaping the state should build on the new application/session owner and the future command boundary. The name is misleading now, but the rename should happen with clear runtime ownership rather than as a cosmetic pass.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -101,6 +115,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-4 - Prototype-era project and folder ownership obscures boundaries
 
 - `Priority`: `P2`
+- `Size`: `xl`
 - `Priority Rationale`: This is important because folder layout is starting to encode old implementation history instead of current ownership. It is `P2`, not `P1`, because the remaining fixes should follow real ownership moves, especially the future command boundary work, rather than standalone churn.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -117,6 +132,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-5 - GameShell owns too many gameplay screen responsibilities
 
 - `Priority`: `P2`
+- `Size`: `xl`
 - `Priority Rationale`: This is `P2` because `GameShell` is a maintainability pressure point, but extracting it is safer after the application/session and command boundaries stop pushing simulation coordination into Godot screens.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -133,6 +149,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-6 - Action presentation depends on request-type matching
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: This is `P2` because it affects every new action, but it should follow or travel with command-pipeline work so the presentation model reflects the intended execution boundary.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -149,6 +166,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-7 - Cross-catalog content validation is scattered
 
 - `Priority`: `P2`
+- `Size`: `m`
 - `Priority Rationale`: This is `P2` because content volume is already large enough for missing references to matter, but the current loaders work for the prototype and this can be added as a focused safety net.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -165,6 +183,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-8 - Stack items and stateful items create parallel item paths
 
 - `Priority`: `P2`
+- `Size`: `xxl`
 - `Priority Rationale`: This is `P2` because duplication will grow as gear gains condition, contents, ownership, and damage, but a broad item rewrite would be riskier than feature-driven migration.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -178,25 +197,10 @@ Each active item should include enough direction that a future session can choos
 - `Notes`:
 - `Links`: `src/SurvivalGame.Domain/Items/`, `src/SurvivalGame.Domain/Inventory/`, `src/SurvivalGame.Domain/Equipment/`, `src/SurvivalGame.Domain/Firearms/`
 
-### ARCH-11 - Local map query rules are reimplemented per feature
-
-- `Priority`: `P2`
-- `Priority Rationale`: This is `P2` because rule duplication already touches movement, interaction, travel-anchor access, and firearm targeting, but it can be resolved in narrow behavior-preserving slices.
-- `Status`: `Open`
-- `Detected`: 2026-04-30
-- `Area`: Local Maps, Movement, Interaction, Targeting
-- `Problem`: Movement blocking, walkability, adjacency, object footprint checks, structure-edge blocking, and line-of-fire blocking are implemented separately across action handlers and map services.
-- `Why It Matters`: As terrain, doors, windows, targeting, and larger maps grow, these rules can diverge so that one feature treats a tile as passable or visible while another feature treats it differently.
-- `Preferred Direction`: Add a domain-owned local-map query/rules service for passability, adjacency, occupancy, and sight/fire blocking, backed by the existing local map, object, structure, and NPC data.
-- `Resolution Path`: Extract current movement blocking and travel-anchor walkability into a shared query first. Then migrate container adjacency and line-of-fire checks to the same query surface while keeping the existing player-facing behavior.
-- `Next Action`: Introduce a small local map query helper for current movement blocking and reuse it in `TravelAnchorService`.
-- `Resolved When`: Movement, interaction adjacency, travel-anchor access, and line-of-fire validation use one shared query boundary for map occupancy/blocking rules, with focused tests for the current behavior.
-- `Notes`:
-- `Links`: `src/SurvivalGame.Domain/Actions/MovementHandler.cs`, `src/SurvivalGame.Domain/Actions/InteractHandler.cs`, `src/SurvivalGame.Domain/Actions/TravelCargoHandler.cs`, `src/SurvivalGame.Domain/LocalMaps/TravelAnchorService.cs`, `src/SurvivalGame.Domain/Firearms/LineOfFireResolver.cs`
-
 ### ARCH-12 - Scene flow is hard-coded across concrete screens
 
 - `Priority`: `P2`
+- `Size`: `m`
 - `Priority Rationale`: This is `P2` because screen navigation is still small enough to work today, but save/load, continue, death, transition effects, and global back/escape behavior will become hard to coordinate if every screen owns its own flow decisions.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -213,6 +217,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-13 - Godot UI panels build domain presentation directly
 
 - `Priority`: `P2`
+- `Size`: `l`
 - `Priority Rationale`: This is `P2` because presentation duplication is already visible in inventory, tooltip, selected-item, and firearm panels, but it can be addressed one panel family at a time.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -229,6 +234,7 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-14 - Content root resolution is duplicated across runtime and tests
 
 - `Priority`: `P2`
+- `Size`: `m`
 - `Priority Rationale`: This is `P2` because the project already loads the committed `data/` tree from Godot, prototype helpers, and tests through different path strategies, but a shared abstraction can be added without changing gameplay data.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -242,28 +248,10 @@ Each active item should include enough direction that a future session can choos
 - `Notes`:
 - `Links`: `src/Godot/Game/GodotSessionFactory.cs`, `src/SurvivalGame.Application/GameContentPaths.cs`, `src/SurvivalGame.Prototype/PrototypeWorldMapSites.cs`, `tests/SurvivalGame.Domain.Tests/LocalMaps/LocalSiteDefinitionLoaderTests.cs`, `tests/SurvivalGame.Domain.Tests/Firearms/FirearmSystemTests.cs`
 
-### ARCH-17 - Retire edge-based building wall structures
-
-- `Priority`: `P1`
-- `Priority Rationale`: This is `P1` because edge-based building walls are no longer the desired direction, and leaving their data, docs, tests, and renderer compatibility in place will keep pulling future work back toward the rejected system.
-- `Status`: `Open`
-- `Detected`: 2026-04-30
-- `Area`: Local Maps, Structures, Content Cleanup
-- `Problem`: The structure catalog and renderer still contain building wall, door, and window definitions even though current authored building walls are moving to 2.5D tile objects.
-- `Why It Matters`: Duplicate wall concepts create id collisions, render precedence bugs, stale authoring guidance, and confusion about where future doors/windows should live.
-- `Preferred Direction`: Remove or quarantine edge-based building wall/door/window definitions and compatibility code once maps no longer use them. Keep only intentionally edge-like content, currently paddock fences, gates, and broken fence gaps, until those receive their own decision.
-- `Resolution Path`: Audit committed local maps and tests for building structure ids. Remove unused building wall/window/static-door definitions from `data/structures`, update tests that still expect them, and keep fence/gate/gap definitions and behavior intact.
-- `Next Action`: Remove structure definitions and assertions for `wall`, `farmhouse_wall`, `shed_wall`, `wooden_door`, `open_wooden_door`, `interior_doorway`, `screen_door`, `glass_door`, `window`, `broken_window`, and `boarded_window` if no authored local map uses them.
-- `Resolved When`: No authored building wall/window/door uses `StructureEdgeMap`, old building structure ids are gone or explicitly marked legacy-only, and tests still prove paddock fences/gates/gaps load and block/pass correctly.
-- `Notes`:
-  - 2026-04-30: Do not remove fence/gate/gap behavior as part of the first cleanup unless a replacement movement/rendering representation is chosen; the user asked to clean out edge wall work, not break paddock traversal.
-  - 2026-04-30: Project guidance and current docs now point building walls/windows at 2.5D tile-object walls; remaining work is code/data/test cleanup of edge-based building wall definitions and compatibility behavior.
-  - 2026-04-30: `ARCH-15` is now closed as the architecture decision record; this item owns the edge-based building wall cleanup implementation.
-- `Links`: `data/structures/structures.json`, `data/local_maps/`, `tests/SurvivalGame.Domain.Tests/LocalMaps/`, `src/SurvivalGame.Domain/Structures/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
-
 ### ARCH-18 - Keep tile-wall authoring compatible with future TileMap tooling
 
 - `Priority`: `P2`
+- `Size`: `s`
 - `Priority Rationale`: This is `P2` because procedural C# walls are the right immediate path, but Godot TileMap/Terrain or TileSet-based authoring may become a better editor/asset workflow once the wall model settles.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -279,27 +267,29 @@ Each active item should include enough direction that a future session can choos
   - 2026-04-30: `ARCH-16` extracted `TileWallRenderModel`, so the future adapter can start from existing wall kind, neighbor mask, orientation, bounds, and sort-contact data rather than reverse-engineering `MapEntityLayer` draw code.
 - `Links`: `src/Godot/Game/LocalMapView/MapEntityLayer.cs`, `docs/ARCHITECTURE.md`, `data/local_maps/`
 
-### ARCH-19 - Narrow remaining edge structures to fence and gap boundaries
+### ARCH-20 - Data-drive tile-wall render classification
 
 - `Priority`: `P2`
-- `Priority Rationale`: This is `P2` because edge structures still carry useful paddock fence/gate/gap behavior, but their names, tests, docs, and query rules will stay confusing if they remain framed as a general wall system after `ARCH-17`.
+- `Size`: `m`
+- `Priority Rationale`: This is `P2` because the current hard-coded tile-wall id mapping is small and safe, but it will become fragile as wall materials, door states, and site-specific wall variants expand.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
-- `Area`: Local Maps, Structures, Movement, Targeting
-- `Problem`: After building walls move to tile objects, `StructureEdgeMap` will still be named and tested as a generic wall/door/window edge system even though the intended remaining use is fence, gate, and gap boundaries.
-- `Why It Matters`: Movement, hover, and line-of-fire code can keep accumulating wall-like edge assumptions unless the remaining edge system is deliberately scoped.
-- `Preferred Direction`: Keep edge structures only for boundary concepts that truly belong on crossed tile edges. In the current content, that means paddock fences, open farm gates, and broken fence gaps.
-- `Resolution Path`: After `ARCH-17`, rename or document the remaining edge system around boundary/fence semantics, update tests to use fence/gate/gap examples instead of generic wall/open-door examples, and keep movement/line-of-fire behavior unchanged.
-- `Next Action`: Once building structure ids are removed, update structure-edge tests and helper catalogs so they use `wire_fence`, `open_farm_gate`, and `broken_fence_gap` examples instead of generic wall/door fixtures.
-- `Resolved When`: Remaining edge-structure docs and tests no longer imply building walls live there, and current fence/gate/gap movement, hover, and line-of-fire behavior is explicitly covered.
+- `Area`: Local Map Rendering, Content Definitions, World Objects
+- `Problem`: `TileWallRenderModel` currently maps specific world-object ids such as `wall`, `window`, `wooden_door`, and `glass_door` to tile-wall render kinds in code.
+- `Why It Matters`: Hard-coded id-to-render-kind mapping will make future wall content awkward, especially if farmhouse wood walls, gas station concrete walls, brick walls, boarded windows, open/closed doors, and lockable doors need distinct authored ids but still share the same renderer behavior.
+- `Preferred Direction`: Keep the renderer's closed set of behaviors in code as a typed model, but move the content-id mapping into data-backed world-object metadata such as wall role, material/style, doorway role, and passability/state hooks.
+- `Resolution Path`: Add a small wall-render metadata shape to world-object definitions and loaders, map that metadata into the existing `TileWallKind` or successor render model, and update committed wall/window/door object definitions to use metadata instead of hard-coded ids. Keep local-map JSON placement semantics unchanged.
+- `Next Action`: Design the smallest world-object metadata field that can classify existing `wall`, `window`, `wooden_door`, and `glass_door` objects without changing visuals.
+- `Resolved When`: Tile-wall render classification comes from validated content metadata rather than a hard-coded id switch, current sites render unchanged, and tests/content validation catch unknown wall render roles or missing material references.
 - `Notes`:
-  - 2026-04-30: This is intentionally separate from `ARCH-17` so building-wall cleanup can happen without deciding the long-term fence representation.
-  - 2026-04-30: `MECH-12` tracks the player-facing 2.5D visual treatment for fence, gate, and gap boundaries once this architecture slice clarifies their semantics.
-- `Links`: `src/SurvivalGame.Domain/Structures/`, `src/SurvivalGame.Domain/Actions/MovementHandler.cs`, `src/SurvivalGame.Domain/Firearms/LineOfFireResolver.cs`, `tests/SurvivalGame.Domain.Tests/Structures/`, `tests/SurvivalGame.Domain.Tests/Actions/StructureMovementTests.cs`
+  - 2026-04-30: The enum itself is acceptable as renderer code because it describes a closed drawing strategy. The architectural pressure is the hard-coded id mapping, not the existence of a typed render-kind enum.
+  - 2026-04-30: This should coordinate with `MECH-11` for interactive door states and `MECH-13` for material/style variants so the metadata does not become a throwaway visual-only field.
+- `Links`: `src/Godot/Game/LocalMapView/TileWallRenderModel.cs`, `data/world_objects/`, `src/SurvivalGame.Domain/WorldObjects/`, `docs/MECHANICS_BACKLOG.md`
 
 ### ARCH-9 - Renderer classes are large integration hubs
 
 - `Priority`: `P3`
+- `Size`: `xl`
 - `Priority Rationale`: This is `P3` because renderer size is real debt, but the old roadmap explicitly deferred renderer splitting until state, command, and layout boundaries are cleaner.
 - `Status`: `Open`
 - `Detected`: 2026-04-30
@@ -315,9 +305,28 @@ Each active item should include enough direction that a future session can choos
 
 ## Archive
 
+### ARCH-11 - Local map query rules are reimplemented per feature
+
+- `Priority`: `P2`
+- `Size`: `m`
+- `Priority Rationale`: This was `P2` because rule duplication already touched movement, interaction, travel-anchor access, and firearm targeting, but could be resolved in behavior-preserving slices.
+- `Status`: `Resolved`
+- `Detected`: 2026-04-30
+- `Resolved`: 2026-04-30
+- `Area`: Local Maps, Movement, Interaction, Targeting
+- `Problem`: Movement blocking, walkability, adjacency, object footprint checks, structure-edge blocking, and line-of-fire blocking were implemented separately across action handlers and map services.
+- `Resolution`: Added domain-owned `LocalMapQuery` for movement blockers, standing blockers, nearby world-object placement lookup, placement proximity, and line-of-fire sight blocking. Movement, travel-anchor entry, container adjacency, travel cargo/fuel proximity, and firearm targeting now use the shared query boundary.
+- `Resolved When`: Movement, interaction adjacency, travel-anchor access, and line-of-fire validation use one shared query boundary for map occupancy/blocking rules, with focused tests for the current behavior.
+- `Notes`:
+  - 2026-04-30: The query distinguishes movement from standability so tile occupancy affects both while NPCs can choose whether they block movement.
+  - 2026-04-30: `ARCH-19` later removed the structure-edge branch from the query; current blockers are map bounds, world objects, and NPCs.
+  - 2026-04-30: NPC movement, pathfinding, scheduling, initiative, and new gameplay behavior were intentionally left out.
+- `Links`: `src/SurvivalGame.Domain/LocalMaps/LocalMapQuery.cs`, `src/SurvivalGame.Domain/Actions/MovementHandler.cs`, `src/SurvivalGame.Domain/Actions/InteractHandler.cs`, `src/SurvivalGame.Domain/Actions/TravelCargoHandler.cs`, `src/SurvivalGame.Domain/LocalMaps/TravelAnchorService.cs`, `tests/SurvivalGame.Domain.Tests/LocalMaps/LocalMapQueryTests.cs`
+
 ### ARCH-1 - Application/session bootstrapping lives in Godot prototype code
 
 - `Priority`: `P1`
+- `Size`: `l`
 - `Priority Rationale`: This was a high-value next refactor because several other architecture improvements needed a non-Godot place to land first. It was not `P0` because the game still ran and the debt could be resolved incrementally.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -332,25 +341,28 @@ Each active item should include enough direction that a future session can choos
 ### ARCH-15 - 2.5D tile walls need canonical wall ownership
 
 - `Priority`: `P1`
+- `Size`: `xl`
 - `Priority Rationale`: This was `P1` because the project needed a clear building-wall direction before cleaning up the older edge-wall experiment.
 - `Status`: `Superseded`
 - `Detected`: 2026-04-30
 - `Superseded`: 2026-04-30
 - `Area`: Local Maps, Structures, World Objects
 - `Problem`: Procedural full-block 2.5D tile walls became the preferred building-wall look while data, docs, movement rules, hover behavior, line-of-fire, and renderer compatibility still reflected the older edge-wall experiment.
-- `Resolution`: The architecture decision is now made: procedural 2.5D tile-object walls are the near-term canonical representation for building walls and windows. Edge structures remain valid only for current intentionally boundary-like content such as paddock fences, gates, broken fence gaps, and legacy cleanup paths until their own representation is revisited.
-- `Superseded By`: `ARCH-16` for extracting the tile-wall render model, `ARCH-17` for retiring edge-based building wall structures, `ARCH-18` for preserving future Godot TileMap/Terrain compatibility, `ARCH-19` for narrowing remaining edge structures to fence/gap boundaries, `MECH-11` for interactive doors, `MECH-12` for 2.5D fence/gate/gap visuals, and `MECH-13` for tile-wall material variants.
+- `Resolution`: The architecture decision is now made: procedural 2.5D tile-object walls are the near-term canonical representation for building walls and windows. The older edge-structure system was removed by `ARCH-19`.
+- `Superseded By`: `ARCH-16` for extracting the tile-wall render model, `ARCH-17` for retiring authored edge-structure usage, `ARCH-18` for preserving future Godot TileMap/Terrain compatibility, `ARCH-19` for deleting unused edge-structure code paths, `MECH-11` for interactive doors, `MECH-12` for 2.5D fence/gate/gap visuals, and `MECH-13` for tile-wall material variants.
 - `Notes`:
-  - 2026-04-30: Abandoned Farmhouse building walls were converted to tile-world-object walls for visual inspection; paddock fences/gates/gaps remain edge structures.
+  - 2026-04-30: Abandoned Farmhouse building walls were converted to tile-world-object walls for visual inspection.
   - 2026-04-30: Edge-to-tile conversion can collide with nearby furnishings and former doorway cells. The farmhouse pass moved several objects, including one cabinet into a former doorway sample, so future canonical door semantics need explicit placement rules instead of inferred edge-to-cell mapping.
   - 2026-04-30: The converted farmhouse data has no remaining building structure edges, 156 wall tiles, and 8 window tiles; this makes the visual test clear but also means door openings currently have no authored object identity.
-  - 2026-04-30: Shared ids such as `wall` and `window` exist in both world-object and structure catalogs. On mixed maps, renderer precedence must let explicit tile-wall world objects draw before treating same-named ids as edge-structure compatibility objects.
+  - 2026-04-30: Shared ids such as `wall` and `window` previously existed in both world-object and structure catalogs. `ARCH-19` removed the structure catalog, so renderer precedence no longer needs edge-structure compatibility behavior.
   - 2026-04-30: User direction is that 2.5D tile walls are the wall path for now; edge walls were visually disliked and should be cleaned out rather than promoted as the main system.
-- `Links`: `data/local_maps/`, `data/structures/`, `data/world_objects/`, `src/SurvivalGame.Domain/Structures/`, `src/SurvivalGame.Domain/WorldObjects/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
+  - 2026-04-30: `ARCH-17` later removed all authored edge structures, including the paddock fence/gate/gap edges. `ARCH-19` then deleted the unused edge-structure code path. Restoring those boundaries is now `MECH-12` tile-based world-object work, not edge-structure work.
+- `Links`: `data/local_maps/`, `data/world_objects/`, `src/SurvivalGame.Domain/WorldObjects/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`
 
 ### ARCH-16 - Extract tile-wall render model from MapEntityLayer
 
 - `Priority`: `P1`
+- `Size`: `m`
 - `Priority Rationale`: This was `P1` because tile walls became the building-wall direction, and their kind detection, neighbor masks, render bounds, and geometry needed a stable home before more wall content or door state builds on them.
 - `Status`: `Resolved`
 - `Detected`: 2026-04-30
@@ -361,5 +373,41 @@ Each active item should include enough direction that a future session can choos
 - `Resolved When`: `MapEntityLayer` no longer owns tile-wall classification or geometry directly, current prototype/gas/farmhouse wall visuals are unchanged, and the extracted model can be reused by door visuals and a future TileMap/Terrain adapter.
 - `Notes`:
   - 2026-04-30: The helper intentionally remains in `src/Godot/Game/LocalMapView/` because it uses `Rect2`, `Vector2`, viewport offsets, and pixel cell sizes; it is not a domain contract.
-  - 2026-04-30: Tile-wall world objects still classify before edge-structure duplicate suppression so shared ids such as `wall` and `window` remain visible on mixed maps with fence structures.
+  - 2026-04-30: Tile-wall world objects classify directly through the tile-wall render model; `ARCH-19` later removed edge-structure duplicate suppression entirely.
 - `Links`: `src/Godot/Game/LocalMapView/TileWallRenderModel.cs`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`, `src/Godot/Game/LocalMapView/README.md`
+
+### ARCH-17 - Retire authored edge-structure usage
+
+- `Priority`: `P1`
+- `Size`: `m`
+- `Priority Rationale`: This was `P1` because the project chose tile-object 2.5D walls as the near-term wall direction, and leaving authored edge structures in committed content kept the old representation visually and architecturally alive.
+- `Status`: `Resolved`
+- `Detected`: 2026-04-30
+- `Resolved`: 2026-04-30
+- `Area`: Local Maps, Structures, Content
+- `Problem`: The Abandoned Farmhouse still authored paddock fences, gates, and broken gaps as structure edges, and the committed structure catalog still described the retired edge-wall/fence vocabulary.
+- `Resolution`: Removed committed structure definitions and all authored `structureEdges` from local maps. Farmhouse/shed building walls and windows remain tile-world-object walls, and former paddock fence/gate/gap crossings are temporarily open until tile-based replacements are added through `MECH-12`.
+- `Resolved When`: Committed maps have zero `structureEdges`, farmhouse building walls/windows remain tile world objects, and tests cover the temporary absence of paddock fence/gate/gap objects until `MECH-12`.
+- `Notes`:
+  - 2026-04-30: `ARCH-19` later removed `StructureEdgeMap`, structure loaders, movement edge checks, line-of-fire edge checks, renderer branches, and related in-memory tests.
+  - 2026-04-30: Former paddock fence/gate/gap collision and visuals are intentionally absent until `MECH-12` restores them as tile-based 2.5D world objects.
+  - 2026-04-30: Useful former style ids to carry forward into tile-based wall/fence work include `generic_interior`, `farmhouse_weatherboard`, `shed_corrugated`, `gas_station_plaster`, `wire_fence`, and `timber_fence`.
+  - 2026-04-30: Useful former piece/detail concepts include solid wall, closed wooden door, open wooden door, interior doorway threshold, torn flyscreen/screen door, glass door, window, broken window, boarded window, open farm gate, and broken fence gap.
+- `Links`: `data/local_maps/`, `data/world_objects/`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`, `docs/MECHANICS_BACKLOG.md`
+
+### ARCH-19 - Delete unused edge-structure code paths
+
+- `Priority`: `P2`
+- `Size`: `l`
+- `Priority Rationale`: This was `P2` because committed content no longer used edge structures, but removing the legacy code path touched loaders, local-site state, movement, line-of-fire, renderer code, and tests.
+- `Status`: `Resolved`
+- `Detected`: 2026-04-30
+- `Resolved`: 2026-04-30
+- `Area`: Local Maps, Movement, Targeting, Rendering
+- `Problem`: `StructureEdgeMap`, structure definition loaders/catalogs, structure renderer branches, movement edge checks, line-of-fire edge checks, hover hooks, and test fixtures remained after authored edge-structure usage was removed.
+- `Resolution`: Deleted the edge-structure domain/catalog/render path, removed structure state from local maps/actions/application sessions, removed structure hover/rendering from Godot, and made authored local-map JSON reject legacy `structureEdges` with a clear migration message.
+- `Resolved When`: No production code or tests depend on edge-structure maps/catalogs/loaders/rendering, committed content has no structure definitions or edge placements, and tile-world-object walls plus future tile-based fence replacement remain the active direction.
+- `Notes`:
+  - 2026-04-30: `MECH-12` remains the player-facing replacement path for farmhouse paddock fences, gates, and broken gaps as tile-based 2.5D world objects.
+  - 2026-04-30: Former style/detail vocabulary is preserved in `MECH-12`/`MECH-13`, including farmhouse weatherboard, shed corrugated metal, gas-station plaster, wire/timber fences, open gates, broken fence gaps, torn flyscreen doors, and broken/boarded windows.
+- `Links`: `src/SurvivalGame.Domain/LocalMaps/LocalMapQuery.cs`, `src/SurvivalGame.Domain/Content/LocalSiteDefinitionLoader.cs`, `src/Godot/Game/LocalMapView/MapEntityLayer.cs`, `docs/MECHANICS_BACKLOG.md`

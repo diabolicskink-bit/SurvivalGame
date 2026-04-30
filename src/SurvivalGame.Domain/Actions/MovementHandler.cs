@@ -41,24 +41,11 @@ public sealed class MovementHandler : IActionHandler
         }
 
         var nextPosition = state.Player.Position + direction;
-        if (!state.LocalMap.Map.Contains(nextPosition))
+        if (context.LocalMapQuery.TryGetMovementBlocker(state.Player.Position, nextPosition, out var blocker))
         {
-            return GameActionResult.Failure("Cannot move there.");
-        }
-
-        if (IsBlockedByStructure(context, state.Player.Position, nextPosition, out var structureName))
-        {
-            return GameActionResult.Failure($"Blocked by {structureName}.");
-        }
-
-        if (IsBlockedByWorldObject(context, nextPosition, out var blockerName))
-        {
-            return GameActionResult.Failure($"Blocked by {blockerName}.");
-        }
-
-        if (IsBlockedByNpc(state, nextPosition, out var npcName))
-        {
-            return GameActionResult.Failure($"Blocked by {npcName}.");
+            return blocker.Kind == LocalMapBlockerKind.OutOfBounds
+                ? GameActionResult.Failure("Cannot move there.")
+                : GameActionResult.Failure($"Blocked by {blocker.Name}.");
         }
 
         state.SetPlayerPosition(nextPosition);
@@ -67,59 +54,5 @@ public sealed class MovementHandler : IActionHandler
             GameActionPipeline.MoveTickCost,
             $"Moved to {nextPosition.X}, {nextPosition.Y}. Time +{GameActionPipeline.MoveTickCost}."
         );
-    }
-
-    private static bool IsBlockedByWorldObject(GameActionContext context, GridPosition position, out string blockerName)
-    {
-        blockerName = "something";
-
-        if (!context.State.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId))
-        {
-            return false;
-        }
-
-        if (context.WorldObjectCatalog is null || !context.WorldObjectCatalog.TryGet(objectId, out var worldObject))
-        {
-            blockerName = objectId.ToString();
-            return true;
-        }
-
-        blockerName = worldObject.Name;
-        return worldObject.BlocksMovement;
-    }
-
-    private static bool IsBlockedByStructure(
-        GameActionContext context,
-        GridPosition from,
-        GridPosition to,
-        out string blockerName)
-    {
-        blockerName = "something";
-
-        if (!context.State.LocalMap.Structures.TryGetEdgeBetween(from, to, out var edge))
-        {
-            return false;
-        }
-
-        if (context.StructureCatalog is null || !context.StructureCatalog.TryGet(edge.StructureId, out var structure))
-        {
-            blockerName = edge.StructureId.ToString();
-            return true;
-        }
-
-        blockerName = structure.Name;
-        return structure.BlocksMovement;
-    }
-
-    private static bool IsBlockedByNpc(PrototypeGameState state, GridPosition position, out string npcName)
-    {
-        if (state.LocalMap.Npcs.TryGetAt(position, out var npc) && npc.BlocksMovement)
-        {
-            npcName = npc.Name;
-            return true;
-        }
-
-        npcName = string.Empty;
-        return false;
     }
 }

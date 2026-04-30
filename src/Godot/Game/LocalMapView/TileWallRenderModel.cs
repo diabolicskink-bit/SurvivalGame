@@ -1,10 +1,18 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using SurvivalGame.Domain;
 
 internal static class TileWallRenderModel
 {
     private const float WallHeightTiles = 0.45f;
+    private static readonly TileWallNeighborProbe[] NeighborProbes =
+    {
+        new(0, -1, TileWallNeighbors.North),
+        new(1, 0, TileWallNeighbors.East),
+        new(0, 1, TileWallNeighbors.South),
+        new(-1, 0, TileWallNeighbors.West)
+    };
 
     internal static bool TryGetKind(WorldObjectId objectId, out TileWallKind kind)
     {
@@ -20,11 +28,29 @@ internal static class TileWallRenderModel
         return kind != TileWallKind.None;
     }
 
-    internal static TileWallRenderData Create(
-        PlacedWorldObject placedObject,
-        TileObjectMap objectMap,
+    internal static TileWallRenderContext CreateContext(
+        IReadOnlyList<PlacedWorldObject> placedObjects,
         GridViewport? viewport,
         int cellSize)
+    {
+        var tileWallPositions = new HashSet<GridPosition>();
+        foreach (var placedObject in placedObjects)
+        {
+            if (!TryGetKind(placedObject.ObjectId, out _))
+            {
+                continue;
+            }
+
+            foreach (var occupiedPosition in placedObject.OccupiedPositions())
+            {
+                tileWallPositions.Add(occupiedPosition);
+            }
+        }
+
+        return new TileWallRenderContext(tileWallPositions, viewport, cellSize);
+    }
+
+    internal static TileWallRenderData Create(PlacedWorldObject placedObject, TileWallRenderContext context)
     {
         if (!TryGetKind(placedObject.ObjectId, out var kind))
         {
@@ -34,17 +60,17 @@ internal static class TileWallRenderModel
             );
         }
 
-        var footprintRect = GetFootprintRect(placedObject, viewport, cellSize);
-        var neighbors = GetNeighbors(objectMap, placedObject.Position);
-        var geometry = GetGeometry(footprintRect, neighbors, cellSize);
-        var body = GetConnectedBody(footprintRect, neighbors, cellSize);
-        var height = GetHeight(cellSize);
+        var footprintRect = GetFootprintRect(placedObject, context.Viewport, context.CellSize);
+        var neighbors = GetNeighbors(context.TileWallPositions, placedObject.Position);
+        var geometry = GetGeometry(footprintRect, neighbors, context.CellSize);
+        var body = GetConnectedBody(footprintRect, neighbors, context.CellSize);
+        var height = GetHeight(context.CellSize);
         var left = body.Position.X;
         var top = body.Position.Y - height;
         var right = body.End.X;
         var bottom = body.End.Y;
         var renderBounds = new Rect2(left, top, right - left, bottom - top)
-            .Grow(GetConnectedOverlap(cellSize));
+            .Grow(GetConnectedOverlap(context.CellSize));
         var sortFloorContactY = placedObject.Position.Y + placedObject.EffectiveFootprint.Height - 1;
 
         return new TileWallRenderData(
@@ -85,37 +111,19 @@ internal static class TileWallRenderModel
             : TileWallOrientation.Horizontal;
     }
 
-    private static TileWallNeighbors GetNeighbors(TileObjectMap objectMap, GridPosition position)
+    private static TileWallNeighbors GetNeighbors(IReadOnlySet<GridPosition> tileWallPositions, GridPosition position)
     {
         var neighbors = TileWallNeighbors.None;
-
-        if (HasTileWallAt(objectMap, new GridPosition(position.X, position.Y - 1)))
+        foreach (var probe in NeighborProbes)
         {
-            neighbors |= TileWallNeighbors.North;
-        }
-
-        if (HasTileWallAt(objectMap, new GridPosition(position.X + 1, position.Y)))
-        {
-            neighbors |= TileWallNeighbors.East;
-        }
-
-        if (HasTileWallAt(objectMap, new GridPosition(position.X, position.Y + 1)))
-        {
-            neighbors |= TileWallNeighbors.South;
-        }
-
-        if (HasTileWallAt(objectMap, new GridPosition(position.X - 1, position.Y)))
-        {
-            neighbors |= TileWallNeighbors.West;
+            var neighborPosition = new GridPosition(position.X + probe.OffsetX, position.Y + probe.OffsetY);
+            if (tileWallPositions.Contains(neighborPosition))
+            {
+                neighbors |= probe.Neighbor;
+            }
         }
 
         return neighbors;
-    }
-
-    private static bool HasTileWallAt(TileObjectMap objectMap, GridPosition position)
-    {
-        return objectMap.TryGetObjectAt(position, out var objectId)
-            && TryGetKind(objectId, out _);
     }
 
     private static TileWallGeometry GetGeometry(
@@ -199,6 +207,14 @@ internal enum TileWallOrientation
 }
 
 internal readonly record struct TileWallGeometry(Rect2 Footprint, Rect2 Top, Rect2 FrontFace);
+
+internal readonly record struct TileWallRenderContext(
+    IReadOnlySet<GridPosition> TileWallPositions,
+    GridViewport? Viewport,
+    int CellSize
+);
+
+internal readonly record struct TileWallNeighborProbe(int OffsetX, int OffsetY, TileWallNeighbors Neighbor);
 
 internal readonly record struct TileWallRenderData(
     TileWallKind Kind,

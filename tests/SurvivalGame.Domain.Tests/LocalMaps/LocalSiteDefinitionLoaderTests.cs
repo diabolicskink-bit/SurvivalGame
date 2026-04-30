@@ -55,9 +55,6 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.Equal(new WorldObjectId("wall"), farmhouseWall);
         Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(32, 13), out var farmhouseWindow));
         Assert.Equal(new WorldObjectId("window"), farmhouseWindow);
-        Assert.False(farmstead.Structures.TryGetEdgeAt(new GridPosition(26, 28), StructureEdgeDirection.South, out _));
-        Assert.True(farmstead.Structures.TryGetEdgeAt(new GridPosition(44, 34), StructureEdgeDirection.South, out var paddockGate));
-        Assert.Equal(new StructureId("open_farm_gate"), paddockGate.StructureId);
         Assert.True(farmstead.WorldObjects.TryGetObjectAt(new GridPosition(42, 7), out var tank));
         Assert.Equal(new WorldObjectId("water_tank"), tank);
         Assert.Contains(
@@ -180,9 +177,9 @@ public sealed class LocalSiteDefinitionLoaderTests
     }
 
     [Fact]
-    public void AuthoredMapLoadsStructureEdges()
+    public void AuthoredMapRejectsLegacyStructureEdges()
     {
-        var site = LoadSingleFromJson(
+        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
             """
             {
               "id": "structure_edges",
@@ -192,40 +189,14 @@ public sealed class LocalSiteDefinitionLoaderTests
               "startPosition": { "x": 1, "y": 1 },
               "defaultSurface": "grass",
               "structureEdges": [
-                { "structureId": "wall", "x": 1, "y": 1, "edge": "north" },
-                { "structureId": "open_doorway", "x": 1, "y": 1, "edge": "east" }
+                { "structureId": "test_fence", "x": 1, "y": 1, "edge": "north" },
+                { "structureId": "test_gap", "x": 1, "y": 1, "edge": "east" }
               ]
             }
-            """,
-            CreateStructureCatalog());
+            """));
 
-        Assert.True(site.Structures.TryGetEdgeAt(new GridPosition(1, 1), StructureEdgeDirection.North, out var wall));
-        Assert.Equal(new StructureId("wall"), wall.StructureId);
-        Assert.True(site.Structures.TryGetEdgeAt(new GridPosition(1, 1), StructureEdgeDirection.East, out var doorway));
-        Assert.Equal(new StructureId("open_doorway"), doorway.StructureId);
-    }
-
-    [Fact]
-    public void AuthoredMapRejectsDuplicateStructureEdges()
-    {
-        var ex = Assert.Throws<InvalidDataException>(() => LoadSingleFromJson(
-            """
-            {
-              "id": "duplicate_structure_edge",
-              "displayName": "Duplicate Structure Edge",
-              "sourceKind": "authored",
-              "size": { "width": 3, "height": 3 },
-              "startPosition": { "x": 1, "y": 1 },
-              "defaultSurface": "grass",
-              "structureEdges": [
-                { "structureId": "wall", "x": 1, "y": 1, "edge": "north" },
-                { "structureId": "wall", "x": 1, "y": 0, "edge": "south" }
-              ]
-            }
-            """,
-            CreateStructureCatalog()));
-
-        Assert.Contains("already has a structure", ex.Message);
+        Assert.Contains("unsupported legacy 'structureEdges'", ex.Message);
+        Assert.Contains("MECH-12", ex.Message);
     }
 
     [Fact]
@@ -357,7 +328,6 @@ public sealed class LocalSiteDefinitionLoaderTests
             GetDataPath("local_maps"),
             LoadSurfaceCatalog(),
             LoadWorldObjectCatalog(),
-            LoadStructureCatalog(),
             LoadItemCatalog(),
             LoadNpcCatalog()
         );
@@ -377,7 +347,7 @@ public sealed class LocalSiteDefinitionLoaderTests
         Assert.True(site.Bounds.Contains(anchor.Position));
     }
 
-    private static PrototypeLocalSite LoadSingleFromJson(string json, StructureCatalog? structureCatalog = null)
+    private static PrototypeLocalSite LoadSingleFromJson(string json)
     {
         var directory = Directory.CreateTempSubdirectory("survival-map-loader-tests-");
         try
@@ -388,7 +358,6 @@ public sealed class LocalSiteDefinitionLoaderTests
                 filePath,
                 LoadSurfaceCatalog(),
                 LoadWorldObjectCatalog(),
-                structureCatalog ?? new StructureCatalog(),
                 LoadItemCatalog(),
                 LoadNpcCatalog()
             );
@@ -407,35 +376,6 @@ public sealed class LocalSiteDefinitionLoaderTests
     private static WorldObjectCatalog LoadWorldObjectCatalog()
     {
         return new WorldObjectDefinitionLoader().LoadDirectory(GetDataPath("world_objects"));
-    }
-
-    private static StructureCatalog LoadStructureCatalog()
-    {
-        return new StructureDefinitionLoader().LoadDirectory(GetDataPath("structures"));
-    }
-
-    private static StructureCatalog CreateStructureCatalog()
-    {
-        var catalog = new StructureCatalog();
-        catalog.Add(new StructureDefinition(
-            new StructureId("wall"),
-            "Wall",
-            "",
-            "Structure",
-            "generic",
-            "wall",
-            blocksMovement: true,
-            blocksSight: true));
-        catalog.Add(new StructureDefinition(
-            new StructureId("open_doorway"),
-            "Open doorway",
-            "",
-            "Doorway",
-            "generic",
-            "doorway",
-            blocksMovement: false,
-            connectsAsWall: false));
-        return catalog;
     }
 
     private static ItemCatalog LoadItemCatalog()

@@ -5,7 +5,7 @@ namespace SurvivalGame.Domain.Tests;
 
 public sealed class WorldObjectTests
 {
-    private static readonly string[] EdgeOnlyStructureIds =
+    private static readonly string[] RetiredStructureObjectIds =
     [
         "farmhouse_wall",
         "shed_wall",
@@ -54,7 +54,6 @@ public sealed class WorldObjectTests
         Assert.Equal("Verandah post", catalog.Get(new WorldObjectId("verandah_post")).Name);
         Assert.Equal("Water tank", catalog.Get(new WorldObjectId("water_tank")).Name);
         Assert.Equal("Tractor wreck", catalog.Get(new WorldObjectId("tractor_wreck")).Name);
-        Assert.Equal("Open farm gate", LoadStructureCatalog().Get(new StructureId("open_farm_gate")).Name);
         Assert.Equal("world_object_fridge", catalog.Get(PrototypeWorldObjects.Fridge).SpriteId);
         Assert.NotNull(catalog.Get(PrototypeWorldObjects.Fridge).Container);
         Assert.Equal("fridge_basic", catalog.Get(PrototypeWorldObjects.Fridge).Container!.ProfileId);
@@ -77,7 +76,7 @@ public sealed class WorldObjectTests
         Assert.Equal(1.75f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.WidthTiles, precision: 3);
         Assert.Equal(-0.35f, catalog.Get(PrototypeWorldObjects.Tree).SpriteRender!.OffsetYTiles, precision: 3);
 
-        foreach (var structureId in EdgeOnlyStructureIds)
+        foreach (var structureId in RetiredStructureObjectIds)
         {
             Assert.False(catalog.TryGet(new WorldObjectId(structureId), out _));
         }
@@ -102,12 +101,6 @@ public sealed class WorldObjectTests
         Assert.False(catalog.Get(PrototypeWorldObjects.GlassDoor).BlocksMovement);
         Assert.False(catalog.Get(PrototypeWorldObjects.Chair).BlocksMovement);
 
-        var structures = LoadStructureCatalog();
-        Assert.True(structures.Get(new StructureId("wire_fence")).BlocksMovement);
-        Assert.False(structures.Get(new StructureId("open_wooden_door")).BlocksMovement);
-        Assert.False(structures.Get(new StructureId("interior_doorway")).BlocksMovement);
-        Assert.False(structures.Get(new StructureId("open_farm_gate")).BlocksMovement);
-        Assert.False(structures.Get(new StructureId("broken_fence_gap")).BlocksMovement);
     }
 
     [Fact]
@@ -276,11 +269,6 @@ public sealed class WorldObjectTests
     private static WorldObjectCatalog LoadWorldObjectCatalog()
     {
         return new WorldObjectDefinitionLoader().LoadDirectory(GetWorldObjectDataPath());
-    }
-
-    private static StructureCatalog LoadStructureCatalog()
-    {
-        return new StructureDefinitionLoader().LoadDirectory(GetDataPath("structures"));
     }
 
     private static string CreateTemporaryDirectory()

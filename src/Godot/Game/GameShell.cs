@@ -22,14 +22,6 @@ public partial class GameShell : Control
     private const int StatusFontSize = 18;
     private const int SectionTitleFontSize = 17;
 
-    private static readonly StructureEdgeDirection[] TooltipStructureDirections =
-    [
-        StructureEdgeDirection.North,
-        StructureEdgeDirection.East,
-        StructureEdgeDirection.South,
-        StructureEdgeDirection.West
-    ];
-
     private static readonly Vector2I[] LocalZoomLevels =
     [
         new(18, 12),
@@ -45,7 +37,6 @@ public partial class GameShell : Control
     private FirearmCatalog _firearmCatalog = null!;
     private TileSurfaceCatalog _surfaceCatalog = null!;
     private WorldObjectCatalog _worldObjectCatalog = null!;
-    private StructureCatalog _structureCatalog = null!;
     private NpcCatalog _npcCatalog = null!;
     private GameActionPipeline _actionPipeline = null!;
     private PrototypeGameState _gameState = null!;
@@ -110,7 +101,6 @@ public partial class GameShell : Control
         _firearmCatalog = session.FirearmCatalog;
         _surfaceCatalog = session.SurfaceCatalog;
         _worldObjectCatalog = session.WorldObjectCatalog;
-        _structureCatalog = session.StructureCatalog;
         _npcCatalog = session.NpcCatalog;
         _actionPipeline = session.ActionPipeline;
         _gameState = session.GameState;
@@ -894,7 +884,6 @@ public partial class GameShell : Control
         var statefulItems = _gameState.StatefulItems.OnGround(hoveredPosition.Value, _gameState.SiteId);
         var surface = GetSurfaceAt(hoveredPosition.Value);
         var worldObject = GetWorldObjectAt(hoveredPosition.Value);
-        var structure = GetStructureAt(hoveredPosition.Value);
         var npc = GetNpcAt(hoveredPosition.Value);
 
         if (_visibleTooltipPosition == hoveredPosition)
@@ -908,7 +897,6 @@ public partial class GameShell : Control
             hoveredPosition.Value,
             surface,
             worldObject,
-            structure,
             npc,
             itemStacks,
             statefulItems,
@@ -929,19 +917,6 @@ public partial class GameShell : Control
         return _gameState.LocalMap.WorldObjects.TryGetObjectAt(position, out var objectId)
             ? _worldObjectCatalog.Get(objectId)
             : null;
-    }
-
-    private StructureDefinition? GetStructureAt(GridPosition position)
-    {
-        foreach (var direction in TooltipStructureDirections)
-        {
-            if (_gameState.LocalMap.Structures.TryGetEdgeAt(position, direction, out var edge))
-            {
-                return _structureCatalog.Get(edge.StructureId);
-            }
-        }
-
-        return null;
     }
 
     private NpcState? GetNpcAt(GridPosition position)
@@ -1010,8 +985,6 @@ public partial class GameShell : Control
         _mapEntityLayer.Configure(
             _gameState.LocalMap.WorldObjects,
             _worldObjectCatalog,
-            _gameState.LocalMap.Structures,
-            _structureCatalog,
             _gameState.LocalMap.Npcs,
             _npcCatalog,
             _gameState.Player,
